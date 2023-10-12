@@ -1,8 +1,10 @@
+from collections import defaultdict
 import csv
 from math import radians, cos
 from pathlib import Path
 from typing import List, Tuple
 import numpy as np
+from scipy.cluster.hierarchy import fcluster
 import yaml
 
 
@@ -167,4 +169,35 @@ def volume_difference(cell1: list, cell2: list):
     v1 = volume(cell1)
     v2 = volume(cell2)
     return abs(v1-v2)
+
+
+def get_clusters(z, cells: np.ndarray, distance: float = 0.5) -> defaultdict:
+    clusters = fcluster(z, distance, criterion='distance')
+    grouped = defaultdict(list)
+    for i, c in enumerate(clusters):
+        grouped[c].append(i)
+
+    print("-"*40)
+    np.set_printoptions(formatter={'float': '{:7.2f}'.format})
+    for i in sorted(grouped.keys()):
+        cluster = grouped[i]
+        clustsize = len(cluster)
+        if clustsize == 1:
+            del grouped[i]
+            continue
+        print(f"\nCluster #{i} ({clustsize} items)")
+        vols = []
+        for j in cluster:
+            cell = cells[j]
+            vol = volume(cell)
+            vols.append(vol)
+            print(f"{j+1:5d} {cell}  Vol.: {vol:6.1f}")
+        print(" ---")
+        print("Mean: {}  Vol.: {:6.1f}".format(np.mean(cells[cluster], axis=0), np.mean(vols)))
+        print(" Min: {}  Vol.: {:6.1f}".format(np.min(cells[cluster], axis=0), np.min(vols)))
+        print(" Max: {}  Vol.: {:6.1f}".format(np.max(cells[cluster], axis=0), np.max(vols)))
+
+    print("")
+
+    return grouped
 

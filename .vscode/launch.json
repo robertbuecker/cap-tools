@@ -5,6 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Cluster cell",
+            "type": "python",
+            "request": "launch",
+            "program": "find_cell.py",
+            "console": "integratedTerminal",
+            "args": ["--cluster"],
+            "justMyCode": true
+        },
+        {
             "name": "Find cell",
             "type": "python",
             "request": "launch",

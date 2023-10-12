@@ -1,43 +1,11 @@
 import numpy as np
-from scipy.cluster.hierarchy import linkage, fcluster
-from collections import defaultdict
+from scipy.cluster.hierarchy import linkage
 import yaml
 from interact_figures import distance_from_dendrogram, find_cell
-from utils import parse_cap_csv, put_in_order, to_radian, to_sin, unit_cell_lcv_distance, volume, write_cap_csv
+from utils import get_clusters, parse_cap_csv, put_in_order, to_radian, to_sin, unit_cell_lcv_distance, write_cap_csv
 from typing import *
 
 from utils import volume_difference
-
-
-def get_clusters(z, cells, distance: float = 0.5):
-    clusters = fcluster(z, distance, criterion='distance')
-    grouped = defaultdict(list)
-    for i, c in enumerate(clusters):
-        grouped[c].append(i)
-    
-    print("-"*40)
-    np.set_printoptions(formatter={'float': '{:7.2f}'.format})
-    for i in sorted(grouped.keys()):
-        cluster = grouped[i]
-        clustsize = len(cluster)
-        if clustsize == 1:
-            del grouped[i]
-            continue
-        print(f"\nCluster #{i} ({clustsize} items)")
-        vols = []
-        for j in cluster:
-            cell = cells[j]
-            vol = volume(cell)
-            vols.append(vol)
-            print(f"{j+1:5d} {cell}  Vol.: {vol:6.1f}")
-        print(" ---")
-        print("Mean: {}  Vol.: {:6.1f}".format(np.mean(cells[cluster], axis=0), np.mean(vols)))
-        print(" Min: {}  Vol.: {:6.1f}".format(np.min(cells[cluster], axis=0), np.min(vols)))
-        print(" Max: {}  Vol.: {:6.1f}".format(np.max(cells[cluster], axis=0), np.max(vols)))
-    
-    print("")
-
-    return grouped
 
 
 def cluster_cell(cells: list, 
@@ -79,7 +47,7 @@ def cluster_cell(cells: list,
         initial_distance = 2.0
 
     if not distance:
-        distance = distance_from_dendrogram(z, ylabel=metric, initial_distance=initial_distance, labels=labels, fig=fig)
+        distance = distance_from_dendrogram(z, ylabel=metric, initial_distance=initial_distance, labels=labels, fig_handle=fig)
 
     print(f"Linkage method = {method}")
     print(f"Cutoff distance = {distance}")
@@ -139,7 +107,7 @@ def main():
                        help="Use the raw lattice (from Lattice Explorer/IDXREF as opposed to the refined one from GRAL/CORRECT) for unit cell finding and clustering")
 
     parser.set_defaults(binsize=0.5,
-                        cluster=True,
+                        cluster=False,
                         distance=None,
                         method="average",
                         metric="euclidean",
@@ -203,7 +171,7 @@ def main():
                 fout = f"{fn.rsplit('.', 1)[0]}_cells_cluster_{i}_{len(idx)}-items.csv"
                 write_cap_csv(fout, clustered_ds)                                
                       
-        print(f"Wrote cluster {i} to file `{fout}`")
+            print(f"Wrote cluster {i} to file `{fout}`")
     
     else:
         constants, esds = find_cell(cells, weights, binsize=binsize)

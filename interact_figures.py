@@ -8,7 +8,9 @@ from typing import *
 from utils import weighted_average
 
 
-def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None, labels: Optional[List[str]] = None, fig_handle: Optional[Figure] = None) -> float:
+def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None, 
+                             labels: Optional[List[str]] = None, 
+                             fig_handle: Optional[Figure] = None, callback: Optional[callable] = None) -> float:
     """Takes a linkage object `z` from scipy.cluster.hierarchy.linkage and displays a
     dendrogram. The cutoff distance can be picked interactively, and is returned
     ylabel: sets the label for the y-axis
@@ -21,7 +23,9 @@ def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None, la
         distance = initial_distance
 
     fig = plt.figure() if fig_handle is None else fig_handle
-    ax = fig.add_subplot(111)
+    
+    ax = fig.gca()
+    ax.cla()
 
     tree = dendrogram(z, color_threshold=distance, ax=ax, labels=labels, leaf_rotation=90 if labels is not None else 0)
 
@@ -53,6 +57,9 @@ def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None, la
             yl = ax.get_ylim()
             tree = dendrogram(z, color_threshold=distance, ax=ax, labels=labels, leaf_rotation=90 if labels is not None else 0)
             ax.set_ylim(yl)
+            
+            if callback is not None:
+                callback(threshold=distance)
 
             fig.canvas.draw()
 

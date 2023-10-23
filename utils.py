@@ -1,12 +1,18 @@
 from collections import defaultdict
 import csv
-from math import radians, cos
+from math import radians, cos, floor, log10
 from pathlib import Path
 from typing import List, Tuple
 import numpy as np
 from scipy.cluster.hierarchy import fcluster
 import yaml
 
+def err_str(value, error, errordigits=1, compact=True):
+    digits = max(0,-int(floor(log10(error)))) - 1 + errordigits    
+    if compact:
+        return "{0:.{2}f}({1:.0f})".format(value, error*10**digits, digits)
+    else:
+        return '{0:.{2}f} ({1:.{2}f})'.format(value, error, digits)
 
 def space_group_lib():
     """Initialize simple space group library mapping the space group 

@@ -2,7 +2,7 @@ import tkinter as tk
 import tkinter.ttk as ttk
 import numpy as np
 from tkinter.filedialog import askopenfilename, askdirectory
-
+import math
 # Implement the default Matplotlib key bindings.
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
@@ -12,7 +12,7 @@ from utils import parse_cap_csv, put_in_order, volume
 from find_cell import cluster_cell
 import numpy as np
 from scipy.cluster.hierarchy import linkage, fcluster
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 import yaml
 from scipy.cluster.hierarchy import linkage
 from interact_figures import distance_from_dendrogram, find_cell
@@ -32,6 +32,9 @@ class CellList:
         else:
             self.ds = ds
             
+    def __len__(self):
+        return self._cells.shape[0]
+            
     @property
     def cells(self):
         return self._cells
@@ -43,6 +46,15 @@ class CellList:
     @property
     def volumes(self):
         return np.array([volume(cell) for cell in self.cells])
+    
+    @property
+    def stats(self):
+        cdat = np.concatenate([self.cells, self.volumes.reshape(-1,1)], axis=1)
+        CellStats = namedtuple('CellStats', ['mean', 'std', 'min', 'max'])
+        return CellStats(np.mean(cdat, axis=0),
+                np.std(cdat, axis=0),
+                np.min(cdat, axis=0),
+                np.max(cdat, axis=0))
         
     @classmethod
     def from_yaml(cls, fn, use_raw_cell=True):
@@ -131,13 +143,13 @@ class PlotWidget(ttk.Frame):
         self.canvas.mpl_connect("key_press_event", key_press_handler)
 
         self.init_figure_controls()
-        self.controls.grid(row=0, column=0, sticky=tk.N)
         
-        self.rowconfigure(1, weight=100)
+        self.rowconfigure(0, weight=100)
         self.columnconfigure(0, weight=100)
-        self.canvas.get_tk_widget().grid(row=1, column=0, sticky=tk.NSEW)
         
-        self.toolbar.grid(row=2, column=0, sticky=tk.S)
+        self.canvas.get_tk_widget().grid(row=0, column=0, sticky=tk.NSEW)
+        
+        self.toolbar.grid(row=1, column=0, sticky=tk.S)
         
     def init_figure_controls(self):        
         self.controls = ttk.Frame(self)
@@ -163,12 +175,64 @@ class CellHistogramWidget(PlotWidget):
         ttk.Label(self.controls, text='Nothing here').grid(row=0, column=1)
         ttk.Button(self.controls, text='Don\'t click!', command=lambda *args: print('nothing')).grid(row=0, column=2)
 
+
+class ClusterTableWidget(ttk.Frame):
+    
+    def __init__(self, root: tk.BaseWidget, clusters: Dict[int, CellList]):
+        super().__init__(root)
+        
+        ct_columns = ['ID', 'obs', 'a', 'b', 'c', 'al', 'be', 'ga', 'V']
+
+        cv = self.cluster_view = ttk.Treeview(self, columns=ct_columns, show='headings')
+        self._clusters = clusters        
+        self._selected_cluster = None
+        self._entry_ids = []
+
+        cv.heading('ID', text='ID')
+        cv.heading('obs', text='# Cryst')
+        cv.heading('a', text='a')
+        cv.heading('b', text='b')
+        cv.heading('c', text='c')
+        cv.heading('al', text='alpha')
+        cv.heading('be', text='beta')
+        cv.heading('ga', text='gamma')
+        cv.heading('V', text='volume')
+        cv.grid(row=0, column=0, sticky=tk.NSEW)
+        
+        scrollbar = ttk.Scrollbar(self, orient=tk.VERTICAL, command=cv.yview)
+        cv.configure(yscroll=scrollbar.set)
+        scrollbar.grid(row=0, column=1, sticky=tk.NS)
+        
+    def update_clusters(self, clusters: Optional[Dict[int, CellList]] = None):
+        
+        if clusters is not None:
+            self._clusters = clusters
+            
+        for the_id in self._entry_ids:
+            self.cluster_view.delete(the_id)
+            
+        self._entry_ids = []
+            
+        for c_id, cl in self._clusters.items():            
+            stats = cl.stats
+            
+            cpar_strs = []
+            for avg, std, lo, hi in zip(stats.mean, stats.std, stats.min, stats.max):
+                digits = max(0,
+                             -int(math.floor(math.log10(std)))+1 if std != 0 else 0, 
+                             -int(math.floor(math.log10(hi-lo))) if std != 0 else 0)
+                cpar_strs.append('{0:.{4}f} ({1:.{4}f}) [{2:.{4}f}, {3:.{4}f}]'.format(avg, std, lo, hi, digits))
+                                         
+            self._entry_ids.append(self.cluster_view.insert('', tk.END, values=[c_id, len(cl)] + cpar_strs))
+
+
 class CellGUI:
     
     def __init__(self):
         
         # internal variables
         self.all_cells = CellList(cells=np.empty([0,6]))
+        self.clusters = []
         self.fn = None
         
         # initialize master GUI 
@@ -216,40 +280,61 @@ class CellGUI:
         button_quit = ttk.Button(cf, text="Quit", command=self.root.destroy)
         button_quit.grid(row=100, column=0, sticky=tk.S)
         
-        
+        # plots
         tabs = ttk.Notebook(self.root)
         self.tab_cluster = ttk.Frame(tabs)
-        self.tab_cluster.columnconfigure(0, weight=100)
+        self.tab_cluster.columnconfigure(0, weight=100) 
         self.tab_cluster.rowconfigure(0, weight=100)
+        
         self.cluster_widget = ClusterWidget(self.tab_cluster)
         self.cluster_widget.grid(row=0, column=0, sticky=tk.NSEW)
         tabs.add(self.tab_cluster, text='Clustering', sticky=tk.NSEW)
+        
         self.tab_cellhist = ttk.Frame(tabs)
         self.tab_cellhist.columnconfigure(0, weight=100)
         self.tab_cellhist.rowconfigure(0, weight=100)
+        
         self.cellhist_widget = CellHistogramWidget(self.tab_cellhist)
         self.cellhist_widget.grid(row=0, column=0, sticky=tk.NSEW)
         tabs.add(self.tab_cellhist, text='Cell Histogram', sticky=tk.NSEW)   
-             
+
+
+        # cluster view
+        self.cluster_table = ClusterTableWidget(self.root, clusters=self.clusters)
+
         # final assembly of UI
         self.root.columnconfigure(0, weight=100)
         self.root.columnconfigure(1, weight=0)
         self.root.rowconfigure(0, weight=100)
+        self.root.rowconfigure(1, weight=0)
         cf.grid(row=0, column=1, sticky=tk.E)        
         tabs.grid(column=0, row=0, sticky=tk.NSEW)
+        self.cluster_table.grid(row=1, column=0, columnspan=2, sticky=tk.S)
         
         
     def run_clustering(self):
-        cluster_args = {k: v.get() for k, v in self.v_cluster_setting.items()}
-        cluster_args = {k: v.lower() if isinstance(v, str) else v for k, v in cluster_args.items()}
-        clusters, z = self.all_cells.cluster(**cluster_args)
+
+        def recluster():        
+            cluster_args = {k: v.get() for k, v in self.v_cluster_setting.items()}
+            cluster_args = {k: v.lower() if isinstance(v, str) else v for k, v in cluster_args.items()}
+            self.clusters, z = self.all_cells.cluster(**cluster_args)
+            self.cluster_table.update_clusters(clusters=self.clusters)
+            return z, cluster_args
+        
+        def update_distance(threshold):
+            self.v_cluster_setting['distance'].set(threshold)
+            recluster()
+        
+        z, cluster_args = recluster()
+            
         try:
             labels = [d['Experiment name'] for d in self.all_cells.ds]
         except KeyError as err:
             print('Experiment names not found in CSV list. Consider including them.')
             labels = None
+            
         distance_from_dendrogram(z, ylabel=cluster_args['metric'], initial_distance=cluster_args['distance'],
-                                 labels=labels, fig_handle=self.cluster_widget.fig)
+                                 labels=labels, fig_handle=self.cluster_widget.fig, callback=update_distance)
         
     def reload_cells(self):
         raw = self.v_use_raw.get()        

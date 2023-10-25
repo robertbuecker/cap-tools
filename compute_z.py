@@ -144,7 +144,7 @@ def gui():
         result_text.set(f'{N} observations, {k} ({k/N*100:.1f}%) have bias for R, {w:.0f} expected mis-assignments due to noise' 
             f'\n-> noise-adjusted Z-score (positive for R) is {z_score:.2f} (non-adjusted {z_score_raw:.2f})')        
     
-    ttk.Label(root, text='Please cite: Klar et al., doi:10.1038/s41557-023-01186-1').grid(row=0, column=0, columnspan=2)
+    ttk.Label(root, text='Please cite: Klar et al., Nature Chemistry 15 (2023), 848. doi:10.1038/s41557-023-01186-1').grid(row=0, column=0, columnspan=2)
     ttk.Button(root, text='Open R', command=lambda which='R': set_fn(which)).grid(row=5, column=0, sticky=tk.W)
     ttk.Button(root, text='Open S', command=lambda which='S': set_fn(which)).grid(row=10, column=0, sticky=tk.W)
     ttk.Label(root, textvariable=fns['R']).grid(row=5, column=1, sticky=tk.W)

@@ -8,10 +8,10 @@ from matplotlib.backend_bases import key_press_handler
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2Tk)
 from matplotlib.figure import Figure
-from cell_list import CellList
+from cap_tools.cell_list import CellList
 import numpy as np
 from collections import defaultdict
-from interact_figures import distance_from_dendrogram
+from cap_tools.interact_figures import distance_from_dendrogram
 from typing import *
 from time import time
 import os

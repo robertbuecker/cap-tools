@@ -1,11 +1,10 @@
 import numpy as np
 from scipy.cluster.hierarchy import linkage
 import yaml
-from interact_figures import distance_from_dendrogram, find_cell
-from utils import get_clusters, parse_cap_csv, put_in_order, to_radian, to_sin, unit_cell_lcv_distance, write_cap_csv
+from cap_tools.interact_figures import distance_from_dendrogram, find_cell
+from cap_tools.utils import get_clusters, parse_cap_csv, put_in_order, to_radian, to_sin, unit_cell_lcv_distance, write_cap_csv
 from typing import *
-
-from utils import volume_difference
+from cap_tools.utils import volume_difference
 
 
 def cluster_cell(cells: list, 

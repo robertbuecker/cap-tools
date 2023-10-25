@@ -5,7 +5,7 @@ from matplotlib.widgets import SpanSelector
 from scipy import stats
 from scipy.cluster.hierarchy import dendrogram, set_link_color_palette
 from typing import *
-from utils import weighted_average
+from .utils import weighted_average
 
 click_cid_dendrogram = None
 

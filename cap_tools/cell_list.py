@@ -1,4 +1,4 @@
-from utils import get_clusters, parse_cap_csv, put_in_order, to_radian, to_sin, unit_cell_lcv_distance, volume, volume_difference, write_cap_csv
+from .utils import get_clusters, parse_cap_csv, put_in_order, to_radian, to_sin, unit_cell_lcv_distance, volume, volume_difference, write_cap_csv
 import numpy as np
 import yaml
 from scipy.cluster.hierarchy import linkage

@@ -105,14 +105,13 @@ Klar et al., 10.1038/s41557-023-01186-1
     else:
         return (k-(N/2))/(math.sqrt(N)/2)
     
-if __name__ == "__main__":
-    import sys
+def main():
     C = sys.argv[1]
     W = sys.argv[2]
     
     print('-----')
     print('Absolute refinement Z-score computation')
-    print('Please cite: Klar et al., doi:10.1038/s41557-023-01186-1')
+    print('Please cite: Klar et al., Nature Chemistry 15 (2023), 848. doi:10.1038/s41557-023-01186-1')
     
     print(f'C: {C}\nW: {W} ')
 
@@ -121,3 +120,45 @@ if __name__ == "__main__":
     z_score_raw = calc_z(N, k, None)
     print(f'{N} observations, {k} ({k/N*100:.1f}%) have bias for C, {w:.0f} expected mis-assignments' 
           f'\n-> noise-adjusted Z-score is {z_score:.2f} (non-adjusted {z_score_raw:.2f})')
+    
+def gui():
+    import tkinter as tk
+    import tkinter.ttk as ttk
+    from tkinter.filedialog import askopenfilename
+    
+    root = tk.Tk()
+    root.title('Absolute refinement Z-score computation')
+    
+    fns = {'R': tk.StringVar(), 'S': tk.StringVar()}
+    
+    result_text = tk.StringVar(value='Please enter filenames and press "Compute"\n')
+    
+    def set_fn(which: str):
+        fn = askopenfilename(title=f'Open file for {which} config', filetypes=[('JANA dynamical refinement result', '*.cif')])
+        fns[which].set(fn)
+        
+    def compute():
+        N, k, w = calc_assignment(fns['R'].get(), fns['S'].get())
+        z_score = calc_z(N, k, w)
+        z_score_raw = calc_z(N, k, None)
+        result_text.set(f'{N} observations, {k} ({k/N*100:.1f}%) have bias for R, {w:.0f} expected mis-assignments due to noise' 
+            f'\n-> noise-adjusted Z-score (positive for R) is {z_score:.2f} (non-adjusted {z_score_raw:.2f})')        
+    
+    ttk.Label(root, text='Please cite: Klar et al., doi:10.1038/s41557-023-01186-1').grid(row=0, column=0, columnspan=2)
+    ttk.Button(root, text='Open R', command=lambda which='R': set_fn(which)).grid(row=5, column=0, sticky=tk.W)
+    ttk.Button(root, text='Open S', command=lambda which='S': set_fn(which)).grid(row=10, column=0, sticky=tk.W)
+    ttk.Label(root, textvariable=fns['R']).grid(row=5, column=1, sticky=tk.W)
+    ttk.Label(root, textvariable=fns['S']).grid(row=10, column=1, sticky=tk.W)
+    ttk.Button(root, text='Compute', command=compute).grid(row=15, column=0, columnspan=2)
+    ttk.Separator(root, orient='horizontal').grid(row=19, columnspan=2, sticky=tk.EW)
+    ttk.Label(root, textvariable=result_text).grid(row=20, column=0, columnspan=2)
+    
+    tk.mainloop()
+    
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1:
+        main()
+    else:
+        gui()
+    

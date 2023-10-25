@@ -3,10 +3,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import SpanSelector
 from scipy import stats
-from scipy.cluster.hierarchy import dendrogram
+from scipy.cluster.hierarchy import dendrogram, set_link_color_palette
 from typing import *
 from utils import weighted_average
 
+click_cid_dendrogram = None
 
 def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None, 
                              labels: Optional[List[str]] = None, 
@@ -16,6 +17,9 @@ def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None,
     ylabel: sets the label for the y-axis
     initial_distance: initial cutoff distsance to display
     """
+    
+    global click_cid_dendrogram
+    
     if initial_distance == None:
         # corresponding with MATLAB behavior
         distance = round(0.7*max(z[:,2]), 4)
@@ -24,10 +28,18 @@ def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None,
 
     fig = plt.figure() if fig_handle is None else fig_handle
     
+    if click_cid_dendrogram is not None:
+        fig.canvas.mpl_disconnect(click_cid_dendrogram)
+    
     ax = fig.gca()
     ax.cla()
+    fig.subplots_adjust(bottom=0.15, top=0.9)
 
-    tree = dendrogram(z, color_threshold=distance, ax=ax, labels=labels, leaf_rotation=90 if labels is not None else 0)
+    ax.set_prop_cycle(None)
+    
+    set_link_color_palette([f'C{ii}' for ii in range(10)])
+
+    tree = dendrogram(z, color_threshold=distance, ax=ax, labels=labels, leaf_rotation=90 if labels is not None else 0, above_threshold_color='k')
 
     # use 1-based indexing for display by incrementing label    
     # _, xlabels = plt.xticks()
@@ -38,7 +50,7 @@ def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None,
     ax.set_xlabel("Index")
     ax.set_ylabel(f"Distance ({ylabel})")
     ax.set_title(f"Dendrogram (cutoff={distance:.2f})")
-    hline = ax.axhline(y=distance)
+    hline = ax.axhline(y=distance, color='g')
 
     def get_cutoff(event):
         nonlocal hline
@@ -49,21 +61,21 @@ def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None,
             distance = round(event.ydata, 4)
             ax.set_title(f"Dendrogram (cutoff={distance:.2f})")
             hline.remove()
-            hline = ax.axhline(y=distance)
+            hline = ax.axhline(y=distance, color='g')
 
             for c in ax.collections:
                 c.remove()
 
             yl = ax.get_ylim()
-            tree = dendrogram(z, color_threshold=distance, ax=ax, labels=labels, leaf_rotation=90 if labels is not None else 0)
+            tree = dendrogram(z, color_threshold=distance, ax=ax, labels=labels, leaf_rotation=90 if labels is not None else 0, above_threshold_color='k')
             ax.set_ylim(yl)
             
             if callback is not None:
-                callback(threshold=distance)
+                callback(distance)
 
             fig.canvas.draw()
 
-    fig.canvas.mpl_connect('button_press_event', get_cutoff)
+    click_cid_dendrogram = fig.canvas.mpl_connect('button_press_event', get_cutoff)
     
     if fig_handle is None:
         plt.show()
@@ -71,7 +83,6 @@ def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None,
         fig.canvas.draw()
 
     return distance
-
 
 def find_cell(cells, weights, binsize=0.5):
     """Opens a plot with 6 subplots in which the cell parameter histogram is displayed.

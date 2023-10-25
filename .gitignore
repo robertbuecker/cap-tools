@@ -1,3 +1,5 @@
 *.csv
 *.ipynb
 __pycache__
+build
+dist

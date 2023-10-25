@@ -1,129 +1,22 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 import numpy as np
-from tkinter.filedialog import askopenfilename, askdirectory
+from tkinter.filedialog import askopenfilename, askdirectory, asksaveasfilename
 import math
 # Implement the default Matplotlib key bindings.
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2Tk)
 from matplotlib.figure import Figure
-from utils import parse_cap_csv, put_in_order, volume
-from find_cell import cluster_cell
+from cell_list import CellList
 import numpy as np
-from scipy.cluster.hierarchy import linkage, fcluster
-from collections import defaultdict, namedtuple
-import yaml
-from scipy.cluster.hierarchy import linkage
-from interact_figures import distance_from_dendrogram, find_cell
-from utils import get_clusters, parse_cap_csv, put_in_order, to_radian, to_sin, unit_cell_lcv_distance, write_cap_csv, volume_difference
+from collections import defaultdict
+from interact_figures import distance_from_dendrogram
 from typing import *
+from time import time
+import os
 
       
-class CellList:
-    
-    def __init__(self, cells: np.ndarray, ds: Optional[dict] = None, weights: Optional[np.ndarray] = None):        
-        self._cells = put_in_order(cells)
-        self._weights = np.array([1]*cells.shape[0]) if weights is None else weights
-        if ds is None:
-            self.ds = []
-            for c in cells:
-                self.ds.append({'unit cell': ' '.join(list(c))})
-        else:
-            self.ds = ds
-            
-    def __len__(self):
-        return self._cells.shape[0]
-            
-    @property
-    def cells(self):
-        return self._cells
-    
-    @property
-    def weights(self):
-        return self._weights
-    
-    @property
-    def volumes(self):
-        return np.array([volume(cell) for cell in self.cells])
-    
-    @property
-    def stats(self):
-        cdat = np.concatenate([self.cells, self.volumes.reshape(-1,1)], axis=1)
-        CellStats = namedtuple('CellStats', ['mean', 'std', 'min', 'max'])
-        return CellStats(np.mean(cdat, axis=0),
-                np.std(cdat, axis=0),
-                np.min(cdat, axis=0),
-                np.max(cdat, axis=0))
-        
-    @classmethod
-    def from_yaml(cls, fn, use_raw_cell=True):
-        ds = yaml.load(open(fn, "r"), Loader=yaml.Loader)
-        key = "raw_unit_cell" if use_raw_cell else "unit_cell"            
-        # prune based on NaNs (missing cells)
-        ds = [d for d in ds if not any(np.isnan(d[key]))]
-        cells = np.array([d[key] for d in ds])
-        weights = np.array([d["weight"] for d in ds])
-    
-    @classmethod
-    def from_csv(cls, fn, use_raw_cell=True):
-        ds, cells, weights = parse_cap_csv(fn, use_raw_cell, filter_missing=True)
-        return cls(cells=cells, ds=ds)
-    
-    def cluster(self,
-                 distance: float=None, 
-                 method: str="average", 
-                 metric: str="euclidean", 
-                 use_radian: bool=False,
-                 use_sine: bool=False,
-                 labels: Optional[List[str]] = None) -> Dict[int,'CellList']:
-                """Perform hierarchical cluster analysis on a list of cells. 
-
-                method: lcv, volume, euclidean
-                distance: cutoff distance, if it is not given, pop up a dendrogram to
-                    interactively choose a cutoff distance
-                use_radian: Use radian instead of degrees to downweight difference
-                use_sine: Use sine for unit cell clustering (to disambiguousize the difference in angles)
-                """
-
-                from scipy.spatial.distance import pdist
-
-                if use_sine:
-                    _cells = to_sin(self.cells)
-                elif use_radian:
-                    _cells = to_radian(self.cells)
-                else:
-                    _cells = self.cells
-
-                if metric.lower() == "lcv":
-                    dist = pdist(_cells, metric=unit_cell_lcv_distance)
-                    z = linkage(dist,  method=method)                    
-                elif metric.lower() == "volume":
-                    dist = pdist(_cells, metric=volume_difference)
-                    z = linkage(dist,  method=method)
-                    distance = 250.0 if distance is None else distance
-                else:
-                    z = linkage(_cells,  metric=metric, method=method.lower())
-                    distance = 2.0 if distance is None else distance
-
-                # if not distance:
-                #     distance = distance_from_dendrogram(z, ylabel=metric, initial_distance=initial_distance, labels=labels)
-
-                print(f"Linkage method = {method}")
-                print(f"Cutoff distance = {distance}")
-                print(f"Distance metric = {metric}")
-                print("")
-
-                clusters_idx = get_clusters(z, self.cells, distance=distance)
-                
-                clusters = {}
-                for k, cluster_idx in clusters_idx.items():
-                    clusters[k] = CellList(cells = self.cells[cluster_idx],
-                                           ds=[d for ii, d in enumerate(self.ds) if ii in cluster_idx],
-                                           weights=self.weights[cluster_idx])
-                
-                return clusters, z
-                
 class PlotWidget(ttk.Frame):
     
     def __init__(self, parent: tk.BaseWidget):
@@ -169,11 +62,39 @@ class CellHistogramWidget(PlotWidget):
     
     def __init__(self, parent):
         super().__init__(parent)
+                
+        axs = self.fig.subplots(2, 4)
+        axs[-1,-1].remove()
+        self.axs = {'a': axs[0,0], 'b': axs[0,1], 'c': axs[0,2],
+                    'al': axs[1,0], 'be': axs[1,1], 'ga': axs[1,2],
+                    'V': axs[0,3]}
+        self.fig.subplots_adjust(hspace=0.5)        
         
     def init_figure_controls(self):
         super().init_figure_controls()
         ttk.Label(self.controls, text='Nothing here').grid(row=0, column=1)
         ttk.Button(self.controls, text='Don\'t click!', command=lambda *args: print('nothing')).grid(row=0, column=2)
+        
+    def update_histograms(self, clusters: Dict[int, CellList]):
+        
+        print('Updating cell parameter histograms...')
+        t0 = time()
+        cluster_cells = {c_id: np.concatenate([cluster.cells, cluster.volumes.reshape(-1,1)], axis=1) 
+                         for c_id, cluster in sorted(clusters.items())}
+
+        for ii, (lbl, ax) in enumerate(self.axs.items()):
+            ax.cla()
+            ax.hist([cl[:, ii] for cl in cluster_cells.values()], 
+                    histtype='bar', label=list(cluster_cells.keys()))    
+            ax.set_title(lbl)
+            # ax.set_yticks([])
+            if lbl=='V':
+                ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.5))
+        
+        self.fig.canvas.draw()
+        
+        print(f'Updating histograms took {1000*(time()-t0):.0f} ms')
+        
 
 
 class ClusterTableWidget(ttk.Frame):
@@ -183,7 +104,7 @@ class ClusterTableWidget(ttk.Frame):
         
         ct_columns = ['ID', 'obs', 'a', 'b', 'c', 'al', 'be', 'ga', 'V']
 
-        cv = self.cluster_view = ttk.Treeview(self, columns=ct_columns, show='headings')
+        cv = self.cluster_view = ttk.Treeview(self, columns=ct_columns, show='headings', height=6)
         self._clusters = clusters        
         self._selected_cluster = None
         self._entry_ids = []
@@ -197,13 +118,26 @@ class ClusterTableWidget(ttk.Frame):
         cv.heading('be', text='beta')
         cv.heading('ga', text='gamma')
         cv.heading('V', text='volume')
+        
+        cv.column('ID',  width=20)
+        cv.column('obs', width=30)
+        cv.column('a',   width=170)
+        cv.column('b',   width=170)
+        cv.column('c',   width=170)
+        cv.column('al',  width=170)
+        cv.column('be',  width=170)
+        cv.column('ga',  width=170)
+        cv.column('V',   width=170) 
+         
+        cv.bind('<<TreeviewSelect>>', self.show_entry_info)
+         
         cv.grid(row=0, column=0, sticky=tk.NSEW)
         
         scrollbar = ttk.Scrollbar(self, orient=tk.VERTICAL, command=cv.yview)
         cv.configure(yscroll=scrollbar.set)
         scrollbar.grid(row=0, column=1, sticky=tk.NS)
         
-    def update_clusters(self, clusters: Optional[Dict[int, CellList]] = None):
+    def update_table(self, clusters: Optional[Dict[int, CellList]] = None):
         
         if clusters is not None:
             self._clusters = clusters
@@ -213,7 +147,7 @@ class ClusterTableWidget(ttk.Frame):
             
         self._entry_ids = []
             
-        for c_id, cl in self._clusters.items():            
+        for c_id, cl in sorted(self._clusters.items()):
             stats = cl.stats
             
             cpar_strs = []
@@ -224,26 +158,40 @@ class ClusterTableWidget(ttk.Frame):
                 cpar_strs.append('{0:.{4}f} ({1:.{4}f}) [{2:.{4}f}, {3:.{4}f}]'.format(avg, std, lo, hi, digits))
                                          
             self._entry_ids.append(self.cluster_view.insert('', tk.END, values=[c_id, len(cl)] + cpar_strs))
-
+            
+    def show_entry_info(self, event):
+        for selected in self.cluster_view.selection():
+            cluster_id = self.cluster_view.item(selected)['values'][0]
+            print(f'--- CLUSTER {cluster_id} ---')            
+            print(self._clusters[cluster_id].table)
+        
 
 class CellGUI:
     
-    def __init__(self):
+    def __init__(self, filename: Optional[str] = None, 
+                 distance: float = 2.0,
+                 method: str = 'average',
+                 metric: str = 'euclidian',
+                 use_radian_for_clustering: bool = False,
+                 use_sine_for_clustering: bool = False,
+                 use_raw_cell: bool = False,
+                 **kwargs):
         
         # internal variables
         self.all_cells = CellList(cells=np.empty([0,6]))
-        self.clusters = []
-        self.fn = None
+        self.clusters: Dict[int, CellList] = {}
+        self.fn: Optional[str] = None
         
         # initialize master GUI 
         self.root = tk.Tk()
+        self.root.geometry('1300x800')
         self.root.title("3D ED/MicroED cell tool")
         
         cf = self.control_frame = ttk.LabelFrame(self.root, text='Cell Lists')
         
         # file opening
         ttk.Button(cf, text='Open list...', command=self.load_cells).grid(row=0, column=0)
-        self.v_use_raw = tk.BooleanVar(cf)
+        self.v_use_raw = tk.BooleanVar(cf, value=use_raw_cell)
         self.w_use_raw = ttk.Checkbutton(cf, text='Use raw cells', command=self.reload_cells, variable=self.v_use_raw)
         self.w_use_raw.grid(row=5, column=0)
         self.w_all_fn = ttk.Label(cf, text='(nothing loaded)')
@@ -252,21 +200,21 @@ class CellGUI:
         # clustering (default) settings
         csf = ttk.LabelFrame(cf, text='Clustering')
         self.v_cluster_setting = {
-            'distance': tk.DoubleVar(value=2.0),
-            'method': tk.StringVar(value='average'),
-            'metric': tk.StringVar(value='euclidian'),
-            'use_radian': tk.BooleanVar(value=False),
-            'use_sine': tk.BooleanVar(value=False)
+            'distance': tk.DoubleVar(value=distance),
+            'method': tk.StringVar(value=method),
+            'metric': tk.StringVar(value=metric),
+            'use_radian': tk.BooleanVar(value=use_radian_for_clustering),
+            'use_sine': tk.BooleanVar(value=use_sine_for_clustering)
         }        
-        metric_list = 'Euclidean Volume LCV'.split()
-        method_list = 'Single Average Complete Median Weighted Centroid Ward'.split()        
+        metric_list = 'Euclidean LCV Volume'.split()
+        method_list = 'Average Single Complete Median Weighted Centroid Ward'.split()        
         self.w_cluster_setting = {
             'Distance': ttk.Entry(csf, textvariable=self.v_cluster_setting['distance']),
             'Method': ttk.OptionMenu(csf, self.v_cluster_setting['method'], 'Average', *method_list),
             'Metric': ttk.OptionMenu(csf, self.v_cluster_setting['metric'], 'Euclidean', *metric_list),
             'Radian': ttk.Checkbutton(csf, text='Radian', variable=self.v_cluster_setting['use_radian']),
             'Sine': ttk.Checkbutton(csf, text='Sine', variable=self.v_cluster_setting['use_sine']),
-            'Refresh': ttk.Button(csf, text='Refresh', command=self.run_clustering)
+            'Refresh': ttk.Button(csf, text='Refresh', command=self.init_clustering)
         }        
         for ii, (k, w) in enumerate(self.w_cluster_setting.items()):
             if not (isinstance(w, ttk.Button) or isinstance(w, ttk.Checkbutton)):
@@ -276,28 +224,35 @@ class CellGUI:
                 w.grid(row=ii, column=0, columnspan=2)
         csf.grid(row=15, column=0)
         
+        ttk.Button(cf, text='Save clusters', command=self.save_clusters).grid(row=20, column=0)
+        
         # quit button
         button_quit = ttk.Button(cf, text="Quit", command=self.root.destroy)
         button_quit.grid(row=100, column=0, sticky=tk.S)
         
         # plots
-        tabs = ttk.Notebook(self.root)
-        self.tab_cluster = ttk.Frame(tabs)
+        self.tabs = ttk.Notebook(self.root)
+        self.tab_cluster = ttk.Frame(self.tabs)
         self.tab_cluster.columnconfigure(0, weight=100) 
         self.tab_cluster.rowconfigure(0, weight=100)
         
         self.cluster_widget = ClusterWidget(self.tab_cluster)
         self.cluster_widget.grid(row=0, column=0, sticky=tk.NSEW)
-        tabs.add(self.tab_cluster, text='Clustering', sticky=tk.NSEW)
+        self.tabs.add(self.tab_cluster, text='Clustering', sticky=tk.NSEW)
         
-        self.tab_cellhist = ttk.Frame(tabs)
+        self.tab_cellhist = ttk.Frame(self.tabs)
         self.tab_cellhist.columnconfigure(0, weight=100)
         self.tab_cellhist.rowconfigure(0, weight=100)
         
         self.cellhist_widget = CellHistogramWidget(self.tab_cellhist)
         self.cellhist_widget.grid(row=0, column=0, sticky=tk.NSEW)
-        tabs.add(self.tab_cellhist, text='Cell Histogram', sticky=tk.NSEW)   
-
+        self.tabs.add(self.tab_cellhist, text='Cell Histogram', sticky=tk.NSEW)
+        
+        def refresh_on_tab(event):
+            if self.active_tab == 1:
+                self.cellhist_widget.update_histograms(clusters=self.clusters)
+                
+        self.tabs.bind('<<NotebookTabChanged>>', refresh_on_tab)
 
         # cluster view
         self.cluster_table = ClusterTableWidget(self.root, clusters=self.clusters)
@@ -308,21 +263,32 @@ class CellGUI:
         self.root.rowconfigure(0, weight=100)
         self.root.rowconfigure(1, weight=0)
         cf.grid(row=0, column=1, sticky=tk.E)        
-        tabs.grid(column=0, row=0, sticky=tk.NSEW)
+        self.tabs.grid(column=0, row=0, sticky=tk.NSEW)
         self.cluster_table.grid(row=1, column=0, columnspan=2, sticky=tk.S)
         
+        # if filename is provided on CLI, open it now
+        if filename is not None:
+            self.fn = filename
+            self.reload_cells()
+            
+    @property
+    def active_tab(self):
+        return self.tabs.index(self.tabs.select())
         
-    def run_clustering(self):
+    def init_clustering(self):
 
         def recluster():        
             cluster_args = {k: v.get() for k, v in self.v_cluster_setting.items()}
             cluster_args = {k: v.lower() if isinstance(v, str) else v for k, v in cluster_args.items()}
+            cluster_args['distance'] = None if cluster_args['distance'] == 0 else cluster_args['distance']
             self.clusters, z = self.all_cells.cluster(**cluster_args)
-            self.cluster_table.update_clusters(clusters=self.clusters)
+            self.cluster_table.update_table(clusters=self.clusters)
+            if self.active_tab == 1:
+                self.cellhist_widget.update_histograms(clusters=self.clusters)
             return z, cluster_args
         
-        def update_distance(threshold):
-            self.v_cluster_setting['distance'].set(threshold)
+        def update_distance(cutoff):
+            self.v_cluster_setting['distance'].set(cutoff)
             recluster()
         
         z, cluster_args = recluster()
@@ -344,20 +310,38 @@ class CellGUI:
             self.all_cells = CellList.from_yaml(self.fn, use_raw_cell=raw)
             
         self.w_all_fn.config(text=self.fn.rsplit('/',1)[-1] + (' (raw)' if raw else ''))
+        
+        self.init_clustering()
             
     def load_cells(self):
-        self.fn = askopenfilename(title='Open cell list file', filetypes=(('Result Viewer Export', '*.csv'), ('YAML list', '*.yaml')))
+        self.fn = askopenfilename(title='Open cell list file', filetypes=(('CrysAlisPro', '*.csv'), ('YAML list (edtools)', '*.yaml')))
         self.reload_cells()
-
-def main():
+        
+    def save_clusters(self, fn_template: Optional[str] = None):
+        if fn_template is None:
+            fn_template = asksaveasfilename(confirmoverwrite=False, title='Select root filename for cluster CSVs', 
+                                            initialdir=os.path.dirname(self.fn), initialfile=os.path.basename(self.fn),
+                                            filetypes=[('CrysAlisPro CSV', '*.csv')])
+            
+            if not fn_template:
+                print('No filename selected, canceling.')
+                return
+            
+        for ii, (c_id, cluster) in enumerate(self.clusters.items()):
+            cluster_fn = os.path.splitext(fn_template)[0] + f'-cluster_{ii}_ID{c_id}.csv'
+            cluster.to_csv(cluster_fn)
+            print(f'Wrote cluster {c_id} with {len(cluster)} crystals to file {cluster_fn}')
+            
+            
+def parse_args():
     import argparse
 
     description = "Program for finding the unit cell from a serial crystallography experiment."
     parser = argparse.ArgumentParser(description=description,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
         
-    parser.add_argument("args",
-                        type=str, nargs="*", metavar="FILE",
+    parser.add_argument("filename",
+                        type=str, metavar="FILE", nargs='?',
                         help="Path to .yaml (edtools) or .csv (CrysAlisPro) file")
 
     parser.add_argument("-b","--binsize",
@@ -398,9 +382,10 @@ def main():
                        action="store_true", dest="use_raw_cell",
                        help="Use the raw lattice (from Lattice Explorer/IDXREF as opposed to the refined one from GRAL/CORRECT) for unit cell finding and clustering")
 
-    parser.set_defaults(binsize=0.5,
+    parser.set_defaults(filename=None,
+                        binsize=0.5,
                         cluster=True,
-                        distance=None,
+                        distance=0.0,
                         method="average",
                         metric="euclidean",
                         use_raw_cell=False,
@@ -410,100 +395,10 @@ def main():
     
     options = parser.parse_args()
 
-    distance = options.distance
-    binsize = options.binsize
-    cluster = options.cluster
-    method = options.method
-    metric = options.metric
-    use_raw_cell = options.use_raw_cell
-    use_radian = options.use_radian_for_clustering
-    use_sine = options.use_sine_for_clustering
-    args = options.args
-
-    if args:
-        fn = args[0]
-    else:
-        fn = "cells.yaml"
-        fn = 'result-viewer.csv'
-        
-    if fn.endswith('.yaml') or fn.endswith('.yml'):
-        use_yaml = True
-        ds = yaml.load(open(fn, "r"), Loader=yaml.Loader)
-        key = "raw_unit_cell" if use_raw_cell else "unit_cell"            
-        # prune based on NaNs (missing cells)
-        ds = [d for d in ds if not any(np.isnan(d[key]))]
-        cells = np.array([d[key] for d in ds])
-        weights = np.array([d["weight"] for d in ds])
-        
-    elif fn.endswith('.csv'):
-        use_yaml = False
-        ds, cells, weights = parse_cap_csv(fn, use_raw_cell)
-        
-    else:
-        raise ValueError('Input file must be .yaml (edtools/XDS) or .csv (CrysAlisPro)')
-    
-    cells = put_in_order(cells)    
-    
-    if cluster:
-        if not use_yaml:
-            try:
-                labels = [d['Experiment name'] for d in ds]
-            except KeyError as err:
-                print('Experiment names not found in CSV list. Consider including them.')
-                labels = None
-        else:
-            labels = None
-            
-        clusters = cluster_cell(cells, distance=distance, method=method, metric=metric, 
-                                use_radian=use_radian, use_sine=use_sine, labels=labels, fig=fig)
-        
-        tk.mainloop()
-        
-        for i, idx in clusters.items():
-            clustered_ds = [ds[i] for i in idx]
-            if use_yaml:
-                fout = f"cells_cluster_{i}_{len(idx)}-items.yaml"
-                yaml.dump(clustered_ds, open(fout, "w"))
-            else:
-                fout = f"{fn.rsplit('.', 1)[0]}_cells_cluster_{i}_{len(idx)}-items.csv"
-                write_cap_csv(fout, clustered_ds)                                
-                      
-            print(f"Wrote cluster {i} to file `{fout}`")
-    
-    else:
-        constants, esds = find_cell(cells, weights, binsize=binsize)
-        
-        print()
-        print("Weighted mean of histogram analysis")
-        print("---")
-        print("Unit cell parameters: ", end="")
-        for c in constants:
-            print(f"{c:8.3f}", end="")
-        print()
-        print("Unit cell esds:       ", end="")
-        for e in esds:
-            print(f"{e:8.3f}", end="")
-        print()
-
-        try:
-            import uncertainties as u
-        except ImportError:
-            pass
-        else:
-            print()
-            names = (("a"," Å"), ("b"," Å"), ("c"," Å"),
-                     ("α", "°"), ("β", "°"), ("γ", "°"))
-            for i, (c, e) in enumerate(zip(constants, esds)):
-                name, unit = names[i]
-                val = u.ufloat(c, e)
-                end = ", " if i < 5 else "\n"
-                print(f"{name}={val:.2uS}{unit}", end=end)
-
-        print()
-        print("UNIT_CELL_CONSTANTS= " + " ".join(f"{val:.3f}" for val in constants))
-
+    return vars(options)
 
 if __name__ == '__main__':
-    window = CellGUI()
+    cli_args = parse_args()    
+    window = CellGUI(**cli_args)
     window.root.mainloop()
     # main()

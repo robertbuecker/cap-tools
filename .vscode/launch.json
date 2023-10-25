@@ -20,6 +20,15 @@
             "program": "find_cell.py",
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "Cell GUI",
+            "type": "python",
+            "request": "launch",
+            "program": "cell_tool.py",
+            "console": "integratedTerminal",
+            "args": ["result-viewer.csv"],
+            "justMyCode": true
         }
     ]
 }

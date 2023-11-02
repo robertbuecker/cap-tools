@@ -41,6 +41,8 @@ def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None,
 
     tree = dendrogram(z, color_threshold=distance, ax=ax, labels=labels, leaf_rotation=90 if labels is not None else 0, above_threshold_color='k')
 
+    
+
     # use 1-based indexing for display by incrementing label    
     # _, xlabels = plt.xticks()
     # for l in xlabels:

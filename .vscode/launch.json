@@ -27,7 +27,7 @@
             "request": "launch",
             "program": "cell_tool.py",
             "console": "integratedTerminal",
-            "args": ["result-viewer.csv"],
+            "args": ["C:\\Users\\robert.buecker\\data\\Trehalose-Symmetry\\all-results.csv"],
             "justMyCode": true
         }
     ]

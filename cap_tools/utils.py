@@ -2,7 +2,7 @@ from collections import defaultdict
 import csv
 from math import radians, cos, floor, log10
 from pathlib import Path
-from typing import List, Tuple
+from typing import *
 import numpy as np
 from scipy.cluster.hierarchy import fcluster
 import yaml
@@ -183,6 +183,7 @@ def get_clusters(z, cells: np.ndarray, distance: float = 0.5) -> defaultdict:
     for i, c in enumerate(clusters):
         grouped[c].append(i)
 
+    # print cluster parameters
     print("-"*40)
     np.set_printoptions(formatter={'float': '{:7.2f}'.format})
     for i in sorted(grouped.keys()):
@@ -207,3 +208,42 @@ def get_clusters(z, cells: np.ndarray, distance: float = 0.5) -> defaultdict:
 
     return grouped
 
+def build_merge_tree(z, distance: float, names: List[str] = None):
+    """Builds a dendrogram-like "merging tree" from a linkage matrix and a distance cutoff containing
+    nested tuples of dataset names. Returns list of tree nodes and a corresponding list of cluster IDs
+    """
+
+    names = list([str(n) for n in names])
+
+    merge_list = []
+    cluster_list = []
+    cluster_id = fcluster(z, distance, criterion='distance')
+
+    for merge in z:
+        # print(merge)
+        if merge[2] > distance:
+            break
+        ii, jj = int(merge[0]), int(merge[1])
+        
+        if ii < len(names):
+            name0 = names[int(ii)]
+            cid = cluster_id[ii]
+        else:
+            name0 = merge_list[int(ii)-len(names)]
+            cid = cluster_list[int(ii)-len(names)]
+            
+        if jj < len(names):
+            name1 = names[int(jj)]
+            assert cluster_id[jj] == cid
+        else:
+            name1 = merge_list[int(jj)-len(names)]
+            assert cluster_list[int(jj)-len(names)] == cid
+            
+        merge_list.append((name0, name1))
+        cluster_list.append(cid)
+        
+    return merge_list, cluster_list
+
+def flatten_to_str(in_names: Union[Tuple[Union[Tuple, str], Union[Tuple, str]], str], sep: str = ':') -> str:
+    """Generates unique string identifiers from a nested tuple of strings"""
+    return in_names if isinstance(in_names, str) else sep.join([flatten_to_str(fn, sep) for fn in in_names])

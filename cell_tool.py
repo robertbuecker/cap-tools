@@ -160,10 +160,14 @@ class ClusterTableWidget(ttk.Frame):
             self._entry_ids.append(self.cluster_view.insert('', tk.END, values=[c_id, len(cl)] + cpar_strs))
             
     def show_entry_info(self, event):
-        for selected in self.cluster_view.selection():
-            cluster_id = self.cluster_view.item(selected)['values'][0]
+        for cluster_id in self.selected_clusters:
             print(f'--- CLUSTER {cluster_id} ---')            
             print(self._clusters[cluster_id].table)
+            
+    @property
+    def selected_clusters(self):
+        return [self.cluster_view.item(selected)['values'][0] 
+                for selected in self.cluster_view.selection()]
         
 
 class CellGUI:
@@ -224,7 +228,8 @@ class CellGUI:
                 w.grid(row=ii, column=0, columnspan=2)
         csf.grid(row=15, column=0)
         
-        ttk.Button(cf, text='Save clusters', command=self.save_clusters).grid(row=20, column=0)
+        ttk.Button(cf, text='Save selected clusters', command=self.save_clusters).grid(row=20, column=0)
+        ttk.Button(cf, text='Save merging macro', command=self.save_merging_macro).grid(row=25, column=0)
         
         # quit button
         button_quit = ttk.Button(cf, text="Quit", command=self.root.destroy)
@@ -309,7 +314,7 @@ class CellGUI:
         else:
             self.all_cells = CellList.from_yaml(self.fn, use_raw_cell=raw)
             
-        self.w_all_fn.config(text=self.fn.rsplit('/',1)[-1] + (' (raw)' if raw else ''))
+        self.w_all_fn.config(text=os.path.basename(self.fn) + (' (raw)' if raw else ''))
         
         self.init_clustering()
             
@@ -328,15 +333,42 @@ class CellGUI:
                 return
             
         for ii, (c_id, cluster) in enumerate(self.clusters.items()):
+            if c_id not in self.cluster_table.selected_clusters:
+                print(f'Skipping Cluster {c_id} (not selected in list)')
+                continue
             cluster_fn = os.path.splitext(fn_template)[0] + f'-cluster_{ii}_ID{c_id}.csv'
             cluster.to_csv(cluster_fn)
             print(f'Wrote cluster {c_id} with {len(cluster)} crystals to file {cluster_fn}')
+            
+    def save_merging_macro(self):
+        
+        mac_fn = asksaveasfilename(confirmoverwrite=True, title='Select MAC filename',
+                                   initialdir=os.path.dirname(self.fn), initialfile=os.path.splitext(os.path.basename(self.fn))[0] + '.mac',
+                                   filetypes=[('CrysAlisPro Macro', '*.mac')])
+        
+        info_fn = os.path.splitext(mac_fn)[0] + '_merge_info.csv'
+        
+        with open(mac_fn, 'w') as fh, open(info_fn, 'w') as ifh:
+            ifh.write('File path,Data sets,Cluster,Merge code\n')
+            for ii, (c_id, cluster) in enumerate(self.clusters.items()):
+                if c_id not in self.cluster_table.selected_clusters:
+                    print(f'Skipping Cluster {c_id} (not selected in list)')
+                    continue
+                out_paths, in_paths, out_codes, out_info = cluster.get_merging_paths(prefix=f'C{c_id}', short_form=True)
+                for out, (in1, in2), code, info in zip(out_paths, in_paths, out_codes, out_info):
+                    fh.write(f'xx proffitmerge "{out}" "{in1}" "{in2}"\n')
+                    print(f'Writing merge file for: {info}')
+                    ifh.write(f'{out},{c_id},{info},{code}\n')
+                print(f'Full-cluster merge for cluster {c_id}: {out_paths[-1]}')
             
             
 def parse_args():
     import argparse
 
-    description = "Program for finding the unit cell from a serial crystallography experiment."
+    description = "Program for clustering unit cells from crystallography experiments. Contains clustering algorithm and display "
+    "functions from edtools by Stef Smeets (https://github.com/instamatic-dev/edtools), adding a GUI and cluster import/export "
+    "for CrysAlisPro."
+    
     parser = argparse.ArgumentParser(description=description,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
         

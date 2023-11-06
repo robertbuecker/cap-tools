@@ -108,7 +108,7 @@ def main():
     parser.set_defaults(binsize=0.5,
                         cluster=False,
                         distance=None,
-                        method="average",
+                        method="ward",
                         metric="euclidean",
                         use_raw_cell=False,
                         raw=False,

@@ -204,7 +204,7 @@ class CellGUI:
         self.w_all_fn = ttk.Label(cf, text='(nothing loaded)')
         self.w_all_fn.grid(row=10, column=0)
 
-        metric_list = 'Euclidean SEuclidean LCV Volume'.split()
+        metric_list = 'Euclidean SEuclidean LCV aLCV Volume'.split()
         method_list = 'Average Single Complete Median Weighted Centroid Ward'.split()        
         preproc_list = 'None Standardize PCA Radians Sine'.split()
         
@@ -212,12 +212,12 @@ class CellGUI:
         csf = ttk.LabelFrame(cf, text='Clustering')
         self.v_cluster_setting = {
             'distance': tk.DoubleVar(value=distance),
-            'method': tk.StringVar(value=[m for m in method_list if m.lower() == method.lower()][0]),
+            'preproc': tk.StringVar(value=[m for m in preproc_list if m.lower() == preproc.lower()][0]),
             'metric': tk.StringVar(value=[m for m in metric_list if m.lower() == metric.lower()][0]),
-            'preproc': tk.StringVar(value=[m for m in preproc_list if m.lower() == preproc.lower()][0])
+            'method': tk.StringVar(value=[m for m in method_list if m.lower() == method.lower()][0])
         }        
         
-        # ugly way to get rid of capitalization issues
+        #TODO: some sort of preset system would be nice
         
         self.w_cluster_setting = {
             'Distance': ttk.Entry(csf, textvariable=self.v_cluster_setting['distance']),
@@ -225,7 +225,8 @@ class CellGUI:
             'Metric': ttk.OptionMenu(csf, self.v_cluster_setting['metric'], self.v_cluster_setting['metric'].get(), *metric_list),
             'Method': ttk.OptionMenu(csf, self.v_cluster_setting['method'], self.v_cluster_setting['method'].get(), *method_list),
             'Refresh': ttk.Button(csf, text='Refresh', command=self.init_clustering)
-        }        
+        }
+        
         for ii, (k, w) in enumerate(self.w_cluster_setting.items()):
             if not (isinstance(w, ttk.Button) or isinstance(w, ttk.Checkbutton)):
                 ttk.Label(csf, text=k).grid(row=ii, column=0)
@@ -402,7 +403,7 @@ def parse_args():
     parser.add_argument("-t","--metric",
                         action="store", type=str, dest="metric",
                         choices="euclidean lcv volume".split(),
-                        help="Metric for calculating the distance between items (Euclidian distance, cell volume, LCV as in CCP4-BLEND)")
+                        help="Metric for calculating the distance between items (Euclidian distance, cell volume, LCV, and aLCV as in CCP4-BLEND)")
 
     parser.add_argument("-l", "--use_bravais_lattice",
                         action="store_false", dest="use_raw_cell",

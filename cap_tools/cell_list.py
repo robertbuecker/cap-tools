@@ -180,6 +180,10 @@ class CellList:
                     dist = pdist(_cells, metric=unit_cell_lcv_distance)
                     z = linkage(dist,  method=method)
                     distance = round(0.5*max(z[:,2]), 4) if distance is None else distance
+                elif metric.lower() == "alcv":
+                    dist = pdist(_cells, metric=lambda cell1, cell2: unit_cell_lcv_distance(cell1, cell2, True))
+                    z = linkage(dist,  method=method)
+                    distance = round(0.5*max(z[:,2]), 4) if distance is None else distance                    
                 elif metric.lower() == "volume":
                     dist = pdist(_cells, metric=volume_difference)
                     z = linkage(dist,  method=method)

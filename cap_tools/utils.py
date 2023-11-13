@@ -160,13 +160,13 @@ def d_calculator(cell: list) -> tuple:
     return d_ab, d_ac, d_bc
 
 
-def unit_cell_lcv_distance(cell1: list, cell2: list) -> float:
+def unit_cell_lcv_distance(cell1: list, cell2: list, absolute: bool = False) -> float:
     """Implements Linear Cell Volume from Acta Cryst. (2013). D69, 1617-1632"""
     d_ab1, d_ac1, d_bc1 = d_calculator(cell1)
     d_ab2, d_ac2, d_bc2 = d_calculator(cell2)
-    M_ab = abs(d_ab1 - d_ab2)/min(d_ab1, d_ab2)
-    M_ac = abs(d_ac1 - d_ac2)/min(d_ac1, d_ac2)
-    M_bc = abs(d_bc1 - d_bc2)/min(d_bc1, d_bc2)
+    M_ab = abs(d_ab1 - d_ab2)/(1 if absolute else min(d_ab1, d_ab2))
+    M_ac = abs(d_ac1 - d_ac2)/(1 if absolute else min(d_ac1, d_ac2))
+    M_bc = abs(d_bc1 - d_bc2)/(1 if absolute else min(d_bc1, d_bc2))
     return max(M_ab, M_ac, M_bc)
 
 

@@ -7,7 +7,8 @@ import csv
 import io, os
 from collections import namedtuple
 from typing import *
-
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 class CellList:
 
@@ -22,6 +23,8 @@ class CellList:
                 self.ds.append({'unit cell': ' '.join(list(c))})
         else:
             self.ds = ds
+            
+    # TODO add methods for cell reductions, PCA, difference normalization
 
     def __len__(self):
         return self._cells.shape[0]
@@ -50,6 +53,14 @@ class CellList:
                 np.std(cdat, axis=0),
                 np.min(cdat, axis=0),
                 np.max(cdat, axis=0))
+        
+    @property
+    def cells_standardized(self):
+        return StandardScaler().fit_transform(self.cells)
+    
+    @property
+    def cells_pca(self):
+        return PCA().fit_transform(self.cells)
 
     @property
     def table(self):
@@ -131,8 +142,11 @@ class CellList:
                  distance: float=None,
                  method: str="average",
                  metric: str="euclidean",
+                 preproc: str="none",
                  use_radian: bool=False,
-                 use_sine: bool=False) -> Dict[int,'CellList']:
+                 use_sine: bool=False,
+                 pca: bool=True,
+                 standardize: bool=False) -> Dict[int,'CellList']:
                 """Perform hierarchical cluster analysis on a list of cells. 
 
                 method: lcv, volume, euclidean
@@ -143,14 +157,25 @@ class CellList:
                 """
 
                 from scipy.spatial.distance import pdist
+                
+                pp = preproc.lower()
 
-                if use_sine:
-                    _cells = to_sin(self.cells)
-                elif use_radian:
-                    _cells = to_radian(self.cells)
-                else:
+                # cell data conditioning
+                if pp == 'none':
                     _cells = self.cells
+                elif pp == 'standardize':
+                    _cells = self.cells_standardized
+                elif pp == 'pca':
+                    _cells = self.cells_pca
+                elif pp == 'sine':
+                    _cells = to_sin(self.cells)
+                elif pp == 'radians':
+                    _cells = to_radian(self.cells)
 
+                # TODO: add Niggli somehwere
+
+                # cell distance metric
+                # TODO: add S6/G6
                 if metric.lower() == "lcv":
                     dist = pdist(_cells, metric=unit_cell_lcv_distance)
                     z = linkage(dist,  method=method)
@@ -169,6 +194,7 @@ class CellList:
                 print(f"Linkage method = {method}")
                 print(f"Cutoff distance = {distance}")
                 print(f"Distance metric = {metric}")
+                print(f"Preprocessing = {preproc}")
                 print("")
 
                 clusters_idx = get_clusters(z, self.cells, distance=distance)

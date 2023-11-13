@@ -176,10 +176,13 @@ class CellGUI:
                  distance: float = 2.0,
                  method: str = 'average',
                  metric: str = 'euclidian',
-                 use_radian_for_clustering: bool = False,
-                 use_sine_for_clustering: bool = False,
+                 preproc: str = 'none',
                  use_raw_cell: bool = False,
                  **kwargs):
+        
+        # DEFAULTS FOR METHOD ARE DEFINED WITH CLI ARGUMENTS
+        if kwargs:
+            print(f'GUI function got unused extra arguments: {kwargs}')
         
         # internal variables
         self.all_cells = CellList(cells=np.empty([0,6]))
@@ -201,23 +204,26 @@ class CellGUI:
         self.w_all_fn = ttk.Label(cf, text='(nothing loaded)')
         self.w_all_fn.grid(row=10, column=0)
 
+        metric_list = 'Euclidean SEuclidean LCV Volume'.split()
+        method_list = 'Average Single Complete Median Weighted Centroid Ward'.split()        
+        preproc_list = 'None Standardize PCA Radians Sine'.split()
+        
         # clustering (default) settings
         csf = ttk.LabelFrame(cf, text='Clustering')
         self.v_cluster_setting = {
             'distance': tk.DoubleVar(value=distance),
-            'method': tk.StringVar(value=method),
-            'metric': tk.StringVar(value=metric),
-            'use_radian': tk.BooleanVar(value=use_radian_for_clustering),
-            'use_sine': tk.BooleanVar(value=use_sine_for_clustering)
+            'method': tk.StringVar(value=[m for m in method_list if m.lower() == method.lower()][0]),
+            'metric': tk.StringVar(value=[m for m in metric_list if m.lower() == metric.lower()][0]),
+            'preproc': tk.StringVar(value=[m for m in preproc_list if m.lower() == preproc.lower()][0])
         }        
-        metric_list = 'Euclidean LCV Volume'.split()
-        method_list = 'Average Single Complete Median Weighted Centroid Ward'.split()        
+        
+        # ugly way to get rid of capitalization issues
+        
         self.w_cluster_setting = {
             'Distance': ttk.Entry(csf, textvariable=self.v_cluster_setting['distance']),
-            'Method': ttk.OptionMenu(csf, self.v_cluster_setting['method'], 'Average', *method_list),
-            'Metric': ttk.OptionMenu(csf, self.v_cluster_setting['metric'], 'Euclidean', *metric_list),
-            'Radian': ttk.Checkbutton(csf, text='Radian', variable=self.v_cluster_setting['use_radian']),
-            'Sine': ttk.Checkbutton(csf, text='Sine', variable=self.v_cluster_setting['use_sine']),
+            'Preprocessing': ttk.OptionMenu(csf, self.v_cluster_setting['preproc'], self.v_cluster_setting['preproc'].get(), *preproc_list),
+            'Metric': ttk.OptionMenu(csf, self.v_cluster_setting['metric'], self.v_cluster_setting['metric'].get(), *metric_list),
+            'Method': ttk.OptionMenu(csf, self.v_cluster_setting['method'], self.v_cluster_setting['method'].get(), *method_list),
             'Refresh': ttk.Button(csf, text='Refresh', command=self.init_clustering)
         }        
         for ii, (k, w) in enumerate(self.w_cluster_setting.items()):
@@ -402,13 +408,10 @@ def parse_args():
                         action="store_false", dest="use_raw_cell",
                         help="Use the bravais lattice (symmetry applied)")
 
-    parser.add_argument("-r", "--use_radian_for_angles",
-                        action="store_true", dest="use_radian_for_clustering",
-                        help="Use radians for unit cell clustering (to downweight the difference in angles)")
-
-    parser.add_argument("-s", "--use_sine_for_angles",
-                        action="store_true", dest="use_sine_for_clustering",
-                        help="Use sine for unit cell clustering (to disambiguousize the difference in angles)")
+    parser.add_argument("-p", "--preprocessing",
+                        action="store", type=str, dest="preproc",
+                        choices='none standardize pca radians sine'.split(),
+                        help="Options for conditioning (pre-processing) cell data.")
     
     parser.add_argument("-w","--raw-cell",
                        action="store_true", dest="use_raw_cell",
@@ -418,12 +421,11 @@ def parse_args():
                         binsize=0.5,
                         cluster=True,
                         distance=0.0,
-                        method="average",
+                        method="ward",
                         metric="euclidean",
                         use_raw_cell=False,
                         raw=False,
-                        use_radian_for_clustering=False,
-                        use_sine_for_clustering=False)
+                        preproc='none')
     
     options = parser.parse_args()
 

@@ -31,6 +31,10 @@ class Finalization:
 
         self.shells = sh
         self.overall = ov
+        
+    @property
+    def foms(self):
+        return list(self.shells.columns)
 
     def parse_finalization_results(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
@@ -89,8 +93,11 @@ class Finalization:
         # import final data into Pandas dataframes and mangle a bit
         shells = pd.read_csv(res, skiprows=0, header=None, delim_whitespace=True, names=cols)
         overall = pd.read_csv(overall, skiprows=0, header=None, delim_whitespace=True, names=cols)
-        shells['dmax'] = shells['dmax'].str.split('-',expand=True)[0]
-        overall['dmax'] = overall['dmax'].str.split('-',expand=True)[0]
+        shells['dmax'] = shells['dmax'].str.split('-',expand=True)[0].astype(float)
+        overall['dmax'] = overall['dmax'].str.split('-',expand=True)[0].astype(float)
+        
+        shells['1/d'] = (1/shells['dmax'] + 1/shells['dmin'])/2
+        overall['1/d'] = (1/overall['dmax'] + 1/overall['dmin'])/2
 
         return shells, overall
 
@@ -168,12 +175,16 @@ class FinalizationCollection(MutableMapping[str, Finalization]):
             shells = v.shells.iloc[[-1],:].copy()
             shells['name'] = k
             allshell.append(shells)
-
-        return pd.concat(allshell, join='outer')
     
+        return pd.concat(allshell, join='outer')
+
     @property
     def shell_table(self) -> pd.DataFrame:
-        return self.allshell.pivot(columns='name', index='dmin')
+        return self.shelldata.pivot(columns='name', index='dmin').sort_index(ascending=False)
     
     def get_shell_table(self, fom=Union[str, List[str]]) -> pd.DataFrame:
-        return self.allshell.pivot(columns='name', index='dmin', columns=fom)
+        return self.shelldata.pivot(columns='name', index='dmin', values=fom).sort_index(ascending=False)
+    
+    @property
+    def foms(self):
+        return list({f for fin in self.values() for f in fin.foms})

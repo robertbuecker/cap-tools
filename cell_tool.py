@@ -15,8 +15,17 @@ from cap_tools.interact_figures import distance_from_dendrogram
 from typing import *
 from time import time
 import os
+from collections import namedtuple
 
-      
+ClusterPreset = namedtuple('ClusterPreset', ['preproc', 'metric', 'method'])
+
+cluster_presets = {'Direct': ClusterPreset(preproc='None', metric='Euclidean', method='Ward'),
+                   'Whitened': ClusterPreset(preproc='PCA', metric='SEuclidean', method='Average'),
+                   'LCV (relative)': ClusterPreset(preproc='None', metric='LCV', method='Ward'),
+                   'Diagonals (Å)': ClusterPreset(preproc='Diagonals', metric='Euclidean', method='Ward'),
+                   'Standardized': ClusterPreset(preproc='None', metric='SEuclidean', method='Average'),
+                   'LCV (Å)': ClusterPreset(preproc='None', metric='aLCV', method='Ward')}
+
 class PlotWidget(ttk.Frame):
     
     def __init__(self, parent: tk.BaseWidget):
@@ -204,15 +213,17 @@ class CellGUI:
         self.w_all_fn = ttk.Label(cf, text='(nothing loaded)')
         self.w_all_fn.grid(row=10, column=0)
 
-        metric_list = 'Euclidean SEuclidean LCV aLCV Volume'.split()
-        method_list = 'Average Single Complete Median Weighted Centroid Ward'.split()        
-        preproc_list = 'None Standardize PCA Radians Sine'.split()
+        preset_list = list(cluster_presets.keys()) + ['(none)']
+        metric_list = 'Euclidean LCV aLCV SEuclidean Volume'.split()
+        method_list = 'Ward Average Single Complete Median Weighted Centroid'.split()        
+        preproc_list = 'None PCA Diagonals DiagonalsPCA G6 Standardized Radians Sine'.split()
         
         # clustering (default) settings
-        csf = ttk.LabelFrame(cf, text='Clustering')
+        csf = ttk.LabelFrame(cf, text='Clustering', width=200)
         self.v_cluster_setting = {
             'distance': tk.DoubleVar(value=distance),
-            'preproc': tk.StringVar(value=[m for m in preproc_list if m.lower() == preproc.lower()][0]),
+            'preset': tk.StringVar(value='(none)'),
+            'preproc': tk.StringVar(value=[m for m in preproc_list if m.lower() == preproc.lower()][0]), # ugly capitalization workaround
             'metric': tk.StringVar(value=[m for m in metric_list if m.lower() == metric.lower()][0]),
             'method': tk.StringVar(value=[m for m in method_list if m.lower() == method.lower()][0])
         }        
@@ -221,11 +232,15 @@ class CellGUI:
         
         self.w_cluster_setting = {
             'Distance': ttk.Entry(csf, textvariable=self.v_cluster_setting['distance']),
-            'Preprocessing': ttk.OptionMenu(csf, self.v_cluster_setting['preproc'], self.v_cluster_setting['preproc'].get(), *preproc_list),
+            'Preset': ttk.OptionMenu(csf, self.v_cluster_setting['preset'], self.v_cluster_setting['preset'].get(), *preset_list, command=self.set_preset),
+            'Preprocessing': ttk.OptionMenu(csf, self.v_cluster_setting['preproc'], self.v_cluster_setting['preproc'].get(), *preproc_list), #TODO: add init_clustering as callback?
             'Metric': ttk.OptionMenu(csf, self.v_cluster_setting['metric'], self.v_cluster_setting['metric'].get(), *metric_list),
             'Method': ttk.OptionMenu(csf, self.v_cluster_setting['method'], self.v_cluster_setting['method'].get(), *method_list),
             'Refresh': ttk.Button(csf, text='Refresh', command=self.init_clustering)
         }
+        
+        for k in ['Preset', 'Preprocessing', 'Metric', 'Method']:
+            self.w_cluster_setting[k].config(w=15)
         
         for ii, (k, w) in enumerate(self.w_cluster_setting.items()):
             if not (isinstance(w, ttk.Button) or isinstance(w, ttk.Checkbutton)):
@@ -234,6 +249,7 @@ class CellGUI:
             else:
                 w.grid(row=ii, column=0, columnspan=2)
         csf.grid(row=15, column=0)
+        # csf.grid_propagate(0)
         
         ttk.Button(cf, text='Save selected clusters', command=self.save_clusters).grid(row=20, column=0)
         ttk.Button(cf, text='Save merging macro', command=self.save_merging_macro).grid(row=25, column=0)
@@ -283,6 +299,15 @@ class CellGUI:
             self.fn = filename
             self.reload_cells()
             
+    def set_preset(self, *args):
+        preset = self.v_cluster_setting['preset'].get()
+        if preset not in cluster_presets:
+            print(f'Preset {preset} not found.')
+            return
+        self.v_cluster_setting['preproc'].set(cluster_presets[preset].preproc)
+        self.v_cluster_setting['metric'].set(cluster_presets[preset].metric)
+        self.v_cluster_setting['method'].set(cluster_presets[preset].method)
+            
     @property
     def active_tab(self):
         return self.tabs.index(self.tabs.select())
@@ -293,7 +318,7 @@ class CellGUI:
             cluster_args = {k: v.get() for k, v in self.v_cluster_setting.items()}
             cluster_args = {k: v.lower() if isinstance(v, str) else v for k, v in cluster_args.items()}
             cluster_args['distance'] = None if cluster_args['distance'] == 0 else cluster_args['distance']
-            self.clusters, z = self.all_cells.cluster(**cluster_args)
+            self.clusters, z = self.all_cells.cluster(**{k: v for k, v in cluster_args.items() if k != 'preset'})
             self.cluster_table.update_table(clusters=self.clusters)
             if self.active_tab == 1:
                 self.cellhist_widget.update_histograms(clusters=self.clusters)
@@ -302,6 +327,15 @@ class CellGUI:
         def update_distance(cutoff):
             self.v_cluster_setting['distance'].set(cutoff)
             recluster()
+        
+        matching_preset = [k for k, v in cluster_presets.items() if ((v.method == self.v_cluster_setting['method'].get())
+                                                                     and (v.metric == self.v_cluster_setting['metric'].get())
+                                                                     and (v.preproc == self.v_cluster_setting['preproc'].get()))]
+                           
+        if len(matching_preset) == 1:
+            self.v_cluster_setting['preset'].set(matching_preset[0])
+        else:
+            self.v_cluster_setting['preset'].set('(none)')
         
         z, cluster_args = recluster()
             
@@ -411,7 +445,7 @@ def parse_args():
 
     parser.add_argument("-p", "--preprocessing",
                         action="store", type=str, dest="preproc",
-                        choices='none standardize pca radians sine'.split(),
+                        choices='none standardized pca radians sine'.split(),
                         help="Options for conditioning (pre-processing) cell data.")
     
     parser.add_argument("-w","--raw-cell",

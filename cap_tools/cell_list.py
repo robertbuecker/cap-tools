@@ -16,6 +16,7 @@ class CellList:
         self._cells = put_in_order(cells)
         self._weights = np.array([1]*cells.shape[0]) if weights is None else weights
         self._merge_tree = [] if merge_tree is None else merge_tree
+        self.pca_whiten = False # somewhat redundant if SEuclidean is available as clustering metric
 
         if ds is None:
             self.ds = []
@@ -60,7 +61,30 @@ class CellList:
     
     @property
     def cells_pca(self):
-        return PCA().fit_transform(self.cells)
+        """PCA-filtered normalized cell parameters"""
+        return PCA(whiten=self.pca_whiten).fit_transform(self.cells)
+    
+    @property
+    def G6(self):
+        """G6 metric (Gruber parametrization)"""
+        cos = lambda al: np.cos(al*np.pi/180)
+        return np.stack([(c[0]**2, c[1]**2, c[2]**2, 
+                          2*cos(c[3])*c[1]*c[2], 2*cos(c[4])*c[2]*c[0], 2*cos(c[5])*c[0]*c[1]) 
+                         for c in self.cells], axis=0)
+        
+    @property
+    def diagonals(self):
+        """Facet diagonals (as used for LCV, see Foadi et al. 2013)"""
+        return np.stack([(
+            np.sqrt(c[0]**2 + c[1]**2 - 2*c[0]*c[1]*np.cos(np.radians(180 - c[5]))),
+            np.sqrt(c[2]**2 + c[0]**2 - 2*c[2]*c[0]*np.cos(np.radians(180 - c[4]))),
+            np.sqrt(c[1]**2 + c[2]**2 - 2*c[1]*c[2]*np.cos(np.radians(180 - c[3])))
+        ) for c in self.cells], axis=0)
+        
+    @property
+    def diagonals_PCA(self):
+        """PCA-filtered normalized facet diagonals"""
+        return PCA(whiten=self.pca_whiten).fit_transform(self.diagonals)
 
     @property
     def table(self):
@@ -139,14 +163,10 @@ class CellList:
         write_cap_csv(fn, self.ds)
 
     def cluster(self,
-                 distance: float=None,
+                 distance: Optional[float]=None,
                  method: str="average",
                  metric: str="euclidean",
-                 preproc: str="none",
-                 use_radian: bool=False,
-                 use_sine: bool=False,
-                 pca: bool=True,
-                 standardize: bool=False) -> Dict[int,'CellList']:
+                 preproc: str="none") -> Dict[int,'CellList']:
                 """Perform hierarchical cluster analysis on a list of cells. 
 
                 method: lcv, volume, euclidean
@@ -163,7 +183,7 @@ class CellList:
                 # cell data conditioning
                 if pp == 'none':
                     _cells = self.cells
-                elif pp == 'standardize':
+                elif pp == 'standardized':
                     _cells = self.cells_standardized
                 elif pp == 'pca':
                     _cells = self.cells_pca
@@ -171,6 +191,14 @@ class CellList:
                     _cells = to_sin(self.cells)
                 elif pp == 'radians':
                     _cells = to_radian(self.cells)
+                elif pp == 'diagonals':
+                    _cells = self.diagonals
+                elif pp == 'diagonalspca':
+                    _cells = self.diagonals_PCA
+                elif pp == 'g6':
+                    _cells = self.G6
+                else:
+                    raise ValueError(f'Unknown preprocessing method {preproc}')
 
                 # TODO: add Niggli somehwere
 

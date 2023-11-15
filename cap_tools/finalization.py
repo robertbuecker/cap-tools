@@ -2,7 +2,7 @@ from collections.abc import MutableMapping
 import pandas as pd
 import os
 from io import StringIO
-from typing import Dict, Iterator, MutableMapping, Tuple
+from typing import *
 
 try:
     import gemmi
@@ -101,8 +101,10 @@ class FinalizationCollection(MutableMapping[str, Finalization]):
     def from_folder(cls, folder: str, include_subfolders: bool = False,
                     ignore_parse_errors: bool = False, **kwargs):
         from glob import glob
-        paths = [fn[:-8]
-                 for fn in glob(os.path.join(folder, '*_red.sum'))]
+        if include_subfolders:
+                paths = [fn[:-8] for fn in glob(os.path.join(folder, '*_red.sum'))]
+            
+        paths = [fn[:-8] for fn in glob(os.path.join(folder, '**', '*_red.sum'), recursive=True)]
 
         fc = cls()
 
@@ -168,3 +170,10 @@ class FinalizationCollection(MutableMapping[str, Finalization]):
             allshell.append(shells)
 
         return pd.concat(allshell, join='outer')
+    
+    @property
+    def shell_table(self) -> pd.DataFrame:
+        return self.allshell.pivot(columns='name', index='dmin')
+    
+    def get_shell_table(self, fom=Union[str, List[str]]) -> pd.DataFrame:
+        return self.allshell.pivot(columns='name', index='dmin', columns=fom)

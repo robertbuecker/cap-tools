@@ -390,7 +390,7 @@ class CellGUI:
         info_fn = os.path.splitext(mac_fn)[0] + '_merge_info.csv'
         
         with open(mac_fn, 'w') as fh, open(info_fn, 'w') as ifh:
-            ifh.write('File path,Data sets,Cluster,Merge code\n')
+            ifh.write('Name,File path,Cluster,Data sets,Merge code\n')
             for ii, (c_id, cluster) in enumerate(self.clusters.items()):
                 if c_id not in self.cluster_table.selected_clusters:
                     print(f'Skipping Cluster {c_id} (not selected in list)')
@@ -399,7 +399,7 @@ class CellGUI:
                 for out, (in1, in2), code, info in zip(out_paths, in_paths, out_codes, out_info):
                     fh.write(f'xx proffitmerge "{out}" "{in1}" "{in2}"\n')
                     print(f'Writing merge file for: {info}')
-                    ifh.write(f'{out},{c_id},{info},{code}\n')
+                    ifh.write(f'{os.path.basename(out)},{out},{c_id},{info},{code}\n')
                 print(f'Full-cluster merge for cluster {c_id}: {out_paths[-1]}')
             
             

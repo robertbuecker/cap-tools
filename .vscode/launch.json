@@ -29,6 +29,14 @@
             "console": "integratedTerminal",
             "args": ["C:\\Users\\robert.buecker\\data\\Trehalose-Symmetry\\all-results.csv"],
             "justMyCode": true
-        }
+        },
+        {
+            "name": "Finalization Viewer",
+            "type": "python",
+            "request": "launch",
+            "program": "finalization_viewer.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }        
     ]
 }

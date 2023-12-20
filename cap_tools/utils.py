@@ -105,7 +105,14 @@ def parse_cap_csv(fn: str, use_raw_cell: bool, filter_missing: bool = True) -> T
         for _ in range(7):
             _ = fh.readline()
         ds = list(csv.DictReader(fh))
-    key = 'Current unit cell' if use_raw_cell else 'Final SG unit cell '
+        
+    for d in ds:
+        # apply fix for older CAP version bug
+        if 'Final SG unit cell ' in d:
+            d['Final SG unit cell'] = d['Final SG unit cell ']
+            del d['Final SG unit cell ']
+        
+    key = 'Current unit cell' if use_raw_cell else 'Final SG unit cell'
     ds = [d for d in ds if d[key]] if filter_missing else ds # filter experiments with empty cell parameters (not indexed)
     cells = np.array([d[key].split() for d in ds]).astype(float)
     weights = np.array([1 for d in ds])

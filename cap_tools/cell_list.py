@@ -24,8 +24,6 @@ class CellList:
                 self.ds.append({'unit cell': ' '.join(list(c))})
         else:
             self.ds = ds
-            
-    # TODO add methods for cell reductions, PCA, difference normalization
 
     def __len__(self):
         return self._cells.shape[0]
@@ -200,10 +198,7 @@ class CellList:
                 else:
                     raise ValueError(f'Unknown preprocessing method {preproc}')
 
-                # TODO: add Niggli somehwere
-
                 # cell distance metric
-                # TODO: add S6/G6
                 if metric.lower() == "lcv":
                     dist = pdist(_cells, metric=unit_cell_lcv_distance)
                     z = linkage(dist,  method=method)

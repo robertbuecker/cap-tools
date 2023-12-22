@@ -18,7 +18,9 @@ from typing import *
 from time import time
 from collections import namedtuple
 from cap_tools.finalization import Finalization, FinalizationCollection
+import matplotlib
 
+matplotlib.use('TkAgg')
 
 class PlotWidget(ttk.Frame):
     

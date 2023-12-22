@@ -5,7 +5,9 @@ from cap_tools.interact_figures import distance_from_dendrogram, find_cell
 from cap_tools.utils import get_clusters, parse_cap_csv, put_in_order, to_radian, to_sin, unit_cell_lcv_distance, write_cap_csv
 from typing import *
 from cap_tools.utils import volume_difference
+import matplotlib
 
+matplotlib.use('TkAgg')
 
 def cluster_cell(cells: list, 
                  distance: float=None, 

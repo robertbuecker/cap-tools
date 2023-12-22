@@ -1,4 +1,5 @@
 from matplotlib.figure import Figure
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import SpanSelector
@@ -8,6 +9,8 @@ from typing import *
 from .utils import weighted_average
 
 click_cid_dendrogram = None
+
+matplotlib.use('TkAgg')
 
 def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None, 
                              labels: Optional[List[str]] = None, 

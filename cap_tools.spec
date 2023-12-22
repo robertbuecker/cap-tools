@@ -27,10 +27,27 @@ zscore_a = Analysis(
     noarchive=False,
 )
 
-MERGE( (cell_a, 'cell_tool', 'cell_tool'), (zscore_a, 'compute_z', 'compute_z') )
+finalization_a = Analysis(
+    ['finalization_viewer.py'],
+    pathex=[],
+    binaries=[],
+    datas=[],
+    hiddenimports=[],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+)
+
+
+MERGE( (cell_a, 'cell_tool', 'cell_tool'), 
+      (zscore_a, 'compute_z', 'compute_z'),
+      (finalization_a, 'finalization_viewer', 'finalization_viewer'))
 
 cell_pyz = PYZ(cell_a.pure)
 zscore_pyz = PYZ(zscore_a.pure)
+finalization_pyz = PYZ(finalization_a.pure)
 
 cell_exe = EXE(
     cell_pyz,
@@ -68,6 +85,24 @@ zscore_exe = EXE(
     entitlements_file=None,
 )
 
+finalization_exe = EXE(
+    finalization_pyz,
+    finalization_a.scripts,
+    [],
+    exclude_binaries=True,
+    name='finalization_viewer',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+
 coll = COLLECT(
     cell_exe,
     cell_a.binaries,
@@ -75,6 +110,9 @@ coll = COLLECT(
     zscore_exe,
     zscore_a.binaries,
     zscore_a.datas,
+    finalization_exe,
+    finalization_a.binaries,
+    finalization_a.datas,
     strip=False,
     upx=True,
     upx_exclude=[],

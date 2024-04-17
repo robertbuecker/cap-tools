@@ -13,7 +13,7 @@ except ImportError:
 class Finalization:
     """Extensible class to manage a CAP finalization run"""
 
-    HEADLINE = 'Statistics vs resolution (taking redundancy into account) - Laue group'
+    HEADLINE = 'Statistics vs resolution (taking redundancy into account)'
 
     def __init__(self, path: str, verbose: bool = True):
 
@@ -100,6 +100,15 @@ class Finalization:
 
         self.shells, self.overall = shells, overall
 
+    @property
+    def highest_shell(self) -> pd.DataFrame:
+        return self.shells.iloc[[-1],:]
+    
+    @property
+    def overall_highest(self) -> pd.DataFrame:
+        ov_high = pd.concat((self.overall, self.highest_shell)).reset_index(drop=True).drop(columns='1/d').astype(str).transpose()
+        return pd.DataFrame('' + ov_high[0] + ' (' + ov_high[1] + ')').transpose()    
+    
 
 class FinalizationCollection(MutableMapping[str, Finalization]):
     """Manages are collection of finalizations with a dict-like interface and nice auto-functions"""
@@ -208,7 +217,17 @@ class FinalizationCollection(MutableMapping[str, Finalization]):
     def highest_shell(self) -> pd.DataFrame:
         allshell = []
         for k, v in self.items():
-            shells = v.shells.iloc[[-1],:].copy()
+            shells = v.highest_shell.copy()
+            shells['name'] = k
+            allshell.append(shells)
+    
+        return pd.concat(allshell, join='outer')
+
+    @property
+    def overall_highest(self) -> pd.DataFrame:
+        allshell = []
+        for k, v in self.items():
+            shells = v.overall_highest.copy()
             shells['name'] = k
             allshell.append(shells)
     
@@ -224,3 +243,7 @@ class FinalizationCollection(MutableMapping[str, Finalization]):
     @property
     def foms(self):
         return list({f for fin in self.values() for f in fin.foms})
+    
+    @property
+    def path(self):
+        return {lbl: fin.basename for lbl, fin in self.items()}

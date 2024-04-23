@@ -384,7 +384,7 @@ class CellGUI:
     def save_merging_macro(self):
         
         mac_fn = asksaveasfilename(confirmoverwrite=True, title='Select MAC filename',
-                                   initialdir=os.path.dirname(self.fn), initialfile=os.path.splitext(os.path.basename(self.fn))[0] + '.mac',
+                                   initialdir=os.path.dirname(self.fn), initialfile=os.path.splitext(os.path.basename(self.fn))[0] + '_merge.mac',
                                    filetypes=[('CrysAlisPro Macro', '*.mac')])
         
         info_fn = os.path.splitext(mac_fn)[0] + '_merge_info.csv'

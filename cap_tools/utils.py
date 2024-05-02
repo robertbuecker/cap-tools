@@ -6,6 +6,39 @@ from typing import *
 import numpy as np
 from scipy.cluster.hierarchy import fcluster
 import yaml
+import tkinter as tk
+import tkinter.ttk as ttk
+
+class DisableMixin(object):
+    # to disable TreeView in Tkinter
+    # from https://stackoverflow.com/questions/52181307/python-tkinter-ttk-how-to-disable-treeview
+
+    def state(self,statespec=None):
+        if statespec:
+            e = super().state(statespec)
+            if 'disabled' in e:
+                self.bindtags(self.tags)
+            elif '!disabled' in e:
+                self.tags = self.bindtags()
+                self.bindtags([None])
+            return e
+        else:
+            return super().state()
+
+    def disable(self):
+        self.state(('disabled',))
+
+    def enable(self):
+        self.state(('!disabled',))
+
+    def is_disabled(self):
+        return 'disabled' in self.state()
+
+    def is_enabled(self):
+        return not self.is_disabled()
+    
+class myTreeView(DisableMixin, ttk.Treeview): pass
+
 
 def err_str(value, error, errordigits=1, compact=True):
     digits = max(0,-int(floor(log10(error)))) - 1 + errordigits    

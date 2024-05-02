@@ -91,11 +91,13 @@ class FinalizationXML:
         fin_xml.filename = filename
         fin_xml.path = path
     
-    def __init__(self, filename: str, path: str, allow_missing: bool = False):
+    def __init__(self, filename: str, path: str, allow_missing: bool = False, parse: bool = True):
 
         self.filename = filename
         self.path = path
-        self.update(allow_missing)        
+        self.tree = None
+        if parse:
+            self.update(allow_missing)        
             
     def update(self, allow_missing: bool = False):
           
@@ -180,37 +182,41 @@ class Finalization:
 
     def __init__(self, path: str, verbose: bool = True, 
                  meta: Optional[Dict] = None, sub_paths: Union[List[str], Tuple[str]] = (), 
-                 allow_missing: bool = False):
+                 allow_missing: bool = False, parse: bool = True):
 
-        self.path = path
-        self.verbose = verbose
-        self.shells = pd.DataFrame([])
-        self.overall = pd.DataFrame([])
-        self.sub_paths = list(sub_paths)
+        self.path: str = path
+        self.verbose: bool = verbose
+        self.shells: pd.DataFrame = pd.DataFrame([])
+        self.overall: pd.DataFrame = pd.DataFrame([])
+        self.sub_paths: List[str] = list(sub_paths)
         self.meta = meta if meta is not None else {}
         if 'Merge code' in meta:
             self.meta['Nexp'] = len(meta['Merge code'].split(':'))
         
-        if HAVE_GEMMI and os.path.exists(path + '.mtz'):
-            self.mtz = gemmi.read_mtz_file(path + '.mtz')
-            if verbose:
-                print(f'Parsed reflection file {path + ".mtz"}')
-        else:
-            self.mtz = None
-
-        self.pars_xml = FinalizationXML(filename=self.pars_xml_path, path=self.path, allow_missing=True) # dummy object
-            
-        try:
-            self.parse_finalization_results(check_current=True)       
-        except FileNotFoundError as err:
-            if not allow_missing:
-                raise err            
-            elif verbose:
-                print(f'No result file found for {path}. Creating dummy finalization object') 
-        except RuntimeError as err:
-            warnings.warn(f'Result file for {path} is older than settings XML. Not parsing')
-            
+        self.pars_xml = FinalizationXML(filename=self.pars_xml_path, 
+                                        path=self.path, allow_missing=True, 
+                                        parse=parse)
         
+        if parse:
+            
+            if HAVE_GEMMI and os.path.exists(path + '.mtz'):
+                self.mtz = gemmi.read_mtz_file(path + '.mtz')
+                if verbose:
+                    print(f'Parsed reflection file {path + ".mtz"}')
+            else:
+                self.mtz = None
+
+                
+            try:
+                self.parse_finalization_results(check_current=True)       
+            except FileNotFoundError as err:
+                if not allow_missing:
+                    raise err            
+                elif verbose:
+                    print(f'No result file found for {path}. Creating dummy finalization object') 
+            except RuntimeError as err:
+                warnings.warn(f'Result file for {path} is older than settings XML. Not parsing')
+                    
     @property
     def foms(self):
         return list(self.shells.columns)
@@ -230,6 +236,10 @@ class Finalization:
     @property
     def have_proffit(self):
         return os.path.exists(self.path + '.rrpprof') 
+    
+    @property
+    def have_pars_xml(self):
+        return self.pars_xml.tree is not None
         
     def parse_finalization_parameters(self):
         

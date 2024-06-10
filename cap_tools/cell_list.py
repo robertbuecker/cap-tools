@@ -93,15 +93,6 @@ class CellList:
         return sh.getvalue()
 
     @classmethod
-    def from_yaml(cls, fn, use_raw_cell=True):
-        ds = yaml.load(open(fn, "r"), Loader=yaml.Loader)
-        key = "raw_unit_cell" if use_raw_cell else "unit_cell"
-        # prune based on NaNs (missing cells)
-        ds = [d for d in ds if not any(np.isnan(d[key]))]
-        cells = np.array([d[key] for d in ds])
-        weights = np.array([d["weight"] for d in ds])
-
-    @classmethod
     def from_csv(cls, fn, use_raw_cell=True):
         ds, cells, weights = parse_cap_csv(fn, use_raw_cell, filter_missing=True)
         return cls(cells=cells, ds=ds)

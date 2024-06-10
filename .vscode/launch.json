@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Cluster cell",
             "type": "python",
@@ -27,7 +28,7 @@
             "request": "launch",
             "program": "cell_tool.py",
             "console": "integratedTerminal",
-            "args": ["C:\\Users\\robert.buecker\\data\\Trehalose-Symmetry\\all-results.csv"],
+            "args": ["C:\\XcaliburData\\PunschB-3\\PunschB-3.csv"],
             "justMyCode": true
         },
         {
@@ -37,6 +38,14 @@
             "program": "finalization_viewer.py",
             "console": "integratedTerminal",
             "justMyCode": true
-        }        
+        }   ,
+        {
+            "name": "Finalization Runner",
+            "type": "python",
+            "request": "launch",
+            "module": "cap_tools.cluster_finalize",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }  
     ]
 }

@@ -1,0 +1,3 @@
+* Automatic selection of finalization
+* "Majority vote" determination of Laue class
+* Save/load of clustering parameters and/or linkage matrix

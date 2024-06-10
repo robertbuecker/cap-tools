@@ -13,6 +13,7 @@ def cluster_finalize(cluster_name: str,
     cluster_result = cluster_name + '_merge_info.csv'
     merge_macro = cluster_name + '_merge.mac'
     xml_folder = os.path.join(os.path.dirname(cluster_result), 'finalization_templates')
+    os.makedirs(xml_folder, exist_ok=True)
 
     fns = []
     for path in pd.read_csv(cluster_result)['File path']:

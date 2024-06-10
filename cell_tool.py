@@ -618,17 +618,15 @@ class CellGUI:
         
     def reload_cells(self):
         raw = self.v_use_raw.get()        
-        if self.fn.endswith('.csv'):
-            self.all_cells = CellList.from_csv(self.fn, use_raw_cell=raw) #TODO change this to selection of raw cells
-        else:
-            self.all_cells = CellList.from_yaml(self.fn, use_raw_cell=raw)
-            
+        self.all_cells = CellList.from_csv(self.fn, use_raw_cell=raw) #TODO change this to selection of raw cells           
         self.w_all_fn.config(text=os.path.basename(self.fn) + (' (raw)' if raw else ''))
         
         self.init_clustering()
             
     def load_cells(self):
-        self.fn = askopenfilename(title='Open cell list file', filetypes=(('CrysAlisPro', '*.csv'), ('YAML list (edtools)', '*.yaml')))
+        self.fn = os.path.normpath(
+            askopenfilename(title='Open cell list file', filetypes=(('CrysAlisPro', '*.csv'), ('YAML list (edtools)', '*.yaml')))
+        )
         self.reload_cells()
         
     def save_clusters(self, fn_template: Optional[str] = None):
@@ -660,11 +658,11 @@ class CellGUI:
         info_fn = os.path.splitext(mac_fn)[0] + '_info.csv'
         
         if not self.cluster_table.selected_cluster_ids:
-            showinfo('No cluster selected', 'Please first select one or more cluster(s).')
-            return
+            return []
         
         with open(mac_fn, 'w') as fh, open(info_fn, 'w') as ifh:
             ifh.write('Name,File path,Cluster,Data sets,Merge code\n')
+            merged_cids = []
             for ii, (c_id, cluster) in enumerate(self.clusters.items()):
                 if c_id not in self.cluster_table.selected_cluster_ids:
                     print(f'Skipping Cluster {c_id} (not selected in list)')
@@ -675,6 +673,9 @@ class CellGUI:
                     print(f'Adding merge instructions for: {info}')
                     ifh.write(f'{os.path.basename(out)},{out},{c_id},{info},{code}\n')
                 print(f'Full-cluster merge for cluster {c_id}: {out_paths[-1]}')
+                merged_cids.append(c_id)
+                
+        return merged_cids
                 
     def set_cluster_active(self, active: bool=True):
         
@@ -696,29 +697,35 @@ class CellGUI:
         
     def merge_finalize(self, finalize: bool = True, top_only: bool = False):
 
-        self.save_merging_macro(mac_fn = os.path.splitext(self.fn)[0] + '_merge.mac')
+        # save a pure merging macro (not yet containing the finalizations)
+        cids = self.save_merging_macro(mac_fn = os.path.splitext(self.fn)[0] + '_merge.mac')
+               
+        if not cids:
+            showinfo('No cluster selected', 'Please first select one or more cluster(s).')
                 
         if finalize:
+            # finalization loop
             
-            self.set_cluster_active(False)           
+            # disable all window controls in the clustering section
+            self.set_cluster_active(False)
             for child in self._mff.winfo_children():
                 child.config(state='normal')      
-                            
+                       
+            # TODO: factor cluster_finalize into cluster class                            
             mac_fn = cluster_finalize(cluster_name=os.path.splitext(self.fn)[0],
                                              include_proffitmerge=True,
-                                             _write_mac_only=True)
+                                             _write_mac_only=True,
+                                             finalization_timeout=30)
             
             cmd = f'script {mac_fn}'
-            
             self.merge_fin_status.delete(1.0, tk.END)
             self.merge_fin_status.insert(tk.END, 'CAP command copied to Clipboard.\nPlease paste into CMD window, run, and set options.')
             self.root.clipboard_clear()
             self.root.clipboard_append(cmd)
       
-                        
             fin_future = self.exec.submit(cluster_finalize, cluster_name=os.path.splitext(self.fn)[0],
                                             include_proffitmerge=True, 
-                                            res_limit=0.8,
+                                            res_limit=self.v_merge_fin_setting['resolution'].get(),
                                             _skip_mac_write=True)            
                 
             def check_fin_running():
@@ -753,19 +760,7 @@ def parse_args():
         
     parser.add_argument("filename",
                         type=str, metavar="FILE", nargs='?',
-                        help="Path to .yaml (edtools) or .csv (CrysAlisPro) file")
-
-    parser.add_argument("-b","--binsize",
-                        action="store", type=float, dest="binsize",
-                        help="Binsize for the histogram, default=0.5")
-
-    parser.add_argument("-c","--cluster",
-                        action="store_true", dest="cluster",
-                        help="Apply cluster analysis instead of interactive cell finding")
-
-    parser.add_argument("-d","--distance",
-                        action="store", type=float, dest="distance",
-                        help="Cutoff distance to use for clustering, bypass dendrogram")
+                        help="Path to .csv cell parameter file")
 
     parser.add_argument("-m","--method",
                         action="store", type=str, dest="method",
@@ -776,10 +771,6 @@ def parse_args():
                         action="store", type=str, dest="metric",
                         choices="euclidean lcv volume".split(),
                         help="Metric for calculating the distance between items (Euclidian distance, cell volume, LCV, and aLCV as in CCP4-BLEND)")
-
-    parser.add_argument("-l", "--use_bravais_lattice",
-                        action="store_false", dest="use_raw_cell",
-                        help="Use the bravais lattice (symmetry applied)")
 
     parser.add_argument("-p", "--preprocessing",
                         action="store", type=str, dest="preproc",

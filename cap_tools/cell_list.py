@@ -1,5 +1,5 @@
 from .utils import get_clusters, parse_cap_csv, order_uc_pars, \
-    to_radian, to_sin, unit_cell_lcv_distance, volume, volume_difference, write_cap_csv, build_merge_tree, flatten_to_str
+    unit_cell_lcv_distance, volume, volume_difference, write_cap_csv, build_merge_tree, flatten_to_str
 import numpy as np
 import yaml
 from scipy.cluster.hierarchy import linkage

@@ -150,7 +150,7 @@ def volume_difference(cell1: list, cell2: list):
     return abs(v1-v2)
 
 
-def get_clusters(z: np.ndarray, cells: np.ndarray, distance: float = 0.5) -> DefaultDict[List[int]]:
+def get_clusters(z: np.ndarray, cells: np.ndarray, distance: float = 0.5) -> DefaultDict[int, List[int]]:
     """Generates clusters from linkage matrix
 
     Args:
@@ -192,7 +192,7 @@ def get_clusters(z: np.ndarray, cells: np.ndarray, distance: float = 0.5) -> Def
     return grouped
 
 
-def build_merge_tree(z: np.ndarray, distance: float, names: Opional[List[str]] = None) -> Tuple[Tuple[Union[Tuple, str], Union[Tuple, str]], List[int]]:
+def build_merge_tree(z: np.ndarray, distance: float, names: Optional[List[str]] = None) -> Tuple[Tuple[Union[Tuple, str], Union[Tuple, str]], List[int]]:
     """Builds a dendrogram-like "merging tree" from a linkage matrix and a distance cutoff containing
     nested tuples of dataset names. Returns list of tree nodes (containing recursive 2-tuples) and a corresponding list of cluster IDs
 

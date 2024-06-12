@@ -265,8 +265,7 @@ class Finalization:
                 warnings.warn(msg, RuntimeWarning)
 
         if self.verbose:
-            print(f'Parsing result summary file {fn}')
-                
+            print(f'Parsing result summary file {fn}')            
         
         def get_table_section():
             table = ''

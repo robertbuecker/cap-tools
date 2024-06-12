@@ -57,11 +57,11 @@ class PlotWidget(ttk.Frame):
         self.toolbar = NavigationToolbar2Tk(self.canvas, self, pack_toolbar=False)
         self.toolbar.update()
 
-        self.canvas.mpl_connect(
-            "key_press_event", lambda event: print(f"you pressed {event.key}"))
-        self.canvas.mpl_connect("key_press_event", key_press_handler)
+        # self.canvas.mpl_connect(
+        #     "key_press_event", lambda event: print(f"you pressed {event.key}"))
+        # self.canvas.mpl_connect("key_press_event", key_press_handler)
 
-        self.init_figure_controls()
+        # self.init_figure_controls()
         
         self.rowconfigure(fig_row, weight=100)
         self.columnconfigure(0, weight=100)
@@ -103,12 +103,12 @@ class FOMWidget(PlotWidget):
         return self._v_fom.get()
         
 class FOMWidget2(PlotWidget):
-    def __init__(self, parent, change_callback: callable, fom_list: Optional[List[str]] = None, **kwargs):
+    def __init__(self, parent, change_callback: callable, fom_list: Optional[List[str]] = None, initial: Optional[Tuple[str, str]] = ('CC1/2', 'complete'), **kwargs):
         super().__init__(parent, fig_row=20, **kwargs)
         
         self.controls = ttk.Frame(self)        
         self._v_fom = (tk.StringVar(self.controls), tk.StringVar(self.controls))
-        self.fom_selector = tuple([ttk.OptionMenu(self.controls, v, command=change_callback, *fom_list) for v in self._v_fom])
+        self.fom_selector = tuple([ttk.OptionMenu(self.controls, v, init, *fom_list, command=change_callback) for v, init in zip(self._v_fom, initial)])
         tk.Label(self.controls, text='Upper FOM: ').grid(row=10, column=0)
         self.fom_selector[0].grid(row=10, column=5)
         tk.Label(self.controls, text='Lower FOM: ').grid(row=10, column=10)
@@ -170,6 +170,7 @@ class FinalizationWidget(ttk.Frame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
         
+        # columns for overall view
         self.ft_columns = {'name': ('', 90), 
                            'Nexp': ('N', 24),
                            'complete': ('Comp', 80), 
@@ -179,9 +180,9 @@ class FinalizationWidget(ttk.Frame):
                            'Rpim': ('Rpim', 80), 
                            'CC1/2': ('CC1/2', 80)}
 
+        # columns for per-shell view
         self.sv_columns = {'dmin': ('dmin', 56),
                            'dmax': ('dmax', 56)}
-        
         self.sv_columns.update({k: (v[0], 70) for k, v in self.ft_columns.items() if k not in ['name', 'Nexp']})
         self.sv_columns.update({'deltaCC': ('dCC', 70)})
         
@@ -679,6 +680,8 @@ class CellGUI:
                 
     def set_cluster_active(self, active: bool=True):
         
+        global click_cid_dendrogram
+        
         self._clustering_disabled = not active
         
         for child in self._csf.winfo_children():
@@ -688,9 +691,9 @@ class CellGUI:
             self.cluster_table.cluster_view.enable()
         else:
             self.cluster_table.cluster_view.disable()
-        
-        if (not active) and (self._click_cid is not None):
-            self.cluster_widget.canvas.mpl_disconnect(self._click_cid)
+                        
+        if (not active) and (click_cid_dendrogram is not None):
+            self.cluster_widget.canvas.mpl_disconnect(click_cid_dendrogram)
         else:
             self.init_clustering()
             #TODO properly re-activate the plot!

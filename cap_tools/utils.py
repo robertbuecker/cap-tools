@@ -39,23 +39,12 @@ class DisableMixin(object):
     
 class myTreeView(DisableMixin, ttk.Treeview): pass
 
-
 def err_str(value, error, errordigits=1, compact=True):
     digits = max(0,-int(floor(log10(error)))) - 1 + errordigits    
     if compact:
         return "{0:.{2}f}({1:.0f})".format(value, error*10**digits, digits)
     else:
         return '{0:.{2}f} ({1:.{2}f})'.format(value, error, digits)
-
-def space_group_lib():
-    """Initialize simple space group library mapping the space group 
-    number to a dict with information on the `class` (crystal class),
-    `lattice` (lattice symbol), `laue_symmetry` (number of the lowest 
-    symmetry space group for this lattice), `name` (space group name), 
-    and `number` (space group number)."""
-    fn = Path(__file__).parent / "spglib.yaml"
-    return yaml.load(open(fn, "r"), Loader=yaml.Loader)
-
 
 def volume(cell):
     """Returns volume for the general case from cell parameters"""
@@ -67,39 +56,6 @@ def volume(cell):
         ((1+2*cos(al)*cos(be)*cos(ga)-cos(al)**2-cos(be)**2-cos(ga)**2)
          ** .5)
     return vol
-
-
-def parse_args_for_fns(args, name="XDS.INP", match=None):
-    """Parse list of filenames and resolve wildcards
-    name:
-        Name of the file to locate
-    match:
-        Match the file list against the provided glob-style pattern.
-        If the match is False, the path is removed from the list.
-        example:
-            match="SMV_reprocessed"
-        """
-    if not args:
-        fns = [Path(".")]
-    else:
-        fns = [Path(fn) for fn in args]
-
-    new_fns = []
-    for fn in fns:
-        if fn.is_dir():
-            new_fns.extend(list(fn.rglob(f"{name}")))
-        else:  
-            new_fns.append(fn)
-    
-    if match:
-        new_fns = [fn for fn in new_fns if fn.match(f"{match}/*")]
-    
-    new_fns = [fn.resolve() for fn in new_fns]
-
-    print(f"{len(new_fns)} files named {name} (subdir: {match}) found.")
-
-    return new_fns
-
 
 def weighted_average(values, weights=None):
     """Returns weighted mean and standard deviation"""
@@ -153,7 +109,7 @@ def parse_cap_csv(fn: str, use_raw_cell: bool, filter_missing: bool = True) -> T
     return ds, cells, weights
 
 
-def put_in_order(cells: np.ndarray) -> np.ndarray:
+def order_uc_pars(cells: np.ndarray) -> np.ndarray:
     """Order cell parameters in order to eliminate difference in cell distance because of parameter order"""
 
     ordered_cells = []
@@ -168,40 +124,17 @@ def put_in_order(cells: np.ndarray) -> np.ndarray:
     return np.array(ordered_cells)
 
 
-def to_sin(cells: np.ndarray) -> np.ndarray:
-    """convert all angles in unit cell parameter list to sine
-    cells: the cell parameters that are parsed from cells.yaml as np array"""
-    angles = cells[:, 3:6]
-    angles_sine = np.sin(np.radians(angles))
-
-    cells_sine = cells.copy()
-    cells_sine[:, 3:6] = angles_sine
-    # convert also the cell angles using arcsin in order to avoid the <> 90 degree ambiguity thingy
-    cells[:, 3:6] = np.degrees(np.arcsin(cells_sine[:, 3:6]))
-
-    return cells_sine
-
-
-def to_radian(cells: np.ndarray) -> np.ndarray:
-    """convert all angles in unit cell parameter list to radians
-    cells: the cell parameters that are parsed from cells.yaml as np array"""
-    cells_radian = cells.copy()
-    cells_radian[:, 3:6] = np.radians(cells[:, 3:6])
-
-    return cells_radian
-
-
-def d_calculator(cell: list) -> tuple:
-    """Helper function for `unit_cell_lcv_distance`"""
-    a, b, c, alpha, beta, gamma = cell
-    d_ab = np.sqrt(a**2 + b**2 - 2*a*b*np.cos(np.radians(180 - gamma)))
-    d_ac = np.sqrt(a**2 + c**2 - 2*a*c*np.cos(np.radians(180 - beta)))
-    d_bc = np.sqrt(b**2 + c**2 - 2*b*c*np.cos(np.radians(180 - alpha)))
-    return d_ab, d_ac, d_bc
-
-
 def unit_cell_lcv_distance(cell1: list, cell2: list, absolute: bool = False) -> float:
     """Implements Linear Cell Volume from Acta Cryst. (2013). D69, 1617-1632"""
+    
+    def d_calculator(cell: list) -> tuple:
+        """Helper function for `unit_cell_lcv_distance`"""
+        a, b, c, alpha, beta, gamma = cell
+        d_ab = np.sqrt(a**2 + b**2 - 2*a*b*np.cos(np.radians(180 - gamma)))
+        d_ac = np.sqrt(a**2 + c**2 - 2*a*c*np.cos(np.radians(180 - beta)))
+        d_bc = np.sqrt(b**2 + c**2 - 2*b*c*np.cos(np.radians(180 - alpha)))
+        return d_ab, d_ac, d_bc
+
     d_ab1, d_ac1, d_bc1 = d_calculator(cell1)
     d_ab2, d_ac2, d_bc2 = d_calculator(cell2)
     M_ab = abs(d_ab1 - d_ab2)/(1 if absolute else min(d_ab1, d_ab2))
@@ -217,7 +150,17 @@ def volume_difference(cell1: list, cell2: list):
     return abs(v1-v2)
 
 
-def get_clusters(z, cells: np.ndarray, distance: float = 0.5) -> defaultdict:
+def get_clusters(z: np.ndarray, cells: np.ndarray, distance: float = 0.5) -> DefaultDict[List[int]]:
+    """Generates clusters from linkage matrix
+
+    Args:
+        z (np.ndarray): linkage matrix
+        cells (np.ndarray): list of all unit cells
+        distance (float, optional): cutoff distance for clustering. Defaults to 0.5.
+
+    Returns:
+        Dictionary of clusters with values corresponding to a list of dataset indices
+    """
     clusters = fcluster(z, distance, criterion='distance')
     grouped = defaultdict(list)
     for i, c in enumerate(clusters):
@@ -248,16 +191,25 @@ def get_clusters(z, cells: np.ndarray, distance: float = 0.5) -> defaultdict:
 
     return grouped
 
-def build_merge_tree(z, distance: float, names: List[str] = None):
-    """Builds a dendrogram-like "merging tree" from a linkage matrix and a distance cutoff containing
-    nested tuples of dataset names. Returns list of tree nodes and a corresponding list of cluster IDs
-    """
 
-    names = list([str(n) for n in names])
+def build_merge_tree(z: np.ndarray, distance: float, names: Opional[List[str]] = None) -> Tuple[Tuple[Union[Tuple, str], Union[Tuple, str]], List[int]]:
+    """Builds a dendrogram-like "merging tree" from a linkage matrix and a distance cutoff containing
+    nested tuples of dataset names. Returns list of tree nodes (containing recursive 2-tuples) and a corresponding list of cluster IDs
+
+    Args:
+        z (np.ndarray): linkage matrix
+        distance (float): list of all unit cells
+        names (List[str], optional): _description_. Defaults to None.
+
+    Returns:
+        Tuple[Tuple[Union[Tuple, str], Union[Tuple, str]], List[int]]: _description_
+    """
 
     merge_list = []
     cluster_list = []
     cluster_id = fcluster(z, distance, criterion='distance')
+
+    names = list([str(n) for n in names]) if names is not None else [f'cell_{ii}' for ii in range(len(cluster_id))]
 
     for merge in z:
         # print(merge)
@@ -266,15 +218,17 @@ def build_merge_tree(z, distance: float, names: List[str] = None):
         ii, jj = int(merge[0]), int(merge[1])
         
         if ii < len(names):
+            # first leaf is a single data set
             name0 = names[int(ii)]
             cid = cluster_id[ii]
         else:
+            # first leaf is a merged data set
             name0 = merge_list[int(ii)-len(names)]
             cid = cluster_list[int(ii)-len(names)]
             
         if jj < len(names):
             name1 = names[int(jj)]
-            assert cluster_id[jj] == cid
+            assert cluster_id[jj] == cid    # make sure that both leaves are from the same cluster
         else:
             name1 = merge_list[int(jj)-len(names)]
             assert cluster_list[int(jj)-len(names)] == cid
@@ -284,6 +238,7 @@ def build_merge_tree(z, distance: float, names: List[str] = None):
         
     return merge_list, cluster_list
 
+
 def flatten_to_str(in_names: Union[Tuple[Union[Tuple, str], Union[Tuple, str]], str], sep: str = ':') -> str:
-    """Generates unique string identifiers from a nested tuple of strings"""
+    """Generates unique string identifiers from a nested tuple of strings as returned by `build_merge_tree`"""
     return in_names if isinstance(in_names, str) else sep.join([flatten_to_str(fn, sep) for fn in in_names])

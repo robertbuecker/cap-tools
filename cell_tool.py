@@ -11,7 +11,7 @@ from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2Tk)
 from matplotlib.figure import Figure
 from cap_tools.cell_list import CellList
-from cap_tools.interact_figures import distance_from_dendrogram, radar_plot
+from cap_tools.interact_figures import distance_from_dendrogram, fom_radar_plot
 from cap_tools.finalization import FinalizationCollection, Finalization
 from cap_tools.cluster_finalize import cluster_finalize
 import numpy as np
@@ -312,7 +312,7 @@ class FinalizationWidget(ttk.Frame):
         
         colors = [f'C{ii}' for ii, k in zip(range(len(self.fc)),self.fc.keys()) if k in self.selected_fin_ids]
         
-        radar_plot(overall_plot_data, highest_plot_data,
+        fom_radar_plot(overall_plot_data, highest_plot_data,
                    fig_handle=self.radar_plot.fig,
                    foms = ['Comp', 'I/sig (rel)', '1/Rurim (rel)', '1/Rpim (rel)', 'CC1/2', 'Red. (rel)'],
                    colors=colors)

@@ -6,18 +6,173 @@ from matplotlib.widgets import SpanSelector
 from scipy import stats
 from scipy.cluster.hierarchy import dendrogram, set_link_color_palette
 from typing import *
-from .utils import weighted_average
 import pandas as pd
-from radar_chart import radar_factory
+import matplotlib.pyplot as plt
+import numpy as np
+
+from matplotlib.patches import Circle, RegularPolygon
+from matplotlib.path import Path
+from matplotlib.projections import register_projection
+from matplotlib.projections.polar import PolarAxes
+from matplotlib.spines import Spine
+from matplotlib.transforms import Affine2D
+
+matplotlib.use('TkAgg')
+
+
+
 
 click_cid_dendrogram = None
 
-matplotlib.use('TkAgg')
+def radar_factory(num_vars, frame='circle'):
+    """
+    From: https://matplotlib.org/stable/gallery/specialty_plots/radar_chart.html
+    
+    Create a radar chart with `num_vars` axes.
+
+    This function creates a RadarAxes projection and registers it.
+
+    Parameters
+    ----------
+    num_vars : int
+        Number of variables for radar chart.
+    frame : {'circle', 'polygon'}
+        Shape of frame surrounding axes.
+
+    """
+    # calculate evenly-spaced axis angles
+    theta = np.linspace(0, 2*np.pi, num_vars, endpoint=False)
+
+    class RadarTransform(PolarAxes.PolarTransform):
+
+        def transform_path_non_affine(self, path):
+            # Paths with non-unit interpolation steps correspond to gridlines,
+            # in which case we force interpolation (to defeat PolarTransform's
+            # autoconversion to circular arcs).
+            if path._interpolation_steps > 1:
+                path = path.interpolated(num_vars)
+            return Path(self.transform(path.vertices), path.codes)
+
+    class RadarAxes(PolarAxes):
+
+        name = 'radar'
+        PolarTransform = RadarTransform
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            # rotate plot such that the first axis is at the top
+            self.set_theta_zero_location('N')
+
+        def fill(self, *args, closed=True, **kwargs):
+            """Override fill so that line is closed by default"""
+            return super().fill(closed=closed, *args, **kwargs)
+
+        def plot(self, *args, **kwargs):
+            """Override plot so that line is closed by default"""
+            lines = super().plot(*args, **kwargs)
+            for line in lines:
+                self._close_line(line)
+
+        def _close_line(self, line):
+            x, y = line.get_data()
+            # FIXME: markers at x[0], y[0] get doubled-up
+            if x[0] != x[-1]:
+                x = np.append(x, x[0])
+                y = np.append(y, y[0])
+                line.set_data(x, y)
+
+        def set_varlabels(self, labels, **kwargs):
+            self.set_thetagrids(np.degrees(theta), labels, **kwargs)
+
+        def _gen_axes_patch(self):
+            # The Axes patch must be centered at (0.5, 0.5) and of radius 0.5
+            # in axes coordinates.
+            if frame == 'circle':
+                return Circle((0.5, 0.5), 0.5)
+            elif frame == 'polygon':
+                return RegularPolygon((0.5, 0.5), num_vars,
+                                      radius=.5, edgecolor="k")
+            else:
+                raise ValueError("Unknown value for 'frame': %s" % frame)
+
+        def _gen_axes_spines(self):
+            if frame == 'circle':
+                return super()._gen_axes_spines()
+            elif frame == 'polygon':
+                # spine_type must be 'left'/'right'/'top'/'bottom'/'circle'.
+                spine = Spine(axes=self,
+                              spine_type='circle',
+                              path=Path.unit_regular_polygon(num_vars))
+                # unit_regular_polygon gives a polygon of radius 1 centered at
+                # (0, 0) but we want a polygon of radius 0.5 centered at (0.5,
+                # 0.5) in axes coordinates.
+                spine.set_transform(Affine2D().scale(.5).translate(.5, .5)
+                                    + self.transAxes)
+                return {'polar': spine}
+            else:
+                raise ValueError("Unknown value for 'frame': %s" % frame)
+
+    register_projection(RadarAxes)
+    return theta
+
+
+def fom_radar_plot(overall_df: pd.DataFrame, 
+               highest_df: pd.DataFrame, 
+               fig_handle: Optional[plt.Figure] = None,
+               foms: Optional[Union[List[str], Tuple[str]]] = None,
+               fom_lbl: Optional[Union[List[str], Tuple[str]]] = None,
+               colors: Optional[List[str]] = None):
+    
+    if foms is None:
+        foms = ['Comp', 'I/sig (rel)', '1/Rurim (rel)', '1/Rpim (rel)', 'CC1/2', 'Red. (rel)']
+        
+    if fom_lbl is None:
+        fom_lbl = foms
+       
+    data = []
+    data.append(overall_df[foms].to_numpy())
+    data.append(highest_df[foms].to_numpy())
+
+    N = len(foms)
+
+    theta = radar_factory(N, frame='polygon')
+    
+    if fig_handle:
+        fig = fig_handle
+        fig.clear()
+    else:
+        plt.figure(figsize=(9, 5))
+
+    axs = np.array([fig.add_subplot(1, 2, 1, projection='radar'),
+           fig.add_subplot(1, 2, 2, projection='radar')])
+
+    fig.subplots_adjust(wspace=0.25, hspace=0.20, top=0.85, bottom=0.15)
+
+    if colors is None:
+        colors = [f'C{ii}' for ii in range(len(overall_df))]
+        
+    for ax, case_data in zip(axs.flat, data):
+        ax.set_rgrids([0.2, 0.4, 0.6, 0.8, 1], fontsize='xx-small')
+        for d, color in zip(case_data, colors):
+            ax.plot(theta, d, color=color)
+            ax.fill(theta, d, facecolor=color, alpha=0.05, label='_nolegend_')
+        ax.set_varlabels(fom_lbl, fontsize='xx-small')
+        ax.set_ylim(0, 1.05)
+
+    labels = list(overall_df['name'])
+    legend = axs[0].legend(labels, loc=(0.9, .95),
+                                labelspacing=0.05, fontsize='xx-small')
+
+    if fig_handle is None:
+        plt.show()
+    else:
+        fig.canvas.draw()
 
 def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None, 
                              labels: Optional[List[str]] = None, 
                              fig_handle: Optional[Figure] = None, callback: Optional[callable] = None) -> float:
-    """Interactive dendrogram plot.
+    """Interactive dendrogram plot. Function taken from edtools by Stef Smeets.
+    
     Takes a linkage object `z` from scipy.cluster.hierarchy.linkage and displays a
     dendrogram. The cutoff distance can be picked interactively, and is returned
     ylabel: sets the label for the y-axis
@@ -88,63 +243,3 @@ def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None,
         fig.canvas.draw()
 
     return distance, click_cid
-
-def radar_plot(overall_df: pd.DataFrame, 
-               highest_df: pd.DataFrame, 
-               fig_handle: Optional[plt.Figure] = None,
-               foms: Optional[Union[List[str], Tuple[str]]] = None,
-               fom_lbl: Optional[Union[List[str], Tuple[str]]] = None,
-               colors: Optional[List[str]] = None):
-    
-    if foms is None:
-        foms = ['Comp', 'I/sig (rel)', '1/Rurim (rel)', '1/Rpim (rel)', 'CC1/2', 'Red. (rel)']
-        
-    if fom_lbl is None:
-        fom_lbl = foms
-       
-    data = []
-    data.append(('Overall', overall_df[foms].to_numpy()))
-    data.append(('Highest Shell', highest_df[foms].to_numpy()))
-
-    N = len(foms)
-
-    theta = radar_factory(N, frame='polygon')
-    
-    if fig_handle:
-        fig = fig_handle
-        fig.clear()
-    else:
-        plt.figure(figsize=(9, 5))
-
-    axs = np.array([fig.add_subplot(1, 2, 1, projection='radar'),
-           fig.add_subplot(1, 2, 2, projection='radar')])
-
-    fig.subplots_adjust(wspace=0.25, hspace=0.20, top=0.85, bottom=0.15)
-
-    if colors is None:
-        colors = [f'C{ii}' for ii in range(len(overall_df))]
-        
-    # Plot the four cases from the example data on separate axes
-    for ax, (title, case_data) in zip(axs.flat, data):
-        ax.set_rgrids([0.2, 0.4, 0.6, 0.8, 1], fontsize='xx-small')
-        # ax.set_title(title, weight='bold', size='medium', position=(0.5, 1.1),
-        #                 horizontalalignment='center', verticalalignment='center')
-        for d, color in zip(case_data, colors):
-            ax.plot(theta, d, color=color)
-            ax.fill(theta, d, facecolor=color, alpha=0.05, label='_nolegend_')
-        ax.set_varlabels(fom_lbl, fontsize='xx-small')
-        ax.set_ylim(0, 1.05)
-
-    # add legend relative to top-left plot
-    labels = list(overall_df['name'])
-    legend = axs[0].legend(labels, loc=(0.9, .95),
-                                labelspacing=0.05, fontsize='xx-small')
-
-    # fig.text(0.5, 0.965, f'Merging statistics for cluster {cluster}',
-    #             horizontalalignment='center', color='black', weight='bold',
-    #             size='large')
-
-    if fig_handle is None:
-        plt.show()
-    else:
-        fig.canvas.draw()

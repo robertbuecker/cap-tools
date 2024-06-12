@@ -1,4 +1,4 @@
-from .utils import get_clusters, parse_cap_csv, put_in_order, \
+from .utils import get_clusters, parse_cap_csv, order_uc_pars, \
     to_radian, to_sin, unit_cell_lcv_distance, volume, volume_difference, write_cap_csv, build_merge_tree, flatten_to_str
 import numpy as np
 import yaml
@@ -13,7 +13,7 @@ from sklearn.preprocessing import StandardScaler
 class CellList:
 
     def __init__(self, cells: np.ndarray, ds: Optional[dict] = None, weights: Optional[np.ndarray] = None, merge_tree: Optional[list] = None):
-        self._cells = put_in_order(cells)
+        self._cells = order_uc_pars(cells)
         self._weights = np.array([1]*cells.shape[0]) if weights is None else weights
         self._merge_tree = [] if merge_tree is None else merge_tree
         self.pca_whiten = False # somewhat redundant if SEuclidean is available as clustering metric
@@ -161,8 +161,7 @@ class CellList:
                 method: lcv, volume, euclidean
                 distance: cutoff distance, if it is not given, pop up a dendrogram to
                     interactively choose a cutoff distance
-                use_radian: Use radian instead of degrees to downweight difference
-                use_sine: Use sine for unit cell clustering (to disambiguousize the difference in angles)
+                preproc: data preprocessing: none, standardized, pca, diagonals, diagonalspca, g6
                 """
 
                 from scipy.spatial.distance import pdist
@@ -176,10 +175,6 @@ class CellList:
                     _cells = self.cells_standardized
                 elif pp == 'pca':
                     _cells = self.cells_pca
-                elif pp == 'sine':
-                    _cells = to_sin(self.cells)
-                elif pp == 'radians':
-                    _cells = to_radian(self.cells)
                 elif pp == 'diagonals':
                     _cells = self.diagonals
                 elif pp == 'diagonalspca':

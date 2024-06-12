@@ -578,34 +578,33 @@ class CellGUI:
         return self.tabs.index(self.tabs.select())
         
     def init_clustering(self):
-
-        def recluster():        
-            cluster_args = {k: v.get() for k, v in self.v_cluster_setting.items()}
-            cluster_args = {k: v.lower() if isinstance(v, str) else v for k, v in cluster_args.items()}
-            cluster_args['distance'] = None if cluster_args['distance'] == 0 else cluster_args['distance']
-            self.clusters, z = self.all_cells.cluster(**{k: v for k, v in cluster_args.items() if k != 'preset'})
-            self.cluster_table.update_table(clusters=self.clusters)
-            if self.active_tab == 1:
-                self.cellhist_widget.update_histograms(clusters=self.clusters)
-            return z, cluster_args
+        """Computes dendrogram (linkage) and clusters with currently set parameters and initializes the interactive figure
+        """
         
-        def update_distance(cutoff):
-                    
-            if not self._clustering_disabled:
-                self.v_cluster_setting['distance'].set(cutoff)
-                recluster()
-            else:
-                print('Reclustering is disabled')
-        
+        # Select preset if current sub-settings correspond to one
         matching_preset = [k for k, v in cluster_presets.items() if ((v.method == self.v_cluster_setting['method'].get())
                                                                      and (v.metric == self.v_cluster_setting['metric'].get())
                                                                      and (v.preproc == self.v_cluster_setting['preproc'].get()))]
-                           
         if len(matching_preset) == 1:
             self.v_cluster_setting['preset'].set(matching_preset[0])
         else:
             self.v_cluster_setting['preset'].set('(none)')
-        
+            
+        def recluster():        
+            """key function to recompute the linkage matrix and clustering. Encapsulates CellList.cluster with
+            features to read and mangle settings from GUI and update the results table"""
+            cluster_args = {k: v.get() for k, v in self.v_cluster_setting.items()}
+            cluster_args = {k: v.lower() if isinstance(v, str) else v for k, v in cluster_args.items()}
+            cluster_args['distance'] = None if cluster_args['distance'] == 0 else cluster_args['distance']
+            
+            self.clusters, z = self.all_cells.cluster(**{k: v for k, v in cluster_args.items() if k != 'preset'})
+            
+            self.cluster_table.update_table(clusters=self.clusters)
+            if self.active_tab == 1:
+                self.cellhist_widget.update_histograms(clusters=self.clusters)
+            return z, cluster_args
+
+        # run reclustering
         z, cluster_args = recluster()
             
         try:
@@ -614,7 +613,15 @@ class CellGUI:
             print('Experiment names not found in CSV list. Consider including them.')
             labels = None
             
-        _, self._click_cid = distance_from_dendrogram(z, ylabel=cluster_args['metric'], initial_distance=cluster_args['distance'],
+        # Redraw and activate interactive figure        
+        def update_distance(cutoff):  
+            if not self._clustering_disabled:
+                self.v_cluster_setting['distance'].set(cutoff)
+                recluster()
+            else:
+                print('Reclustering is disabled')
+                
+        distance_from_dendrogram(z, ylabel=cluster_args['metric'], initial_distance=cluster_args['distance'],
                                  labels=labels, fig_handle=self.cluster_widget.fig, callback=update_distance)
         
     def reload_cells(self):

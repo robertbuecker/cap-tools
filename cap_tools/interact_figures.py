@@ -234,11 +234,11 @@ def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None,
 
             fig.canvas.draw()
 
-    click_cid = click_cid_dendrogram = fig.canvas.mpl_connect('button_press_event', get_cutoff)
+    click_cid_dendrogram = fig.canvas.mpl_connect('button_press_event', get_cutoff)
     
     if fig_handle is None:
         plt.show()
     else:
         fig.canvas.draw()
 
-    return distance, click_cid
+    return distance

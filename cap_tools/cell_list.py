@@ -1,5 +1,5 @@
-from .utils import get_clusters, parse_cap_csv, order_uc_pars, \
-    unit_cell_lcv_distance, volume, volume_difference, write_cap_csv, build_merge_tree, flatten_to_str
+from .utils import parse_cap_csv, order_uc_pars, \
+    unit_cell_lcv_distance, volume, volume_difference, write_cap_csv, flatten_to_str
 import numpy as np
 import yaml
 from scipy.cluster.hierarchy import linkage
@@ -9,6 +9,9 @@ from collections import namedtuple
 from typing import *
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+from scipy.cluster.hierarchy import fcluster
+from collections import defaultdict
+
 
 class CellList:
 
@@ -16,7 +19,7 @@ class CellList:
         self._cells = order_uc_pars(cells)
         self._weights = np.array([1]*cells.shape[0]) if weights is None else weights
         self._merge_tree = [] if merge_tree is None else merge_tree
-        self.pca_whiten = False # somewhat redundant if SEuclidean is available as clustering metric
+        self.pca_whiten = False # TODO somewhat redundant if SEuclidean is available as clustering metric?
 
         if ds is None:
             self.ds = []
@@ -155,74 +158,104 @@ class CellList:
                  distance: Optional[float]=None,
                  method: str="average",
                  metric: str="euclidean",
-                 preproc: str="none") -> Dict[int,'CellList']:
+                 preproc: str="none",
+                 z: Optional[np.ndarray]=None) -> Tuple[Dict[int,'CellList'], np.ndarray]:
                 """Perform hierarchical cluster analysis on a list of cells. 
 
                 method: lcv, volume, euclidean
                 distance: cutoff distance, if it is not given, pop up a dendrogram to
                     interactively choose a cutoff distance
                 preproc: data preprocessing: none, standardized, pca, diagonals, diagonalspca, g6
+                z: linkage matrix. If provided, no recomputation is performed and method/metric/preproc are ignored
                 """
 
                 from scipy.spatial.distance import pdist
                 
-                pp = preproc.lower()
+                if z is None:
+                    
+                    # cell data conditioning
+                    pp_methods = {'none': self.cells, 
+                                'standardized': self.cells_standardized, 
+                                'pca': self.cells_pca,
+                                'diagonals': self.diagonals,
+                                'diagonalspca': self.diagonals_PCA,
+                                'g6': self.G6}
+                    try: 
+                        _cells = pp_methods[preproc.lower()]
+                    except IndexError:
+                        raise ValueError(f'Unknown preprocessing method {preproc}')
 
-                # cell data conditioning
-                if pp == 'none':
-                    _cells = self.cells
-                elif pp == 'standardized':
-                    _cells = self.cells_standardized
-                elif pp == 'pca':
-                    _cells = self.cells_pca
-                elif pp == 'diagonals':
-                    _cells = self.diagonals
-                elif pp == 'diagonalspca':
-                    _cells = self.diagonals_PCA
-                elif pp == 'g6':
-                    _cells = self.G6
-                else:
-                    raise ValueError(f'Unknown preprocessing method {preproc}')
+                    # compute distances and linkage
+                    if metric.lower() == "lcv":
+                        dist = pdist(_cells, metric=unit_cell_lcv_distance)
+                        z = linkage(dist,  method=method)
+                        distance = round(0.5*max(z[:,2]), 4) if distance is None else distance
+                    elif metric.lower() == "alcv":
+                        dist = pdist(_cells, metric=lambda cell1, cell2: unit_cell_lcv_distance(cell1, cell2, True))
+                        z = linkage(dist,  method=method)
+                        distance = round(0.5*max(z[:,2]), 4) if distance is None else distance                    
+                    elif metric.lower() == "volume":
+                        dist = pdist(_cells, metric=volume_difference)
+                        z = linkage(dist,  method=method)
+                        distance = 250.0 if distance is None else distance
+                    else:
+                        z = linkage(_cells,  metric=metric, method=method.lower())
+                        distance = 2.0 if distance is None else distance
 
-                # cell distance metric
-                if metric.lower() == "lcv":
-                    dist = pdist(_cells, metric=unit_cell_lcv_distance)
-                    z = linkage(dist,  method=method)
-                    distance = round(0.5*max(z[:,2]), 4) if distance is None else distance
-                elif metric.lower() == "alcv":
-                    dist = pdist(_cells, metric=lambda cell1, cell2: unit_cell_lcv_distance(cell1, cell2, True))
-                    z = linkage(dist,  method=method)
-                    distance = round(0.5*max(z[:,2]), 4) if distance is None else distance                    
-                elif metric.lower() == "volume":
-                    dist = pdist(_cells, metric=volume_difference)
-                    z = linkage(dist,  method=method)
-                    distance = 250.0 if distance is None else distance
-                else:
-                    z = linkage(_cells,  metric=metric, method=method.lower())
-                    distance = 2.0 if distance is None else distance
-
-                # if not distance:
-                #     distance = distance_from_dendrogram(z, ylabel=metric, initial_distance=initial_distance, labels=labels)
-
-                print(f"Linkage method = {method}")
-                print(f"Cutoff distance = {distance}")
-                print(f"Distance metric = {metric}")
-                print(f"Preprocessing = {preproc}")
-                print("")
-
-                clusters_idx = get_clusters(z, self.cells, distance=distance)
+                    # if not distance:
+                    #     distance = distance_from_dendrogram(z, ylabel=metric, initial_distance=initial_distance, labels=labels)
+                    print(f"Recomputing dendrogram")
+                    print(f"-> Preprocessing = {preproc}")
+                    print(f"-> Distance metric = {metric}")
+                    print(f"-> Linkage method = {method}")
+                    
+                print(f"Reclustering with distance = {distance}")
+                cluster = fcluster(z, distance, criterion='distance')
+                
+                # build merging tree
                 try:
                     names = [d['Experiment name'] for d in self.ds]
                 except KeyError:
                     names = [str[ii] for ii in range(len(self))]
                     
-                self._merge_tree, cid = build_merge_tree(z, distance=distance, names=names)
+                self._merge_tree = []
+                merge_tree_cids = []
+                
+                for merge in z:
+                    # print(merge)
+                    if merge[2] > distance:
+                        break
+                    ii, jj = int(merge[0]), int(merge[1])
+                    
+                    if ii < len(names):
+                        # first leaf is a single data set
+                        name0 = names[int(ii)]
+                        cid = cluster[ii]
+                    else:
+                        # first leaf is a merged data set
+                        name0 = self._merge_tree[int(ii)-len(names)]
+                        cid = merge_tree_cids[int(ii)-len(names)]
+                        
+                    if jj < len(names):
+                        name1 = names[int(jj)]
+                        assert cluster[jj] == cid    # make sure that both leaves are from the same cluster
+                    else:
+                        name1 = self._merge_tree[int(jj)-len(names)]
+                        assert merge_tree_cids[int(jj)-len(names)] == cid
+                        
+                    self._merge_tree.append((name0, name1))
+                    merge_tree_cids.append(cid)
+                
+                # make cell lists for clusters
+                cluster_lists = {}
+                for cid in np.unique(cluster):                    
+                    idcs = np.flatnonzero(cluster == cid)                   
+                    if len(idcs) == 1:
+                        # sort out singletons
+                        continue                   
+                    cluster_lists[cid] = CellList(cells = self.cells[idcs],
+                                           ds=[d for ii, d in enumerate(self.ds) if ii in idcs],
+                                           weights=self.weights[idcs],
+                                           merge_tree=[mt for ii, mt in zip(merge_tree_cids, self.merge_tree) if ii==cid])
 
-                clusters = {}
-                for k, cluster_idx in clusters_idx.items():
-                    clusters[k] = CellList(cells = self.cells[cluster_idx],
-                                           ds=[d for ii, d in enumerate(self.ds) if ii in cluster_idx],
-                                           weights=self.weights[cluster_idx],
-                                           merge_tree=[mt for ii, mt in zip(cid, self.merge_tree) if ii==k])
-
-                return clusters, z
+                return cluster_lists, z

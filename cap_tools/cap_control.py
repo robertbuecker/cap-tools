@@ -5,9 +5,6 @@ import time
 import pandas as pd
 
 
-
-
-
 def cluster_finalize(cluster_name: str,
                      include_proffitmerge: bool = True, res_limit: float = 0.8,
                      finalization_timeout: float = 10, 

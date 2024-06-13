@@ -169,7 +169,7 @@ def fom_radar_plot(overall_df: pd.DataFrame,
 def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None, 
                              labels: Optional[List[str]] = None, 
                              fig_handle: Optional[Figure] = None, callback: Optional[callable] = None) -> float:
-    """Interactive dendrogram plot. Function taken from edtools by Stef Smeets.
+    """Interactive dendrogram plot. Function mostly taken from edtools by Stef Smeets.
     
     Takes a linkage object `z` from scipy.cluster.hierarchy.linkage and displays a
     dendrogram. The cutoff distance can be picked interactively, and is returned

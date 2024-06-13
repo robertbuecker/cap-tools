@@ -1,5 +1,5 @@
 from .utils import parse_cap_csv, order_uc_pars, \
-    unit_cell_lcv_distance, volume, volume_difference, write_cap_csv, flatten_to_str, ClusterPreset
+    unit_cell_lcv_distance, volume, volume_difference, write_cap_csv, ClusterPreset
 import numpy as np
 import yaml
 from scipy.cluster.hierarchy import linkage
@@ -106,57 +106,6 @@ class CellList:
     def from_csv(cls, fn, use_raw_cell=True):
         ds, cells, weights = parse_cap_csv(fn, use_raw_cell, filter_missing=True)
         return cls(cells=cells, ds=ds)
-    
-    def get_merging_paths(self, prefix: str = '', common_path: Optional[str] = None, short_form: bool = False,
-                          appendices: Union[list, tuple] = ('', '_autored', '_auto')):
-        """
-        define merging paths: by default, place merged file into folder of involved experiment with lowest number        
-        """
-        
-        exps = {} # locate non-merged proffit files of single experiments
-        for name, path in ((d['Experiment name'], d['Dataset path']) for d in self.ds):
-            for appendix in appendices:
-                if os.path.exists(os.path.join(path, f'{name}{appendix}.rrpprof')):
-                    exps[name] = (path, f'{name}{appendix}')
-                    break
-            else:
-                print(f'No rrpprof file found for {name} in {path} - Skipping.')
-                
-        # create mangle-able ID strings from merging tree
-        out_codes = [flatten_to_str(mt) for mt in self.merge_tree]
-        in_codes = [(flatten_to_str(mt[0]), flatten_to_str(mt[1])) for mt in self.merge_tree]
-        sep = '-'
-        
-        if short_form:
-            out_paths = [os.path.join(exps[sorted(oc.split(':'))[0]][0] if common_path is None else common_path, 
-                                  '-'.join([prefix, f'ID{ii+1:03d}', f'{len(oc.split(":"))}exp'])) 
-                    for ii, oc in enumerate(out_codes)]
-        else:        
-            out_paths = [os.path.join(exps[sorted(fn.split(':'))[0]][0] if common_path is None else common_path, 
-                                  '-'.join([prefix, fn]).replace(':', sep)) 
-                    for fn in out_codes]
-        
-        # get info about which initial proffit files are in each output file
-        # this corresponds to the out_code string ID, but with naked exp filenames replaced by the 
-        # finalization name (to be fully unique) and sorted identifiers
-        out_info = [
-            ':'.join([exps[in_code][1] for in_code in sorted(out_code.split(':'))])
-                    for out_code in out_codes]
-
-        # get input paths
-        in_paths = []
-        for in_code in in_codes:
-            paths = []
-            for cd in in_code:
-                if not ':' in cd:
-                    # non-merged file
-                    paths.append(os.path.join(*exps[cd]))
-                else:
-                    # merged file
-                    paths.append(out_paths[out_codes.index(cd)])            
-            in_paths.append(tuple(paths))
-            
-        return out_paths, in_paths, out_codes, out_info
 
     def to_csv(self, fn: str):
         write_cap_csv(fn, self.ds)
@@ -197,18 +146,18 @@ class CellList:
                     # compute distances and linkage
                     if cluster_pars.metric.lower() == "lcv":
                         dist = pdist(_cells, metric=unit_cell_lcv_distance)
-                        z = linkage(dist,  method=cluster_pars.method)
+                        z = linkage(dist,  method=cluster_pars.method, optimal_ordering=True)
                         distance = round(0.5*max(z[:,2]), 4) if distance is None else distance
                     elif cluster_pars.metric.lower() == "alcv":
                         dist = pdist(_cells, metric=lambda cell1, cell2: unit_cell_lcv_distance(cell1, cell2, True))
-                        z = linkage(dist,  method=cluster_pars.method)
+                        z = linkage(dist,  method=cluster_pars.method, optimal_ordering=True)
                         distance = round(0.5*max(z[:,2]), 4) if distance is None else distance                    
                     elif cluster_pars.metric.lower() == "volume":
                         dist = pdist(_cells, metric=volume_difference)
-                        z = linkage(dist,  method=cluster_pars.method)
+                        z = linkage(dist,  method=cluster_pars.method, optimal_ordering=True)
                         distance = 250.0 if distance is None else distance
                     else:
-                        z = linkage(_cells,  metric=cluster_pars.metric.lower(), method=cluster_pars.method.lower())
+                        z = linkage(_cells,  metric=cluster_pars.metric.lower(), method=cluster_pars.method.lower(), optimal_ordering=True)
                         distance = 2.0 if distance is None else distance
 
                     # if not distance:
@@ -282,3 +231,84 @@ class CellList:
                                            cluster_distance=distance)
 
                 return cluster_lists
+            
+    def get_merge_codes(self, sep: str = ':') -> Tuple[List[str], List[Tuple[str, str]]]:
+        """Generates unique string ID codes for each merge node containing all dataset names in that merge node
+        separated by a definable separator. Also, for each merge node, generates a pair of string IDs corresponding
+        to the two child nodes directly merged into that node.
+
+        Args:
+            sep (str, optional): Separator. Defaults to ':'.
+
+        Returns:
+            out_codes, in_codes: Lists of string ID codes for each merge node, and pairs of ID codes of the child nodes
+        """
+        
+        def flatten_to_str(in_names: Union[Tuple[Union[Tuple, str], Union[Tuple, str]], str], sep=sep) -> str:    
+            # recursive function to flatten merging Tuples
+            return in_names if isinstance(in_names, str) else sep.join([flatten_to_str(fn, sep) for fn in in_names])
+        
+        out_codes = [flatten_to_str(mt) for mt in self.merge_tree]
+        in_codes = [((flatten_to_str(mt[0]), flatten_to_str(mt[1])) if isinstance(mt, tuple) else (None, None)) 
+                    for mt in self.merge_tree] # needs to account for singletons
+        
+        return out_codes, in_codes
+            
+    def get_merging_paths(self, prefix: str = '', common_path: Optional[str] = None, short_form: bool = False,
+                          appendices: Union[list, tuple] = ('', '_autored', '_auto')):
+        """
+        define merging paths: by default, place merged file into folder of involved experiment with lowest number        
+        """
+        
+        exps = {} # dict of Tuple[path, finalization_name]
+        for d in self.ds:
+            name, path = d['Experiment name'], d['Dataset path']
+            if 'Finalization file' in d:
+                fin_lbl = d['Finalization file']
+                fn = os.path.join(path, f'{fin_lbl}.rrpprof')
+                if os.path.exists(fn):
+                    exps[name] = (path, fin_lbl)
+                else:
+                    FileNotFoundError(f'Specified profile file {fn} does not exist.')
+            else:
+                for appendix in appendices:
+                    if os.path.exists(os.path.join(path, f'{name}{appendix}.rrpprof')):
+                        exps[name] = (path, f'{name}{appendix}')
+                        break
+                else:
+                    print(f'No rrpprof file found for {name} in {path} - Skipping.')
+                    continue
+                            
+        # create mangle-able ID strings from merging tree
+        out_codes, in_codes = self.get_merge_codes()
+        
+        if short_form:
+            out_paths = [os.path.join(exps[sorted(oc.split(':'))[0]][0] if common_path is None else common_path, 
+                                  '-'.join([prefix, f'ID{ii+1:03d}', f'{len(oc.split(":"))}exp'])) 
+                    for ii, oc in enumerate(out_codes)]
+        else:        
+            out_paths = [os.path.join(exps[sorted(fn.split(':'))[0]][0] if common_path is None else common_path, 
+                                  '-'.join([prefix, fn]).replace(':', '-')) 
+                    for fn in out_codes]
+        
+        # get info about which initial proffit files are in each output file
+        # this corresponds to the out_code string ID, but with naked exp filenames replaced by the 
+        # finalization name (to be fully unique) and sorted identifiers
+        out_info = [
+            ':'.join([exps[in_code][1] for in_code in sorted(out_code.split(':'))])
+                    for out_code in out_codes]
+
+        # get input paths
+        in_paths = []
+        for in_code in in_codes:
+            paths = []
+            for cd in in_code:
+                if not ':' in cd:
+                    # non-merged file
+                    paths.append(os.path.join(*exps[cd]))
+                else:
+                    # merged file
+                    paths.append(out_paths[out_codes.index(cd)])            
+            in_paths.append(tuple(paths))
+            
+        return out_paths, in_paths, out_codes, out_info

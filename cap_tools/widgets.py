@@ -15,6 +15,7 @@ from cap_tools.finalization import FinalizationCollection
 from cap_tools.interact_figures import fom_radar_plot
 from cap_tools.utils import myTreeView
 import math
+import os
 
 
 class PlotWidget(ttk.Frame):

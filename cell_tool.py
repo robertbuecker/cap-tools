@@ -8,7 +8,7 @@ from matplotlib.backend_bases import key_press_handler
 from cap_tools.cell_list import CellList
 from cap_tools.interact_figures import distance_from_dendrogram
 from cap_tools.finalization import FinalizationCollection, Finalization
-from cap_tools.cluster_finalize import cluster_finalize
+from cap_tools.cap_control import cluster_finalize
 import numpy as np
 from collections import defaultdict
 from typing import *
@@ -19,7 +19,6 @@ from cap_tools.widgets import ClusterTableWidget
 from cap_tools.widgets import FinalizationWidget
 from cap_tools.widgets import CellHistogramWidget
 from cap_tools.widgets import ClusterWidget
-
 
 cluster_presets = {'Direct': ClusterPreset(preproc='None', metric='Euclidean', method='Ward'),
                    'Whitened': ClusterPreset(preproc='PCA', metric='SEuclidean', method='Average'),
@@ -208,8 +207,8 @@ class CellGUI:
     def run_clustering(self, distance: Optional[float] = None):        
         
         if self._clustering_disabled:
-            raise RuntimeError('Reclustering is disabled. How did you get here?')
-            print('Reclustering is disabled')
+            # raise RuntimeError('Clustering is disabled. How did you get here?')
+            print('Clustering is disabled. Ignoring clustering request.')
             return
 
         cluster_pars = ClusterPreset(preproc=self.v_cluster_setting['preproc'].get(),
@@ -243,19 +242,18 @@ class CellGUI:
                 print('Experiment names not found in CSV list. Consider including them.')
                 labels = None          
                         
-            distance_from_dendrogram(self.all_cells._z, ylabel=cluster_pars.metric, initial_distance=distance,
+            _, self._click_cid = distance_from_dendrogram(self.all_cells._z, ylabel=cluster_pars.metric, initial_distance=distance,
                                 labels=labels, fig_handle=self.cluster_widget.fig, callback=lambda distance: self.run_clustering(distance))                        
 
     def reload_cells(self):
         raw = self.v_use_raw.get()        
         self.all_cells = CellList.from_csv(self.fn, use_raw_cell=raw) #TODO change this to selection of raw cells           
-        self.w_all_fn.config(text=os.path.basename(self.fn) + (' (raw)' if raw else ''))
-        
+        self.w_all_fn.config(text=os.path.basename(self.fn) + (' (raw)' if raw else ''))       
         self.run_clustering()
             
     def load_cells(self):
         self.fn = os.path.normpath(
-            askopenfilename(title='Open cell list file', filetypes=(('CrysAlisPro', '*.csv'), ('YAML list (edtools)', '*.yaml')))
+            askopenfilename(title='Open cell list file', filetypes=(('CrysAlisPro', '*.csv')))
         )
         self.reload_cells()
         
@@ -309,8 +307,6 @@ class CellGUI:
                 
     def set_cluster_active(self, active: bool=True):
         
-        global click_cid_dendrogram
-        
         self._clustering_disabled = not active
         
         for child in self._csf.winfo_children():
@@ -321,8 +317,8 @@ class CellGUI:
         else:
             self.cluster_table.cluster_view.disable()
                         
-        if (not active) and (click_cid_dendrogram is not None):
-            self.cluster_widget.canvas.mpl_disconnect(click_cid_dendrogram)
+        if (not active) and (self._click_cid is not None):
+            self.cluster_widget.canvas.mpl_disconnect(self._click_cid)
         else:
             self.run_clustering()
             #TODO properly re-activate the plot!

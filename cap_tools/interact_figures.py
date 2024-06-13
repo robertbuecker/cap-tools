@@ -20,7 +20,6 @@ from matplotlib.transforms import Affine2D
 matplotlib.use('TkAgg')
 
 
-global click_cid_dendrogram
 click_cid_dendrogram = None
 
 def radar_factory(num_vars, frame='circle'):
@@ -241,4 +240,4 @@ def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None,
     else:
         fig.canvas.draw()
 
-    return distance
+    return distance, click_cid_dendrogram

@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 import csv
 from math import radians, cos, floor, log10
 from pathlib import Path
@@ -151,5 +151,9 @@ def volume_difference(cell1: list, cell2: list):
 
 
 def flatten_to_str(in_names: Union[Tuple[Union[Tuple, str], Union[Tuple, str]], str], sep: str = ':') -> str:
+    #TODO factor into CellList
     """Generates unique string identifiers from a nested tuple of strings as returned by `build_merge_tree`"""
     return in_names if isinstance(in_names, str) else sep.join([flatten_to_str(fn, sep) for fn in in_names])
+
+
+ClusterPreset = namedtuple('ClusterPreset', ['preproc', 'metric', 'method'])

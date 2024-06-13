@@ -19,12 +19,9 @@ from collections import defaultdict
 from typing import *
 from time import time
 import os
-from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
-from cap_tools.utils import myTreeView
+from cap_tools.utils import myTreeView, ClusterPreset
 
-
-ClusterPreset = namedtuple('ClusterPreset', ['preproc', 'metric', 'method'])
 
 cluster_presets = {'Direct': ClusterPreset(preproc='None', metric='Euclidean', method='Ward'),
                    'Whitened': ClusterPreset(preproc='PCA', metric='SEuclidean', method='Average'),
@@ -459,7 +456,7 @@ class CellGUI:
             'Preprocessing': ttk.OptionMenu(csf, self.v_cluster_setting['preproc'], self.v_cluster_setting['preproc'].get(), *preproc_list), #TODO: add init_clustering as callback?
             'Metric': ttk.OptionMenu(csf, self.v_cluster_setting['metric'], self.v_cluster_setting['metric'].get(), *metric_list),
             'Method': ttk.OptionMenu(csf, self.v_cluster_setting['method'], self.v_cluster_setting['method'].get(), *method_list),
-            'Refresh': ttk.Button(csf, text='Refresh', command=self.init_clustering)
+            'Refresh': ttk.Button(csf, text='Refresh', command=self.run_clustering)
         }
         for k in ['Preset', 'Preprocessing', 'Metric', 'Method']:
             self.w_cluster_setting[k].config(w=15)
@@ -577,59 +574,53 @@ class CellGUI:
     def active_tab(self):
         return self.tabs.index(self.tabs.select())
         
-    def init_clustering(self):
-        """Computes dendrogram (linkage) and clusters with currently set parameters and initializes the interactive figure
-        """
+    def run_clustering(self, distance: Optional[float] = None):        
         
-        # Select preset if current sub-settings correspond to one
-        matching_preset = [k for k, v in cluster_presets.items() if ((v.method == self.v_cluster_setting['method'].get())
-                                                                     and (v.metric == self.v_cluster_setting['metric'].get())
-                                                                     and (v.preproc == self.v_cluster_setting['preproc'].get()))]
+        if self._clustering_disabled:
+            raise RuntimeError('Reclustering is disabled. How did you get here?')
+            print('Reclustering is disabled')
+            return
+
+        cluster_pars = ClusterPreset(preproc=self.v_cluster_setting['preproc'].get(),
+                                    metric=self.v_cluster_setting['metric'].get(),
+                                    method=self.v_cluster_setting['method'].get())
+        matching_preset = [k for k, v in cluster_presets.items() if v == cluster_pars]
+        
         if len(matching_preset) == 1:
             self.v_cluster_setting['preset'].set(matching_preset[0])
         else:
-            self.v_cluster_setting['preset'].set('(none)')
-            
-        def recluster():        
-            """key function to recompute the linkage matrix and clustering. Encapsulates CellList.cluster with
-            features to read and mangle settings from GUI and update the results table"""
-            cluster_args = {k: v.get() for k, v in self.v_cluster_setting.items()}
-            cluster_args = {k: v.lower() if isinstance(v, str) else v for k, v in cluster_args.items()}
-            cluster_args['distance'] = None if cluster_args['distance'] == 0 else cluster_args['distance']
-            
-            self.clusters, z = self.all_cells.cluster(**{k: v for k, v in cluster_args.items() if k != 'preset'})
-            
-            self.cluster_table.update_table(clusters=self.clusters)
-            if self.active_tab == 1:
-                self.cellhist_widget.update_histograms(clusters=self.clusters)
-            return z, cluster_args
+            self.v_cluster_setting['preset'].set('(none)')                 
 
-        # run reclustering
-        z, cluster_args = recluster()
+        if distance is None:
+            # no distance as input parameter: get from text field and redraw figure
+            distance = self.v_cluster_setting['distance'].get()
+            redraw = True           
+        else:
+            # distance as input parameter: called from figure callback
+            self.v_cluster_setting['distance'].set(distance)
+            redraw = False
             
-        try:
-            labels = [d['Experiment name'] for d in self.all_cells.ds]
-        except KeyError as err:
-            print('Experiment names not found in CSV list. Consider including them.')
-            labels = None
+        self.clusters = self.all_cells.cluster(distance=None if distance==0 else distance, cluster_pars=cluster_pars)     
+        self.cluster_table.update_table(clusters=self.clusters)           
+        if self.active_tab == 1:
+            self.cellhist_widget.update_histograms(clusters=self.clusters)
             
-        # Redraw and activate interactive figure        
-        def update_distance(cutoff):  
-            if not self._clustering_disabled:
-                self.v_cluster_setting['distance'].set(cutoff)
-                recluster()
-            else:
-                print('Reclustering is disabled')
-                
-        distance_from_dendrogram(z, ylabel=cluster_args['metric'], initial_distance=cluster_args['distance'],
-                                 labels=labels, fig_handle=self.cluster_widget.fig, callback=update_distance)
-        
+        if redraw:            
+            try:
+                labels = [d['Experiment name'] for d in self.all_cells.ds]
+            except KeyError as err:
+                print('Experiment names not found in CSV list. Consider including them.')
+                labels = None          
+                        
+            distance_from_dendrogram(self.all_cells._z, ylabel=cluster_pars.metric, initial_distance=distance,
+                                labels=labels, fig_handle=self.cluster_widget.fig, callback=lambda distance: self.run_clustering(distance))                        
+
     def reload_cells(self):
         raw = self.v_use_raw.get()        
         self.all_cells = CellList.from_csv(self.fn, use_raw_cell=raw) #TODO change this to selection of raw cells           
         self.w_all_fn.config(text=os.path.basename(self.fn) + (' (raw)' if raw else ''))
         
-        self.init_clustering()
+        self.run_clustering()
             
     def load_cells(self):
         self.fn = os.path.normpath(
@@ -702,7 +693,7 @@ class CellGUI:
         if (not active) and (click_cid_dendrogram is not None):
             self.cluster_widget.canvas.mpl_disconnect(click_cid_dendrogram)
         else:
-            self.init_clustering()
+            self.run_clustering()
             #TODO properly re-activate the plot!
         
     def merge_finalize(self, finalize: bool = True, top_only: bool = False):

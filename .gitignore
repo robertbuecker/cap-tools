@@ -3,3 +3,6 @@
 __pycache__
 build
 dist
+*.xml
+*.cif
+*.cif_pets

@@ -149,4 +149,4 @@ def volume_difference(cell1: list, cell2: list):
     v2 = volume(cell2)
     return abs(v1-v2)
 
-ClusterPreset = namedtuple('ClusterPreset', ['preproc', 'metric', 'method'])
+ClusterOptions = namedtuple('ClusterOptions', ['preproc', 'metric', 'method'])

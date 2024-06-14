@@ -1,5 +1,5 @@
 from .utils import parse_cap_csv, order_uc_pars, \
-    unit_cell_lcv_distance, volume, volume_difference, write_cap_csv, ClusterPreset
+    unit_cell_lcv_distance, volume, volume_difference, write_cap_csv, ClusterOptions
 import numpy as np
 import yaml
 from scipy.cluster.hierarchy import linkage
@@ -17,7 +17,7 @@ class CellList:
 
     def __init__(self, cells: np.ndarray, ds: Optional[dict] = None, weights: Optional[np.ndarray] = None, 
                  merge_tree: Optional[Tuple] = None, linkage_z: Optional[np.ndarray] = None, 
-                 cluster_pars: Optional[ClusterPreset] = None, cluster_distance: Optional[float] = None):
+                 cluster_pars: Optional[ClusterOptions] = None, cluster_distance: Optional[float] = None):
         
         self._cells = order_uc_pars(cells)
         self._weights = np.array([1]*cells.shape[0]) if weights is None else weights
@@ -112,7 +112,7 @@ class CellList:
 
     def cluster(self,
                  distance: Optional[float]=None,
-                 cluster_pars: Optional[ClusterPreset] = None) -> Dict[int,'CellList']:
+                 cluster_pars: Optional[ClusterOptions] = None) -> Dict[int,'CellList']:
                 """Perform hierarchical cluster analysis on a list of cells. 
 
                 method: lcv, volume, euclidean

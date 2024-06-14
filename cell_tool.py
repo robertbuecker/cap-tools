@@ -8,24 +8,25 @@ from matplotlib.backend_bases import key_press_handler
 from cap_tools.cell_list import CellList
 from cap_tools.interact_figures import distance_from_dendrogram
 from cap_tools.finalization import FinalizationCollection, Finalization
-from cap_tools.cap_control import cluster_finalize
 import numpy as np
 from collections import defaultdict
 from typing import *
 import os
 from concurrent.futures import ThreadPoolExecutor
-from cap_tools.utils import ClusterPreset
+from cap_tools.utils import ClusterOptions
 from cap_tools.widgets import ClusterTableWidget
 from cap_tools.widgets import FinalizationWidget
 from cap_tools.widgets import CellHistogramWidget
 from cap_tools.widgets import ClusterWidget
+from cap_tools.cap_control import CAPMergeFinalize
+import queue
 
-cluster_presets = {'Direct': ClusterPreset(preproc='None', metric='Euclidean', method='Ward'),
-                   'Whitened': ClusterPreset(preproc='PCA', metric='SEuclidean', method='Average'),
-                   'LCV (relative)': ClusterPreset(preproc='None', metric='LCV', method='Ward'),
-                   'Diagonals (Å)': ClusterPreset(preproc='Diagonals', metric='Euclidean', method='Ward'),
-                   'Standardized': ClusterPreset(preproc='None', metric='SEuclidean', method='Average'),
-                   'LCV (Å)': ClusterPreset(preproc='None', metric='aLCV', method='Ward')}
+cluster_presets = {'Direct': ClusterOptions(preproc='None', metric='Euclidean', method='Ward'),
+                   'Whitened': ClusterOptions(preproc='PCA', metric='SEuclidean', method='Average'),
+                   'LCV (relative)': ClusterOptions(preproc='None', metric='LCV', method='Ward'),
+                   'Diagonals (Å)': ClusterOptions(preproc='Diagonals', metric='Euclidean', method='Ward'),
+                   'Standardized': ClusterOptions(preproc='None', metric='SEuclidean', method='Average'),
+                   'LCV (Å)': ClusterOptions(preproc='None', metric='aLCV', method='Ward')}
 
 class CellGUI:
     
@@ -52,7 +53,18 @@ class CellGUI:
         self.root = tk.Tk()
         self.root.geometry('1300x800')
         self.root.title("3D ED/MicroED cell tool")
+        
+        # tools for multithreading (for long-running tasks)
         self.exec = ThreadPoolExecutor()
+        self.status_q = queue.Queue()
+        self.clipboard_q = queue.Queue()            
+        def check_queues():
+            if not self.status_q.empty():
+                self.set_status_message(self.status_q.get())
+            if not self.clipboard_q.empty():
+                self.set_clipboard(self.clipboard_q.get())
+            self.root.after(100, check_queues)
+        check_queues()
         
         ## CONTROL FRAME --
         cf = self.control_frame = ttk.LabelFrame(self.root, text='Cell Lists')
@@ -211,7 +223,7 @@ class CellGUI:
             print('Clustering is disabled. Ignoring clustering request.')
             return
 
-        cluster_pars = ClusterPreset(preproc=self.v_cluster_setting['preproc'].get(),
+        cluster_pars = ClusterOptions(preproc=self.v_cluster_setting['preproc'].get(),
                                     metric=self.v_cluster_setting['metric'].get(),
                                     method=self.v_cluster_setting['method'].get())
         matching_preset = [k for k, v in cluster_presets.items() if v == cluster_pars]
@@ -275,86 +287,52 @@ class CellGUI:
             cluster_fn = os.path.splitext(fn_template)[0] + f'-cluster_{ii}_ID{c_id}.csv'
             cluster.to_csv(cluster_fn)
             print(f'Wrote cluster {c_id} with {len(cluster)} crystals to file {cluster_fn}')
-            
-    def save_merging_macro(self, mac_fn: Optional[str] = None):
-        
-        if mac_fn is None:
-            mac_fn = asksaveasfilename(confirmoverwrite=True, title='Select MAC filename',
-                                   initialdir=os.path.dirname(self.fn), initialfile=os.path.splitext(os.path.basename(self.fn))[0] + '_merge.mac',
-                                   filetypes=[('CrysAlisPro Macro', '*.mac')])
-        
-        info_fn = os.path.splitext(mac_fn)[0] + '_info.csv'
-        
-        if not self.cluster_table.selected_cluster_ids:
-            return []
-        
-        with open(mac_fn, 'w') as fh, open(info_fn, 'w') as ifh:
-            ifh.write('Name,File path,Cluster,Data sets,Merge code\n')
-            merged_cids = []
-            for ii, (c_id, cluster) in enumerate(self.clusters.items()):
-                if c_id not in self.cluster_table.selected_cluster_ids:
-                    print(f'Skipping Cluster {c_id} (not selected in list)')
-                    continue
-                out_paths, in_paths, out_codes, out_info = cluster.get_merging_paths(prefix=f'C{c_id}', short_form=True)
-                for out, (in1, in2), code, info in zip(out_paths, in_paths, out_codes, out_info):
-                    fh.write(f'xx proffitmerge "{out}" "{in1}" "{in2}"\n')
-                    print(f'Adding merge instructions for: {info}')
-                    ifh.write(f'{os.path.basename(out)},{out},{c_id},{info},{code}\n')
-                print(f'Full-cluster merge for cluster {c_id}: {out_paths[-1]}')
-                merged_cids.append(c_id)
                 
-        return merged_cids
-                
-    def set_cluster_active(self, active: bool=True):
+    def set_clustering_active(self, active: bool=True):
+        # activate/deactive clustering controls
         
-        self._clustering_disabled = not active
-        
+        self._clustering_disabled = not active        
         for child in self._csf.winfo_children():
-            child.config(state='normal' if active else 'disabled')
-        
+            child.config(state='normal' if active else 'disabled')        
         if active:
             self.cluster_table.cluster_view.enable()
         else:
-            self.cluster_table.cluster_view.disable()
-                        
+            self.cluster_table.cluster_view.disable()                        
         if (not active) and (self._click_cid is not None):
             self.cluster_widget.canvas.mpl_disconnect(self._click_cid)
         else:
             self.run_clustering()
             #TODO properly re-activate the plot!
         
+    def set_status_message(self, msg):
+        self.merge_fin_status.delete(1.0, tk.END)
+        self.merge_fin_status.insert(tk.END, msg)
+        
+    def set_clipboard(self, msg):
+        self.root.clipboard_clear()
+        self.root.clipboard_append(msg)        
+        
     def merge_finalize(self, finalize: bool = True, top_only: bool = False):
-
-        # save a pure merging macro (not yet containing the finalizations)
-        cids = self.save_merging_macro(mac_fn = os.path.splitext(self.fn)[0] + '_merge.mac')
-               
-        if not cids:
+        
+        if not self.cluster_table.selected_cluster_ids:
             showinfo('No cluster selected', 'Please first select one or more cluster(s).')
+            return
+
+        cap_control = CAPMergeFinalize(path=os.path.splitext(self.fn)[0],
+                                       clusters=self.cluster_table.selected_clusters,
+                                       message_func=self.status_q, cmd_func=self.clipboard_q)
+        
+        cap_control.cluster_merge(write_mac=True)                       
                 
         if finalize:
-            # finalization loop
-            
-            # disable all window controls in the clustering section
-            self.set_cluster_active(False)
+
+            self.set_clustering_active(False)
+            # TODO why is the following required?
             for child in self._mff.winfo_children():
                 child.config(state='normal')      
-                       
-            # TODO: factor cluster_finalize into cluster class                            
-            mac_fn = cluster_finalize(cluster_name=os.path.splitext(self.fn)[0],
-                                             include_proffitmerge=True,
-                                             _write_mac_only=True,
-                                             finalization_timeout=30)
             
-            cmd = f'script {mac_fn}'
-            self.merge_fin_status.delete(1.0, tk.END)
-            self.merge_fin_status.insert(tk.END, 'CAP command copied to Clipboard.\nPlease paste into CMD window, run, and set options.')
-            self.root.clipboard_clear()
-            self.root.clipboard_append(cmd)
-      
-            fin_future = self.exec.submit(cluster_finalize, cluster_name=os.path.splitext(self.fn)[0],
-                                            include_proffitmerge=True, 
-                                            res_limit=self.v_merge_fin_setting['resolution'].get(),
-                                            _skip_mac_write=True)            
+            fin_future = self.exec.submit(cap_control.cluster_finalize, 
+                                          res_limit=self.v_merge_fin_setting['resolution'].get())            
                 
             def check_fin_running():
                 if fin_future.done():
@@ -366,7 +344,7 @@ class CellGUI:
                     self.merge_fin_status.insert(tk.END, 'Finalization complete')              
                     for child in self._mff.winfo_children():
                         child.config(state='normal')     
-                    self.mergefin_widget.update_fc(self.fc)                          
+                    self.mergefin_widget.update_fc(self.fc)
                 else: 
                     self.root.after(100, check_fin_running)              
                 
@@ -379,9 +357,8 @@ class CellGUI:
 def parse_args():
     import argparse
 
-    description = "Program for clustering unit cells from crystallography experiments. Contains clustering algorithm and display "
-    "functions from edtools by Stef Smeets (https://github.com/instamatic-dev/edtools), adding a GUI and cluster import/export "
-    "for CrysAlisPro."
+    description = "Program for clustering unit cells from crystallography experiments. Contains some clustering algorithm and display "
+    "functions from edtools by Stef Smeets (https://github.com/instamatic-dev/edtools)."
     
     parser = argparse.ArgumentParser(description=description,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)

@@ -122,6 +122,10 @@ class ClusterTableWidget(ttk.Frame):
     def selected_cluster_ids(self) -> List[int]:
         return [self.cluster_view.item(selected)['values'][0]
                 for selected in self.cluster_view.selection()]
+        
+    @property
+    def selected_clusters(self) -> Dict[int, CellList]:
+        return {cid: cl for cid, cl in self._clusters.items() if cid in self.selected_cluster_ids}
 
 
 class FOMWidget2(PlotWidget):

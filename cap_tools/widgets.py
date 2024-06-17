@@ -5,7 +5,7 @@ from matplotlib.figure import Figure
 
 import tkinter as tk
 import tkinter.ttk as ttk
-from typing import Dict, List, Tuple, Optional
+from typing import *
 
 import numpy as np
 import pandas as pd
@@ -47,9 +47,20 @@ class PlotWidget(ttk.Frame):
         if not hide_toolbar:
             self.toolbar.grid(row=fig_row+1, column=0, sticky=tk.S)
 
-    def init_figure_controls(self):
-        self.controls = ttk.Frame(self)
+    # def init_figure_controls(self):
+    #     self.controls = ttk.Frame(self)
 
+
+class ClusterWidget(PlotWidget):
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.tree: Optional[Dict[str, Any]] = None
+
+    # def init_figure_controls(self):
+    #     super().init_figure_controls()
+    #     ttk.Label(self.controls, text='Nothing here').grid(row=0, column=1)
+    #     ttk.Button(self.controls, text='Don\'t click!', command=lambda *args: print('nothing')).grid(row=0, column=2)
 
 class ClusterTableWidget(ttk.Frame):
 
@@ -152,13 +163,14 @@ class FOMWidget2(PlotWidget):
 
 class FinalizationWidget(ttk.Frame):
 
-    def __init__(self, root: tk.BaseWidget):
+    def __init__(self, root: tk.BaseWidget, cluster_widget: Optional[ClusterWidget] = None):
         super().__init__(root)
         self.fc = FinalizationCollection()
         self.overall_text = tk.Text(self)
         # self.overall_text.grid(row=0, column=0, sticky='NSEW')
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
+        self.cluster_widget = cluster_widget # to be used for highlighting the selected cluster in the cluster widget
 
         # columns for overall view
         self.ft_columns = {'name': ('', 90),
@@ -374,13 +386,3 @@ class FOMWidget(PlotWidget):
     def selected_fom(self):
         return self._v_fom.get()
 
-
-class ClusterWidget(PlotWidget):
-
-    def __init__(self, parent):
-        super().__init__(parent)
-
-    def init_figure_controls(self):
-        super().init_figure_controls()
-        ttk.Label(self.controls, text='Nothing here').grid(row=0, column=1)
-        ttk.Button(self.controls, text='Don\'t click!', command=lambda *args: print('nothing')).grid(row=0, column=2)

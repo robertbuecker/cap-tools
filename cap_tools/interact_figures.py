@@ -205,7 +205,7 @@ def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None,
     # for l in xlabels:
     #     l.set_text(str(int(l.get_text())+1) if labels is None else labels[int(l.get_text())])
             
-    ax.set_xlabel("Index")
+    ax.set_xlabel("Dataset")
     ax.set_ylabel(f"Distance ({ylabel})")
     ax.set_title(f"Dendrogram (cutoff={distance:.2f})")
     hline = ax.axhline(y=distance, color='g')
@@ -229,7 +229,7 @@ def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None,
             ax.set_ylim(yl)
             
             if callback is not None:
-                callback(distance)
+                callback(distance, tree)
 
             fig.canvas.draw()
 

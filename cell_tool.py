@@ -139,14 +139,15 @@ class CellGUI:
                    command=lambda *args: self.mergefin_widget.update_fc(
                        FinalizationCollection.from_csv(os.path.splitext(self.fn)[0] + '_merge_info.csv')
                        )).grid(row=15, column=0, columnspan=2)
-        self.merge_fin_status = tk.Text(mff, height=5, width=2)
-        self.merge_fin_status.grid(row=20, column=0, columnspan=2, sticky='EW')
         mff.grid_columnconfigure(0, weight=1)
         mff.grid(row=30, column=0)
-        
+
+        # status display        
+        self.status = tk.Text(cf, height=5, width=2, font=('Arial', 9))        
+        self.status.grid(row=90, column=0, columnspan=2, sticky='EW')
         
         # quit button
-        button_quit = ttk.Button(cf, text="Quit", command=self.root.destroy)
+        button_quit = ttk.Button(cf, text="Quit", command=self.quit)
         button_quit.grid(row=100, column=0, sticky=tk.S)
         
         ## DISPLAY TABS --
@@ -203,6 +204,9 @@ class CellGUI:
     def selected_clusters(self) -> Dict[int, CellList]:
         return {cl_id: cl for cl_id, cl in self.clusters.items() if cl_id in self.cluster_table.selected_cluster_ids}
             
+    def quit(self):
+        self.root.destroy()
+            
     def set_preset(self, *args):
         preset = self.v_cluster_setting['preset'].get()
         if preset not in cluster_presets:
@@ -216,7 +220,7 @@ class CellGUI:
     def active_tab(self):
         return self.tabs.index(self.tabs.select())
         
-    def run_clustering(self, distance: Optional[float] = None):        
+    def run_clustering(self, distance: Optional[float] = None, tree: Optional[Dict[str,Any]] = None):        
         
         if self._clustering_disabled:
             # raise RuntimeError('Clustering is disabled. How did you get here?')
@@ -243,7 +247,10 @@ class CellGUI:
             redraw = False
             
         self.clusters = self.all_cells.cluster(distance=None if distance==0 else distance, cluster_pars=cluster_pars)     
-        self.cluster_table.update_table(clusters=self.clusters)           
+        
+        self.cluster_widget.tree = tree
+        self.cluster_table.update_table(clusters=self.clusters)
+        
         if self.active_tab == 1:
             self.cellhist_widget.update_histograms(clusters=self.clusters)
             
@@ -255,7 +262,7 @@ class CellGUI:
                 labels = None          
                         
             _, self._click_cid = distance_from_dendrogram(self.all_cells._z, ylabel=cluster_pars.metric, initial_distance=distance,
-                                labels=labels, fig_handle=self.cluster_widget.fig, callback=lambda distance: self.run_clustering(distance))                        
+                                labels=labels, fig_handle=self.cluster_widget.fig, callback=lambda distance, tree: self.run_clustering(distance, tree))                        
 
     def reload_cells(self):
         raw = self.v_use_raw.get()        
@@ -305,8 +312,8 @@ class CellGUI:
             #TODO properly re-activate the plot!
         
     def set_status_message(self, msg):
-        self.merge_fin_status.delete(1.0, tk.END)
-        self.merge_fin_status.insert(tk.END, msg)
+        self.status.delete(1.0, tk.END)
+        self.status.insert(tk.END, msg)
         
     def set_clipboard(self, msg):
         self.root.clipboard_clear()
@@ -340,8 +347,8 @@ class CellGUI:
                     print('OVERALL RESULTS TABLE')
                     print('---------------------')
                     print(self.fc.overall_highest)      
-                    self.merge_fin_status.delete(1.0, tk.END)
-                    self.merge_fin_status.insert(tk.END, 'Finalization complete')              
+                    self.status.delete(1.0, tk.END)
+                    self.status.insert(tk.END, 'Finalization complete')              
                     for child in self._mff.winfo_children():
                         child.config(state='normal')     
                     self.mergefin_widget.update_fc(self.fc)

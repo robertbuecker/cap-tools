@@ -122,9 +122,9 @@ class CellGUI:
         }
         self.w_merge_fin_setting = {
             'Resolution': ttk.Entry(mff, textvariable=self.v_merge_fin_setting['resolution']),
-            'Top nodes only': ttk.Checkbutton(mff, text='Top nodes only', variable=self.v_merge_fin_setting['top_only'])
+            #'Top nodes only': ttk.Checkbutton(mff, text='Top nodes only', variable=self.v_merge_fin_setting['top_only'])
         }
-        for k in ['Resolution', 'Top nodes only']:
+        for k in ['Resolution']:#, 'Top nodes only']:
             self.w_merge_fin_setting[k].config(w=15)
         for ii, (k, w) in enumerate(self.w_merge_fin_setting.items()):
             if not (isinstance(w, ttk.Button) or isinstance(w, ttk.Checkbutton)):
@@ -133,17 +133,17 @@ class CellGUI:
             else:
                 w.grid(row=ii, column=0, columnspan=2)
                 
-        ttk.Button(mff, text='Merge', command=lambda *args: self.merge_finalize(finalize=False)).grid(row=5, column=0, columnspan=2)
-        ttk.Button(mff, text='Finalize', command=lambda *args: self.merge_finalize(finalize=True)).grid(row=10, column=0, columnspan=2)
-        ttk.Button(mff, text='Restore', 
+        ttk.Button(mff, text='Merge only', command=lambda *args: self.merge_finalize(finalize=False)).grid(row=5, column=0, columnspan=2)
+        ttk.Button(mff, text='Merge/Finalize', command=lambda *args: self.merge_finalize(finalize=True)).grid(row=10, column=0, columnspan=2)
+        ttk.Button(mff, text='Reload last', 
                    command=lambda *args: self.mergefin_widget.update_fc(
-                       FinalizationCollection.from_csv(os.path.splitext(self.fn)[0] + '_merge_info.csv')
+                       FinalizationCollection.from_csv(os.path.splitext(self.fn)[0] + '_nodes.csv')
                        )).grid(row=15, column=0, columnspan=2)
         mff.grid_columnconfigure(0, weight=1)
         mff.grid(row=30, column=0)
 
         # status display        
-        self.status = tk.Text(cf, height=5, width=2, font=('Arial', 9))        
+        self.status = tk.Text(cf, height=5, width=2, font=('Arial', 9), wrap=tk.WORD)        
         self.status.grid(row=90, column=0, columnspan=2, sticky='EW')
         
         # quit button
@@ -272,11 +272,12 @@ class CellGUI:
             
     def load_cells(self):
         self.fn = os.path.normpath(
-            askopenfilename(title='Open cell list file', filetypes=(('CrysAlisPro', '*.csv')))
+            askopenfilename(title='Open cell list file', filetypes=(('CrysAlisPro', '*.csv'),))
         )
         self.reload_cells()
         
     def save_clusters(self, fn_template: Optional[str] = None):
+        # TODO Factor into cell list class
         
         if fn_template is None:
             fn_template = asksaveasfilename(confirmoverwrite=False, title='Select root filename for cluster CSVs', 
@@ -286,14 +287,31 @@ class CellGUI:
             if not fn_template:
                 print('No filename selected, canceling.')
                 return
+        
+        info_fn = os.path.splitext(self.fn)[0] + '_cluster_info.csv'
+        ver = 1
+        with open(info_fn, 'w') as ifh:
+            ifh.write(
+                f'VERSION {ver}\n'
+                f'HEADER INFO:\n'
+                f'Experiment list: {self.fn}\n' #TODO add (raw) info
+                f'Preprocessing: {self.all_cells._cluster_pars.preproc}\n'
+                f'Metric: {self.all_cells._cluster_pars.metric}\n'
+                f'Method: {self.all_cells._cluster_pars.method}\n'
+                f'Distance: {self.all_cells._distance}\n'
+            )
+            ifh.write('Name,File path,Cluster,Data sets,Merge code\n')
             
-        for ii, (c_id, cluster) in enumerate(self.clusters.items()):
-            if c_id not in self.cluster_table.selected_cluster_ids:
-                print(f'Skipping Cluster {c_id} (not selected in list)')
-                continue
-            cluster_fn = os.path.splitext(fn_template)[0] + f'-cluster_{ii}_ID{c_id}.csv'
-            cluster.to_csv(cluster_fn)
-            print(f'Wrote cluster {c_id} with {len(cluster)} crystals to file {cluster_fn}')
+            for ii, (c_id, cluster) in enumerate(self.clusters.items()):
+                if c_id not in self.cluster_table.selected_cluster_ids:
+                    print(f'Skipping Cluster {c_id} (not selected in list)')
+                    continue
+                out_paths, in_paths, out_codes, out_info = cluster.get_merging_paths(prefix=f'C{c_id}', short_form=True)                
+                for out, (in1, in2), code, info in zip(out_paths, in_paths, out_codes, out_info):
+                    ifh.write(f'{os.path.basename(out)},{out},{c_id},{info},{code}\n')
+                cluster_fn = os.path.splitext(fn_template)[0] + f'-cluster_{ii}_ID{c_id}.csv'
+                cluster.to_csv(cluster_fn)
+                print(f'Wrote cluster {c_id} with {len(cluster)} crystals to file {cluster_fn}')
                 
     def set_clustering_active(self, active: bool=True):
         # activate/deactive clustering controls

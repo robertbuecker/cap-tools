@@ -169,6 +169,8 @@ class CellList:
 
                     self._z = z
                     
+                self._distance = distance
+                    
                 print(f"Reclustering with distance = {distance}")
                 cluster = fcluster(z, distance, criterion='distance')
                 

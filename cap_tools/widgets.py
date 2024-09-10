@@ -205,7 +205,7 @@ class FinalizationWidget(ttk.Frame):
         fv.grid(row=0, column=0, sticky=tk.NSEW)
 
         # INFO FOR SELECTED FINALIZATION
-        self.fin_info = tk.Text(tbl_frame,height=4)
+        self.fin_info = tk.Text(tbl_frame, height=4, wrap=tk.WORD)
         self.fin_info.grid(row=5, column=0, columnspan=1, sticky='EW')
 
         # PER-SHELL FOM FOR SELECTED FINALIZATION        

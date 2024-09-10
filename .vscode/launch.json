@@ -5,6 +5,7 @@
     "version": "0.2.0",
     "configurations": [
 
+
         {
             "name": "Cluster cell",
             "type": "python",
@@ -28,7 +29,7 @@
             "request": "launch",
             "program": "cell_tool.py",
             "console": "integratedTerminal",
-            "args": ["C:\\XcaliburData\\PunschB-3\\PunschB-3.csv"],
+            "args": ["C:\\XcaliburData\\Mixtures\\PunschB-3\\PunschB-3.csv"],
             "justMyCode": true
         },
         {

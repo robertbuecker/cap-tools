@@ -65,6 +65,7 @@ class CAPMergeFinalize(CAPControl):
         
     @property
     def node_info_fn(self) -> str:
+        #TODO Factor this into clustering
         return self.path + '_nodes.csv'
     
     @property
@@ -81,6 +82,7 @@ class CAPMergeFinalize(CAPControl):
         old_fns = []
         
         with open(self.node_info_fn, 'w') as ifh:
+            # TODO factor this into cluster class. Why is this here?!
             ifh.write('Name,File path,Cluster,Data sets,Merge code\n')
             merged_cids = []
             for ii, (c_id, cluster) in enumerate(self.clusters.items()):
@@ -130,7 +132,7 @@ class CAPMergeFinalize(CAPControl):
         for name, fin in top_nodes.items():
             folder = os.path.dirname(fin.path)
             the_xml = os.path.join(tmp_folder, f'C{fin.meta["Cluster"]}.xml')
-            cmds.append(f'xx selectexpnogui ' + os.path.join(folder, os.path.split(folder)[-1] + ".par"))
+            cmds.append(f'xx selectexpnogui_ignoreerror ' + os.path.join(folder, os.path.split(folder)[-1] + ".par"))
             cmds.append(f'dc xmlrrp {name} ' + the_xml)
             template_files[fin.meta['Cluster']] = the_xml
             
@@ -145,7 +147,7 @@ class CAPMergeFinalize(CAPControl):
             
             if folder != prev_folder:
                 par =  os.path.basename(folder)
-                cmds.append(f'xx selectexpnogui {os.path.join(folder, par) + ".par"}')
+                cmds.append(f'xx selectexpnogui_ignoreerror {os.path.join(folder, par) + ".par"}')
                 
             cmds.append(f'dc rrpfromxml {fin.pars_xml_path}')
             prev_folder = folder

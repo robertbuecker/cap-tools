@@ -43,7 +43,7 @@ class CellGUI:
         
         # internal variables
         self.all_cells = CellList(cells=np.empty([0,6]))
-        self.clusters: Dict[int, CellList] = {}
+        # self.clusters: Dict[int, CellList] = {}
         self.fn: Optional[str] = None
         self.fc: Optional[FinalizationCollection] = None
         self._clustering_disabled: bool = False
@@ -201,6 +201,10 @@ class CellGUI:
             self.reload_cells()
             
     @property
+    def clusters(self) -> Dict[int, CellList]:
+        return self.all_cells.clusters
+            
+    @property
     def selected_clusters(self) -> Dict[int, CellList]:
         return {cl_id: cl for cl_id, cl in self.clusters.items() if cl_id in self.cluster_table.selected_cluster_ids}
             
@@ -246,7 +250,7 @@ class CellGUI:
             self.v_cluster_setting['distance'].set(distance)
             redraw = False
             
-        self.clusters = self.all_cells.cluster(distance=None if distance==0 else distance, cluster_pars=cluster_pars)     
+        self.all_cells.cluster(distance=None if distance==0 else distance, cluster_pars=cluster_pars)     
         
         self.cluster_widget.tree = tree
         self.cluster_table.update_table(clusters=self.clusters)
@@ -287,31 +291,33 @@ class CellGUI:
             if not fn_template:
                 print('No filename selected, canceling.')
                 return
-        
-        info_fn = os.path.splitext(self.fn)[0] + '_cluster_info.csv'
-        ver = 1
-        with open(info_fn, 'w') as ifh:
-            ifh.write(
-                f'VERSION {ver}\n'
-                f'HEADER INFO:\n'
-                f'Experiment list: {self.fn}\n' #TODO add (raw) info
-                f'Preprocessing: {self.all_cells._cluster_pars.preproc}\n'
-                f'Metric: {self.all_cells._cluster_pars.metric}\n'
-                f'Method: {self.all_cells._cluster_pars.method}\n'
-                f'Distance: {self.all_cells._distance}\n'
-            )
-            ifh.write('Name,File path,Cluster,Data sets,Merge code\n')
+                
+        self.all_cells.save_clusters(fn_template, 
+                                     list_fn=self.fn + (' (raw)' if self.v_use_raw.get() else ''),
+                                     selection = self.cluster_table.selected_cluster_ids)
+        # ver = 1
+        # with open(info_fn, 'w') as ifh:
+        #     ifh.write(
+        #         f'VERSION {ver}\n'
+        #         f'HEADER INFO:\n'
+        #         f'Experiment list: {self.fn}\n' #TODO add (raw) info
+        #         f'Preprocessing: {self.all_cells._cluster_pars.preproc}\n'
+        #         f'Metric: {self.all_cells._cluster_pars.metric}\n'
+        #         f'Method: {self.all_cells._cluster_pars.method}\n'
+        #         f'Distance: {self.all_cells._distance}\n'
+        #     )
+        #     ifh.write('Name,File path,Cluster,Data sets,Merge code\n')
             
-            for ii, (c_id, cluster) in enumerate(self.clusters.items()):
-                if c_id not in self.cluster_table.selected_cluster_ids:
-                    print(f'Skipping Cluster {c_id} (not selected in list)')
-                    continue
-                out_paths, in_paths, out_codes, out_info = cluster.get_merging_paths(prefix=f'C{c_id}', short_form=True)                
-                for out, (in1, in2), code, info in zip(out_paths, in_paths, out_codes, out_info):
-                    ifh.write(f'{os.path.basename(out)},{out},{c_id},{info},{code}\n')
-                cluster_fn = os.path.splitext(fn_template)[0] + f'-cluster_{ii}_ID{c_id}.csv'
-                cluster.to_csv(cluster_fn)
-                print(f'Wrote cluster {c_id} with {len(cluster)} crystals to file {cluster_fn}')
+        #     for ii, (c_id, cluster) in enumerate(self.clusters.items()):
+        #         if c_id not in self.cluster_table.selected_cluster_ids:
+        #             print(f'Skipping Cluster {c_id} (not selected in list)')
+        #             continue
+        #         out_paths, in_paths, out_codes, out_info = cluster.get_merging_paths(prefix=f'C{c_id}', short_form=True)                
+        #         for out, (in1, in2), code, info in zip(out_paths, in_paths, out_codes, out_info):
+        #             ifh.write(f'{os.path.basename(out)},{out},{c_id},{info},{code}\n')
+        #         cluster_fn = os.path.splitext(fn_template)[0] + f'-cluster_{ii}_ID{c_id}.csv'
+        #         cluster.to_csv(cluster_fn)
+        #         print(f'Wrote cluster {c_id} with {len(cluster)} crystals to file {cluster_fn}')
                 
     def set_clustering_active(self, active: bool=True):
         # activate/deactive clustering controls

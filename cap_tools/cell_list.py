@@ -27,6 +27,7 @@ class CellList:
         self._distance: Optional[float] = cluster_distance
         self._merge_tree: Tuple[Union[Tuple, str], Union[Tuple, str]] = merge_tree
         self._z: Optional[np.ndarray] = linkage_z
+        self._clusters: Dict[int, CellList] = {}
 
         if ds is None:
             self.ds = []
@@ -232,7 +233,40 @@ class CellList:
                                            cluster_pars=self._cluster_pars,
                                            cluster_distance=distance)
 
-                return cluster_lists
+                self._clusters = cluster_lists
+            
+    def save_clusters(self, fn_template: str, list_fn: Optional[str] = None, 
+                      selection: List[int] = ()):
+        
+        ver = 1
+        info_fn = os.path.splitext(fn_template)[0] + '_cluster_info.csv'
+        
+        with open(info_fn, 'w') as ifh:
+            ifh.write(
+                f'VERSION {ver}\n'
+                f'HEADER INFO:\n'
+                f'Experiment list: {list_fn if list_fn is not None else "(unknown)"}\n'
+                f'Preprocessing: {self._cluster_pars.preproc}\n'
+                f'Metric: {self._cluster_pars.metric}\n'
+                f'Method: {self._cluster_pars.method}\n'
+                f'Distance: {self._distance}\n'
+            )
+            ifh.write('Name,File path,Cluster,Data sets,Merge code\n')
+            
+            for ii, (c_id, cluster) in enumerate(self.clusters.items()):
+                if c_id not in selection:
+                    print(f'Skipping Cluster {c_id} (not selected in list)')
+                    continue
+                out_paths, in_paths, out_codes, out_info = cluster.get_merging_paths(prefix=f'C{c_id}', short_form=True)                
+                for out, (in1, in2), code, info in zip(out_paths, in_paths, out_codes, out_info):
+                    ifh.write(f'{os.path.basename(out)},{out},{c_id},{info},{code}\n')
+                cluster_fn = os.path.splitext(fn_template)[0] + f'-cluster_{ii}_ID{c_id}.csv'
+                cluster.to_csv(cluster_fn)
+                print(f'Wrote cluster {c_id} with {len(cluster)} crystals to file {cluster_fn}')
+        
+    @property
+    def clusters(self) -> Dict[int, 'CellList']:
+        return self._clusters
             
     def get_merge_codes(self, sep: str = ':') -> Tuple[List[str], List[Tuple[str, str]]]:
         """Generates unique string ID codes for each merge node containing all dataset names in that merge node

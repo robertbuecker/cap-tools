@@ -190,7 +190,7 @@ class Finalization:
         self.overall: pd.DataFrame = pd.DataFrame([])
         self.sub_paths: List[str] = list(sub_paths)
         self.meta = meta if meta is not None else {}
-        if 'Merge code' in meta:
+        if (meta is not None) and ('Merge code' in meta):
             self.meta['Nexp'] = len(meta['Merge code'].split(':'))
         
         self.pars_xml = FinalizationXML(filename=self.pars_xml_path, 
@@ -370,17 +370,20 @@ class FinalizationCollection(MutableMapping[str, Finalization]):
                 meta_cols: Union[List[str], Tuple[str]] = ('Cluster', 'Data sets', 'Merge code'),
                 **kwargs):
 
-        merge_sets = pd.read_csv(filename)
-        
+        try:
+            merge_sets = pd.read_csv(filename)
+        except pd.errors.ParserError:
+            merge_sets = pd.read_csv(filename, skiprows=7)
+              
         fc = cls()
             
         for _, ds in merge_sets.iterrows():
             try:
                 fc[ds[label_column]] = Finalization(ds['File path'], meta={k: ds[k] for k in meta_cols if k in ds}, 
                                                     **kwargs)
-            except RuntimeError as err:
+            except (RuntimeError, FileNotFoundError) as err:
                 if ignore_parse_errors:
-                    print(f'{ds["File path"]} could not be parsed, skipping.')
+                    print(f'{ds["File path"]} not found or could not be parsed, skipping.')
                 else:
                     raise err
 

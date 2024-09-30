@@ -246,10 +246,14 @@ class FinalizationWidget(ttk.Frame):
             self.fin_view.delete(the_id)
 
         tdata = self.fc.overall_highest.merge(self.fc.meta, on='name')
+        cols = list(self.ft_columns.keys())
+        for c in cols:
+            if c not in tdata:
+                tdata[c] = '?'
 
         self._fv_entry_ids = []
         for _, fin_data in tdata.iterrows():
-            self._fv_entry_ids.append(self.fin_view.insert('', tk.END, values=list(fin_data[list(self.ft_columns.keys())])))
+            self._fv_entry_ids.append(self.fin_view.insert('', tk.END, values=list(fin_data[cols])))
 
     def show_fin_info(self, event):
 
@@ -258,13 +262,18 @@ class FinalizationWidget(ttk.Frame):
 
         fin = self.selected_fc[self.selected_fin_ids[0]]
 
-        info_str = f'Selected finalization: {fin.name}, merged from {fin.meta["Nexp"]} experiments:\n'
-        info_str +=f'{fin.meta["Data sets"]}\n'.replace(':', ', ')
+        info_str = f'Selected finalization: {fin.name}, merged from {fin.meta["Nexp"] if "Nexp"in fin.meta else "?"} experiments:\n'
+        info_str +=(f'{fin.meta["Data sets"]}\n'.replace(':', ', ') if 'Data sets' in fin.meta else '')
         info_str +=f'Path: {os.path.dirname(fin.path)}\n'
         info_str +=f'proffit file {"found" if fin.have_proffit else "not found"}; '
         info_str +=f'parameter XML file {"found" if fin.have_pars_xml else "not found"}\n'
         self.fin_info.delete(1.0, tk.END)
         self.fin_info.insert(tk.END, info_str)
+
+        cols = list(self.sv_columns)
+        for col in cols:
+            if col not in fin.shells:
+                fin.shells[col] = '?'
 
         tdata = fin.shells[list(self.sv_columns)]
 
@@ -293,6 +302,9 @@ class FinalizationWidget(ttk.Frame):
     def update_radar_plot(self):
 
         def mangle_plot_data(plot_data: pd.DataFrame):
+            
+            if 'Cluster' not in plot_data:
+                plot_data['Cluster'] = -1
 
             cluster_plots = []
             for _, cl_data in plot_data.groupby('Cluster'):

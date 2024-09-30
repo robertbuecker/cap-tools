@@ -107,6 +107,8 @@ class CellList:
     def from_csv(cls, fn, use_raw_cell=True):
         ds, cells, weights = parse_cap_csv(fn, use_raw_cell, filter_missing=True)
         return cls(cells=cells, ds=ds)
+    
+    #TODO add a from_cluster_result option
 
     def to_csv(self, fn: str):
         write_cap_csv(fn, self.ds)

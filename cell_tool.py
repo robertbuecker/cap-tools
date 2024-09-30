@@ -1,7 +1,7 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 import numpy as np
-from tkinter.filedialog import askopenfilename, askdirectory, asksaveasfilename
+from tkinter.filedialog import askopenfilename, askdirectory, asksaveasfilename, askopenfilenames
 from tkinter.messagebox import showinfo
 # Implement the default Matplotlib key bindings.
 from matplotlib.backend_bases import key_press_handler
@@ -67,7 +67,7 @@ class CellGUI:
         check_queues()
         
         ## CONTROL FRAME --
-        cf = self.control_frame = ttk.LabelFrame(self.root, text='Cell Lists')
+        cf = self.cells_frame = ttk.LabelFrame(self.root, text='Cell Lists')
         self._cf = cf
         
         # file opening
@@ -113,8 +113,8 @@ class CellGUI:
         ttk.Button(cf, text='Save selected clusters', command=self.save_clusters).grid(row=20, column=0)
         # ttk.Button(cf, text='Save merging macro', command=self.save_merging_macro).grid(row=25, column=0)
         
-        # Merge/Finalize controls
-        mff = ttk.LabelFrame(cf, text='Merging/Finalization', width=200)
+        # Merge controls
+        mff = ttk.LabelFrame(cf, text='Merging', width=200)
         self._mff = mff
         self.v_merge_fin_setting = {
             'resolution': tk.DoubleVar(mff, value=0.8),
@@ -135,20 +135,62 @@ class CellGUI:
                 
         ttk.Button(mff, text='Merge only', command=lambda *args: self.merge_finalize(finalize=False)).grid(row=5, column=0, columnspan=2)
         ttk.Button(mff, text='Merge/Finalize', command=lambda *args: self.merge_finalize(finalize=True)).grid(row=10, column=0, columnspan=2)
-        ttk.Button(mff, text='Reload last', 
-                   command=lambda *args: self.mergefin_widget.update_fc(
-                       FinalizationCollection.from_csv(os.path.splitext(self.fn)[0] + '_nodes.csv')
-                       )).grid(row=15, column=0, columnspan=2)
+        # ttk.Button(mff, text='Reload last', 
+        #            command=lambda *args: self.mergefin_widget.update_fc(
+        #                FinalizationCollection.from_csv(os.path.splitext(self.fn)[0] + '_nodes.csv')
+        #                )).grid(row=15, column=0, columnspan=2)
         mff.grid_columnconfigure(0, weight=1)
         mff.grid(row=30, column=0)
 
         # status display        
         self.status = tk.Text(cf, height=5, width=2, font=('Arial', 9), wrap=tk.WORD)        
         self.status.grid(row=90, column=0, columnspan=2, sticky='EW')
+
+        
+        # Merge controls
+        finf = ttk.LabelFrame(self.root, text='View finalizations from', width=200)
+        self._finf = finf
+        self.v_fin_view_setting = {
+
+        }
+        self.w_fin_view_setting = {
+
+        }
+        ttk.Button(finf, text='Last clustering', 
+                   command=lambda *args: self.mergefin_widget.update_fc(
+                       FinalizationCollection.from_csv(os.path.splitext(self.fn)[0] + '_nodes.csv')
+                       )).grid(row=10, column=0, columnspan=2)
+        ttk.Button(finf, text='Files', 
+                   command=lambda *args: self.mergefin_widget.update_fc(
+                       FinalizationCollection.from_files(
+                            filenames = [fn[:-8] for fn in 
+                                         askopenfilenames(filetypes=[('Finalization summary', '*_red.sum')])])
+                       )).grid(row=15, column=0, columnspan=2)     
+        ttk.Button(finf, text='Folder', 
+                   command=lambda *args: self.mergefin_widget.update_fc(
+                        FinalizationCollection.from_folder(
+                            askdirectory(), 
+                            ignore_parse_errors=True, include_subfolders=False)
+                       )).grid(row=20, column=0, columnspan=2)       
+        ttk.Button(finf, text='Subfolders', 
+                   command=lambda *args: self.mergefin_widget.update_fc(
+                       FinalizationCollection.from_folder(
+                            askdirectory(), 
+                            ignore_parse_errors=True, include_subfolders=True)
+                       )).grid(row=25, column=0, columnspan=2)         
+        ttk.Button(finf, text='CSV', 
+                   command=lambda *args: self.mergefin_widget.update_fc(
+                       FinalizationCollection.from_csv(
+                            askopenfilename(filetypes=[('Cell tool result', '*.csv')]), 
+                            ignore_parse_errors=True)
+                       )).grid(row=30, column=0, columnspan=2)                     
+        finf.grid_columnconfigure(0, weight=1)
+        finf.grid(row=1, column=1)
+
         
         # quit button
-        button_quit = ttk.Button(cf, text="Quit", command=self.quit)
-        button_quit.grid(row=100, column=0, sticky=tk.S)
+        button_quit = ttk.Button(self.root, text="Quit", command=self.quit)
+        button_quit.grid(row=2, column=1, sticky=tk.N)   
         
         ## DISPLAY TABS --
         
@@ -192,8 +234,8 @@ class CellGUI:
         self.root.rowconfigure(0, weight=100)
         self.root.rowconfigure(1, weight=0)
         cf.grid(row=0, column=1, sticky=tk.E)        
-        self.tabs.grid(column=0, row=0, sticky=tk.NSEW)
-        self.cluster_table.grid(row=1, column=0, columnspan=2, sticky=tk.S)
+        self.tabs.grid(column=0, row=0, sticky=tk.NSEW, rowspan=3)
+        self.cluster_table.grid(row=10, column=0, columnspan=2, sticky=tk.S)
         
         # if filename is provided on CLI, open it now
         if filename is not None:
@@ -418,13 +460,10 @@ def parse_args():
                        help="Use the raw lattice (from Lattice Explorer/IDXREF as opposed to the refined one from GRAL/CORRECT) for unit cell finding and clustering")
 
     parser.set_defaults(filename=None,
-                        binsize=0.5,
-                        cluster=True,
                         distance=0.0,
                         method="ward",
                         metric="euclidean",
                         use_raw_cell=False,
-                        raw=False,
                         preproc='none')
     
     options = parser.parse_args()

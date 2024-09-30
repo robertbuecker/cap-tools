@@ -5,7 +5,7 @@ cell_a = Analysis(
     ['cell_tool.py'],
     pathex=[],
     binaries=[],
-    datas=[('cap_tools/spglib.yaml', 'cap_tools')],
+    datas=[],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

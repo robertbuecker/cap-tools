@@ -20,6 +20,7 @@ from cap_tools.widgets import CellHistogramWidget
 from cap_tools.widgets import ClusterWidget
 from cap_tools.cap_control import CAPMergeFinalize
 import queue
+import sys
 
 cluster_presets = {'Direct': ClusterOptions(preproc='None', metric='Euclidean', method='Ward'),
                    'Whitened': ClusterOptions(preproc='PCA', metric='SEuclidean', method='Average'),
@@ -53,6 +54,13 @@ class CellGUI:
         self.root = tk.Tk()
         self.root.geometry('1300x800')
         self.root.title("3D ED/MicroED cell tool")
+        
+        try:       
+            base_path = sys._MEIPASS
+        except Exception:
+            base_path = os.path.abspath(".")
+
+        self.root.iconbitmap(os.path.join(base_path, "cell_tool_icon.ico"))
         
         # tools for multithreading (for long-running tasks)
         self.exec = ThreadPoolExecutor()

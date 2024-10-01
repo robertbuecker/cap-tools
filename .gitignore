@@ -10,3 +10,5 @@ cap-tools.code-workspace
 cell_tool.spec
 compute_z.spec
 finalization_viewer.spec
+version.txt
+*~lock~

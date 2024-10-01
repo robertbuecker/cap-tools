@@ -1,6 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-
 cell_a = Analysis(
     ['cell_tool.py'],
     pathex=[],
@@ -54,7 +53,7 @@ cell_exe = EXE(
     cell_a.scripts,
     [],
     exclude_binaries=True,
-    name='cell_tool',
+    name=f'cell_tool',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

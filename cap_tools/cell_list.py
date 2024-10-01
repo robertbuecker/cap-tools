@@ -1,7 +1,6 @@
 from .utils import parse_cap_csv, order_uc_pars, \
     unit_cell_lcv_distance, volume, volume_difference, write_cap_csv, ClusterOptions
 import numpy as np
-import yaml
 from scipy.cluster.hierarchy import linkage
 import csv
 import io, os

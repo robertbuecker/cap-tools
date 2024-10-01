@@ -4,8 +4,6 @@ from math import radians, cos, floor, log10
 from pathlib import Path
 from typing import *
 import numpy as np
-from scipy.cluster.hierarchy import fcluster
-import yaml
 import tkinter as tk
 import tkinter.ttk as ttk
 

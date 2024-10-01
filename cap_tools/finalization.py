@@ -8,11 +8,13 @@ import warnings
 import time
 
 
-try:
-    import gemmi
-    HAVE_GEMMI = True
-except ImportError:
-    HAVE_GEMMI = False   
+# try:
+#     import gemmi
+#     HAVE_GEMMI = True
+# except ImportError:
+#     HAVE_GEMMI = False   
+
+HAVE_GEMMI = False # gemmi currently not required
 
 _FOM_DICT = {'Rint': 1,
             'Rurim': 2,

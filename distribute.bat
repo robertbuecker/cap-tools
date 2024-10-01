@@ -1,6 +1,13 @@
-pyinstaller cap_tools.spec
-tar -acf dist\ED_Cell_Tool.zip -C dist\cap_tools cell_tool.exe _internal
-@REM copy /Y dist\cap_tools.zip "C:\Users\robert.buecker\OneDrive - Rigaku Americas Holding\RESE-RAC SynED Application Labs\programs" 
-@REM pyinstaller compute_z.py --onefile --distpath "C:\Users\robert.buecker\OneDrive - Rigaku Americas Holding\RESE-RAC SynED Application Labs\programs"
-@REM pyinstaller cell_tool.py --onefile
-@REM pyinstaller finalization_viewer.py --onefile --distpath "C:\Users\robert.buecker\OneDrive - Rigaku Americas Holding\RESE-RAC SynED Application Labs\programs"
+@echo off
+SETLOCAL
+@REM pyinstaller cell_tool.py --windowed --icon cell_tool_icon.ico --add-binary cell_tool_icon.ico:.
+git describe > version.txt
+set /p VERSION=<version.txt
+echo %VERSION%
+set ZIPNAME=.\dist\ED_Cluster_Tool_%VERSION%.zip
+echo %ZIPNAME%
+IF EXIST %ZIPNAME% (
+    del %ZIPNAME%
+)
+"C:\Program Files\7-Zip\7z.exe" a -tzip %ZIPNAME% .\dist\cell_tool\*
+ENDLOCAL

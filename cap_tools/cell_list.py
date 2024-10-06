@@ -300,13 +300,13 @@ class CellList:
         exps = {} # dict of Tuple[path, finalization_name]
         for d in self.ds:
             name, path = d['Experiment name'], d['Dataset path']
-            if 'Finalization file' in d:
+            if ('Finalization file' in d) and d['Finalization file']:
                 fin_lbl = d['Finalization file']
                 fn = os.path.join(path, f'{fin_lbl}.rrpprof')
                 if os.path.exists(fn):
                     exps[name] = (path, fin_lbl)
                 else:
-                    FileNotFoundError(f'Specified profile file {fn} does not exist.')
+                    raise FileNotFoundError(f'Specified profile file {fn} does not exist.')
             else:
                 for appendix in appendices:
                     if os.path.exists(os.path.join(path, f'{name}{appendix}.rrpprof')):

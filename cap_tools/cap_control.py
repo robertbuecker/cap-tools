@@ -90,8 +90,8 @@ class CAPMergeFinalize(CAPControl):
                 for out, (in1, in2), code, info in zip(out_paths, in_paths, out_codes, out_info):
                     cmds.append(f'xx proffitmerge "{out}" "{in1}" "{in2}"')
                     ifh.write(f'{os.path.basename(out)},{out},{c_id},{info},{code}\n')
-                if delete_existing:
-                    old_fns += glob.glob(out + '*.*')
+                    if delete_existing:
+                        old_fns += glob.glob(out + '*.*')
                   
                 print(f'Full-cluster merge for cluster {c_id}: {out_paths[-1]}')
                 merged_cids.append(c_id)
@@ -131,7 +131,7 @@ class CAPMergeFinalize(CAPControl):
         template_files = {}
         for name, fin in top_nodes.items():
             folder = os.path.dirname(fin.path)
-            the_xml = os.path.join(tmp_folder, f'C{fin.meta["Cluster"]}.xml')
+            the_xml = os.path.join(tmp_folder, f'C{fin.meta["Cluster"]}_finalizer_dlg.xml')
             cmds.append(f'xx selectexpnogui_ignoreerror ' + os.path.join(folder, os.path.split(folder)[-1] + ".par"))
             cmds.append(f'dc xmlrrp {name} ' + the_xml)
             template_files[fin.meta['Cluster']] = the_xml

@@ -7,6 +7,19 @@ import numpy as np
 import tkinter as tk
 import tkinter.ttk as ttk
 
+
+class TextRedirector(object):
+    # from:
+    # https://stackoverflow.com/questions/12351786/how-to-redirect-print-statements-to-tkinter-text-widget
+    def __init__(self, widget, tag="stdout"):
+        self.widget = widget
+        self.tag = tag
+
+    def write(self, string):
+        self.widget.configure(state="normal")
+        self.widget.insert("end", string, (self.tag,))
+        self.widget.configure(state="disabled")
+
 class DisableMixin(object):
     # to disable TreeView in Tkinter
     # from https://stackoverflow.com/questions/52181307/python-tkinter-ttk-how-to-disable-treeview

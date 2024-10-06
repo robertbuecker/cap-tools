@@ -13,7 +13,7 @@ from collections import defaultdict
 from typing import *
 import os
 from concurrent.futures import ThreadPoolExecutor
-from cap_tools.utils import ClusterOptions
+from cap_tools.utils import ClusterOptions, TextRedirector
 from cap_tools.widgets import ClusterTableWidget
 from cap_tools.widgets import FinalizationWidget
 from cap_tools.widgets import CellHistogramWidget
@@ -198,7 +198,7 @@ class CellGUI:
         
         # quit button
         button_quit = ttk.Button(self.root, text="Quit", command=self.quit)
-        button_quit.grid(row=2, column=1, sticky=tk.N)   
+        button_quit.grid(row=2, column=1, sticky=tk.N)     
         
         ## DISPLAY TABS --
         
@@ -206,7 +206,7 @@ class CellGUI:
         self.tabs = ttk.Notebook(self.root)
         self.tab_cluster = ttk.Frame(self.tabs)
         self.tab_cluster.columnconfigure(0, weight=100) 
-        self.tab_cluster.rowconfigure(0, weight=100)
+        self.tab_cluster.rowconfigure(0, weight=100)       
         
         # place cluster display tab
         self.cluster_widget = ClusterWidget(self.tab_cluster)
@@ -232,6 +232,17 @@ class CellGUI:
         self.mergefin_widget = FinalizationWidget(tab_mergefin)
         self.mergefin_widget.grid(row=0, column=0, sticky='NSEW')
         self.tabs.add(tab_mergefin, text='Merge/Finalize', sticky=tk.NSEW)
+        
+        # log window
+        tab_text_out = ttk.Frame(self.tabs)
+        tab_text_out.columnconfigure(0, weight=100)
+        tab_text_out.rowconfigure(0, weight=100)             
+        self.text_out = tk.Text(tab_text_out, wrap="word")
+        self.text_out.grid(row=0, column=0, sticky=tk.NSEW)
+        sys.stdout = TextRedirector(self.text_out, "stdout")
+        sys.stderr = TextRedirector(self.text_out, "stderr")        
+        self.text_out.tag_configure("stderr", foreground="#b22222")        
+        self.tabs.add(tab_text_out, text='Log', sticky=tk.NSEW)       
 
         ## CLUSTER TABLE --
         self.cluster_table = ClusterTableWidget(self.root, clusters=self.selected_clusters)

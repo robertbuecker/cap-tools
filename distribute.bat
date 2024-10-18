@@ -1,6 +1,6 @@
 @echo off
 SETLOCAL
-@REM pyinstaller cell_tool.py -y --windowed --icon cell_tool_icon.ico --add-binary cell_tool_icon.ico:.
+pyinstaller cell_tool.py -y --windowed --icon cell_tool_icon.ico --add-binary cell_tool_icon.ico:.
 git describe > version.txt
 set /p VERSION=<version.txt
 echo %VERSION%

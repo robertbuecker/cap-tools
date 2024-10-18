@@ -4,8 +4,19 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        
 
 
+        {
+            "name": "DD Tool",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "C:\\XcaliburData\\DD\\RESE\\Tue-Jul-02-13-19-14-2024"
+            ]
+        },
         {
             "name": "Cluster cell",
             "type": "python",

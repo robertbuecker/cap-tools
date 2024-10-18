@@ -8,6 +8,7 @@ import os
 from scipy.optimize import minimize, curve_fit
 import sys
 from matplotlib.patches import Ellipse
+import pandas as pd
 
 # Calibrant data Aluminum        
 d_vec = np.array([2.338, 2.024, 1.431, 1.221, 1.169, 1.0124, 0.9289, 0.9055, 0.8266])
@@ -119,6 +120,8 @@ def main(basedir: str):
     dd0 = {}
     imgs = {}
 
+    report = []
+
     # now iterate through pets files to get metadata
     for fn in pets_files:
         folder = os.path.dirname(fn)
@@ -223,7 +226,29 @@ def main(basedir: str):
         ax.axhline(res[2], c='r')
         ax.set_title(f'Ellipticity {res[1]/res[2]*100:.1f}% at {res[0]:.1f} degrees. Avg DD = {res[2]:.1f}')
         
-        plt.savefig(os.path.join(basedir, k + '.pdf'))
-
+        pdf_fn = os.path.join(basedir, k + '.pdf')
+        
+        report.append(
+            {'Label': k,
+             'Old DD (mm)': dd_init,
+             'DD integrated (mm)': dd_final,
+             'DD segmented fit (mm)': res[2],
+             'DD change (%)': (res[2]/dd_init-1) * 100,
+             'DD min (mm)': min(dd2),
+             'DD max (mm)': max(dd2),
+             'Ellipticity (span mm)': res[1],
+             'Ellipticity (span %)': res[1]/res[2]*100,
+             'Ellipticity long axis (deg)': res[0],
+             'Report file': pdf_fn}
+        )
+        
+        plt.savefig(pdf_fn)
+        
+    return report
+        
 if __name__ == '__main__':
-    main(sys.argv[1])
+    report = main(sys.argv[1])
+    report = pd.DataFrame(report)    
+    report.to_csv(os.path.join(sys.argv[1], 'detector_distance.csv'), float_format='%.2f')
+    print(pd.DataFrame(report)[['DD segmented fit (mm)', 'DD change (%)', 'Ellipticity (span %)', 'Ellipticity long axis (deg)']].to_string(
+        header=['DD', 'Change (%)', 'Ellipticity (%)', 'Long axis (deg)']))

@@ -117,7 +117,8 @@ def main(basedir: str):
         
         msg = 'Not all calibration data found in PETS/TIF format. Please run:\n'
         msg += f'SCRIPT {fn}\n'
-        msg += 'in CrysAlisPro and re-run this script. Press Enter quit.'
+        msg += 'in CrysAlisPro and re-run this script.\n'
+        msg += 'Press Enter to quit.'
         
         raise PetsFilesNotFoundError(msg)
         
@@ -276,10 +277,18 @@ def gui():
     
     root = tk.Tk()
     root.title('Detector distance calibration')
+
+    info = tk.Text(root, font='TkFixedFont', height=20, width=100)
     
+    def info_write(string):
+        info.configure(state="normal")
+        info.delete('1.0', tk.END)
+        info.insert("end", string)
+        info.configure(state="disabled")
+                
     basedir = tk.StringVar()
     
-    result_text = tk.StringVar(value='Please select calibration folder and press "Compute"\n')
+    info_write('Please select calibration folder and press "Compute"')
     
     def set_folder():
         fn = askdirectory(title=f'Open folder containing calibration data sets')
@@ -287,18 +296,19 @@ def gui():
         
     def compute():
         
-        result_text.set('Computing. Please wait...')
+        info_write('Computing. Please wait...')
         # sleep(0.1)
         
         try:
             report = main(basedir.get())
         except PetsFilesNotFoundError as err:
-            result_text.set(str(err))
+            info_write('\n'.join(str(err).split('\n')[:-1]))
+            return
             
         report_fn = os.path.join(basedir.get(), 'detector_distance.csv')
         report = pd.DataFrame(report)    
         report.to_csv(report_fn, float_format='%.2f')
-        result_text.set(report[['Label','DD segmented fit (mm)', 'DD change (%)', 'Ellipticity (span %)', 'Ellipticity long axis (deg)']].to_string(
+        info_write(report[['Label','DD segmented fit (mm)', 'DD change (%)', 'Ellipticity (span %)', 'Ellipticity long axis (deg)']].to_string(
             header=['Label', 'DD', 'Change (%)', 'Ellipticity (%)', 'Long axis (deg)'], float_format='%.2f') 
                         + f'\n---\nFigures are in {basedir.get()}.\nFull report written to {report_fn}')
     
@@ -307,8 +317,8 @@ def gui():
     ttk.Label(root, textvariable=basedir).grid(row=5, column=1, sticky=tk.W)
     ttk.Button(root, text='Compute', command=compute).grid(row=15, column=0, columnspan=2)
     ttk.Separator(root, orient='horizontal').grid(row=19, columnspan=2, sticky=tk.EW)
-    ttk.Label(root, textvariable=result_text, font='TkFixedFont').grid(row=20, column=0, columnspan=2)
-    
+    info.grid(row=20, column=0, columnspan=2, sticky=tk.NSEW)
+
     tk.mainloop()
     
       

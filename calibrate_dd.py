@@ -9,6 +9,7 @@ from scipy.optimize import minimize, curve_fit
 import sys
 from matplotlib.patches import Ellipse
 import pandas as pd
+from time import sleep
 
 # Calibrant data Aluminum        
 d_vec = np.array([2.338, 2.024, 1.431, 1.221, 1.169, 1.0124, 0.9289, 0.9055, 0.8266])
@@ -17,6 +18,8 @@ def process_pattern(pattern):
     # Pre-process pattern. Sato filtering works very well.
     return sato(pattern, black_ridges=False, sigmas=[1])
 
+class PetsFilesNotFoundError(RuntimeError):
+    pass
 
 def find_center(pattern, show_fig = True, use_log = True, upsample = 100, suppress_radius = None, scale_radius = False):
     # Find pattern center by cross-correlating with its own flipped version
@@ -111,12 +114,13 @@ def main(basedir: str):
         fn = os.path.join(basedir, 'export_tif.mac')
         with open(fn, 'w') as fh:
             fh.write('\n'.join(cmds))
-        print('Not all calibration data found in PETS/TIF format. Please run:')
-        print(f'SCRIPT {fn}')
-        print(f'in CrysAlisPro and re-run this script. Press Enter quit.')
-        input()
-        exit()
-
+        
+        msg = 'Not all calibration data found in PETS/TIF format. Please run:\n'
+        msg += f'SCRIPT {fn}\n'
+        msg += 'in CrysAlisPro and re-run this script. Press Enter quit.'
+        
+        raise PetsFilesNotFoundError(msg)
+        
     dd0 = {}
     imgs = {}
 
@@ -171,17 +175,49 @@ def main(basedir: str):
         print(f'RESULTS FOR {k} -------')
         print(f'DD from radial profile is {dd_final:.1f} mm. Center offset x={ctr[1]}, y={ctr[0]}')
         print(f'Average segment DD is {res[2]:.1f} mm with ellipticity {res[1]/res[2]*100:.2f}%, long axis at {res[0]:.1f} deg.')
+
+        pdf_fn = os.path.join(basedir, k + '.pdf')
+
+        
+        report.append(
+            {'Label': k,
+             'Old DD (mm)': dd_init,
+             'DD integrated (mm)': dd_final,
+             'Offset x (px)': ctr[1],
+             'Offset y (px)': ctr[0],
+             'DD segmented fit (mm)': res[2],
+             'DD change (%)': (res[2]/dd_init-1) * 100,
+             'DD min (mm)': min(dd2),
+             'DD max (mm)': max(dd2),
+             'Ellipticity (span mm)': res[1],
+             'Ellipticity (span %)': res[1]/res[2]*100,
+             'Ellipticity long axis (deg)': res[0],
+             'Report file': pdf_fn}
+        )
+        
         
         rng = (min(r_d-20) < r) & (r < (max(r_d)+20))
         rng2 = (min(r_d)-20 < r2) & (r2 < (max(r_d)+20))
-        
+                
         fh = plt.figure(figsize=(1.4*8.3, 1.4*11.7), dpi=300)
         
         axs = [fh.add_subplot(5, 1, 1), fh.add_subplot(5, 1, 2)]
+        pos0 = [ax.get_position() for ax in axs]
         axs[0].imshow(pattern, vmax=np.percentile(pattern, 95), cmap='grey', 
                     extent=(-pattern.shape[1]/2, pattern.shape[1]/2, -pattern.shape[0]/2, pattern.shape[0]/2), origin='lower')
         axs[1].imshow(pattern_proc, vmax=np.percentile(pattern, 15), cmap='grey',
                     extent=(-pattern.shape[1]/2, pattern.shape[1]/2, -pattern.shape[0]/2, pattern.shape[0]/2), origin='lower')
+        pos1 = [ax.get_position() for ax in axs]
+        axs[0].set_position([pos0[0].x0, pos0[0].y0, pos1[0].width, pos1[0].height])
+        axs[1].set_position([pos0[1].x0, pos0[1].y0, pos1[1].width, pos1[1].height])
+        axs[0].set_axis_off()
+        axs[1].set_axis_off()
+
+        s = report[-1]['Label'] + '\n'
+        s += '\n'.join([f'{k}: {v:.1f}' for k, v in report[-1].items() if not isinstance(v, str)])
+        
+        axs[0].text(1.1, 1.1, s, transform=axs[0].transAxes, verticalalignment='top')
+        
         for rr in r_d:
             for ax in (axs[0], axs[1]):
                 c = plt.Circle((ctr[1], ctr[0]), rr, ec='g', fill=False, alpha=0.8, lw=0.4)
@@ -192,7 +228,7 @@ def main(basedir: str):
                 ax.add_patch(c)
                 ax.add_patch(e)
                 
-        axs[0].set_title(f'{k}: DD {dd_final:.1f}, offset ({ctr[1]:.1f}, {ctr[0]:.1f})')
+        # axs[0].set_title(f'{k}: DD {dd_final:.1f}, offset ({ctr[1]:.1f}, {ctr[0]:.1f})')
         
         # fh, ax = plt.subplots(1,1, figsize=(15,3))
         ax = fh.add_subplot(5,1,3)
@@ -224,31 +260,77 @@ def main(basedir: str):
         # ax.plot(th_ax, ellipticity_fun(th_ax, *init_vals))
         ax.axhline(dd_final, c='y')
         ax.axhline(res[2], c='r')
-        ax.set_title(f'Ellipticity {res[1]/res[2]*100:.1f}% at {res[0]:.1f} degrees. Avg DD = {res[2]:.1f}')
-        
-        pdf_fn = os.path.join(basedir, k + '.pdf')
-        
-        report.append(
-            {'Label': k,
-             'Old DD (mm)': dd_init,
-             'DD integrated (mm)': dd_final,
-             'DD segmented fit (mm)': res[2],
-             'DD change (%)': (res[2]/dd_init-1) * 100,
-             'DD min (mm)': min(dd2),
-             'DD max (mm)': max(dd2),
-             'Ellipticity (span mm)': res[1],
-             'Ellipticity (span %)': res[1]/res[2]*100,
-             'Ellipticity long axis (deg)': res[0],
-             'Report file': pdf_fn}
-        )
+        ax.set_xlabel('Azimuth [deg]')
+        ax.set_ylabel('Detector Distance [mm]')
+        # ax.set_title(f'Ellipticity {res[1]/res[2]*100:.1f}% at {res[0]:.1f} degrees. Avg DD = {res[2]:.1f}')
         
         plt.savefig(pdf_fn)
         
     return report
+
+
+def gui():
+    import tkinter as tk
+    import tkinter.ttk as ttk
+    from tkinter.filedialog import askdirectory
+    
+    root = tk.Tk()
+    root.title('Detector distance calibration')
+    
+    basedir = tk.StringVar()
+    
+    result_text = tk.StringVar(value='Please select calibration folder and press "Compute"\n')
+    
+    def set_folder():
+        fn = askdirectory(title=f'Open folder containing calibration data sets')
+        basedir.set(fn)
         
+    def compute():
+        
+        result_text.set('Computing. Please wait...')
+        # sleep(0.1)
+        
+        try:
+            report = main(basedir.get())
+        except PetsFilesNotFoundError as err:
+            result_text.set(str(err))
+            
+        report_fn = os.path.join(basedir.get(), 'detector_distance.csv')
+        report = pd.DataFrame(report)    
+        report.to_csv(report_fn, float_format='%.2f')
+        result_text.set(report[['Label','DD segmented fit (mm)', 'DD change (%)', 'Ellipticity (span %)', 'Ellipticity long axis (deg)']].to_string(
+            header=['Label', 'DD', 'Change (%)', 'Ellipticity (%)', 'Long axis (deg)'], float_format='%.2f') 
+                        + f'\n---\nFigures are in {basedir.get()}.\nFull report written to {report_fn}')
+    
+    ttk.Label(root, text='Please use aluminum ring calibration data recorded in CrysAlisPro').grid(row=0, column=0, columnspan=2)
+    ttk.Button(root, text='Open folder', command=set_folder).grid(row=5, column=0, sticky=tk.W)
+    ttk.Label(root, textvariable=basedir).grid(row=5, column=1, sticky=tk.W)
+    ttk.Button(root, text='Compute', command=compute).grid(row=15, column=0, columnspan=2)
+    ttk.Separator(root, orient='horizontal').grid(row=19, columnspan=2, sticky=tk.EW)
+    ttk.Label(root, textvariable=result_text, font='TkFixedFont').grid(row=20, column=0, columnspan=2)
+    
+    tk.mainloop()
+    
+      
 if __name__ == '__main__':
-    report = main(sys.argv[1])
-    report = pd.DataFrame(report)    
-    report.to_csv(os.path.join(sys.argv[1], 'detector_distance.csv'), float_format='%.2f')
-    print(pd.DataFrame(report)[['DD segmented fit (mm)', 'DD change (%)', 'Ellipticity (span %)', 'Ellipticity long axis (deg)']].to_string(
-        header=['DD', 'Change (%)', 'Ellipticity (%)', 'Long axis (deg)']))
+    
+    if len(sys.argv) == 1:
+        gui()    
+    
+    else:
+        try:
+            report = main(sys.argv[1])
+        except PetsFilesNotFoundError as err:
+            print(str(err))
+            print('Press Enter to quit...')
+            input()
+            exit()
+            
+        report = pd.DataFrame(report)    
+        report_fn = os.path.join(sys.argv[1], 'detector_distance.csv')
+        report.to_csv(report_fn, float_format='%.2f')
+        print('-----')
+        print(report[['DD segmented fit (mm)', 'DD change (%)', 'Ellipticity (span %)', 'Ellipticity long axis (deg)']].to_string(
+            header=['DD', 'Change (%)', 'Ellipticity (%)', 'Long axis (deg)']))
+        print('-----')
+        print(f'Full report written to {report_fn}')

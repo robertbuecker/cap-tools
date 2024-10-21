@@ -3,12 +3,9 @@
     // Hover to view descriptions of existing attributes.
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
-    "configurations": [
-        
-
-
+    "configurations": [    
         {
-            "name": "DD Tool",
+            "name": "DD Tool (cmd)",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
@@ -18,21 +15,21 @@
             ]
         },
         {
-            "name": "Cluster cell",
-            "type": "python",
+            "name": "DD Tool (single DD)",
+            "type": "debugpy",
             "request": "launch",
-            "program": "find_cell.py",
+            "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["--cluster"],
-            "justMyCode": true
+            "args": [
+                "C:\\XcaliburData\\DD\\RESE\\Tue-Jul-02-13-19-14-2024\\Preset01_650 mm Standard"
+            ]
         },
         {
-            "name": "Find cell",
-            "type": "python",
+            "name": "DD Tool (GUI)",
+            "type": "debugpy",
             "request": "launch",
-            "program": "find_cell.py",
-            "console": "integratedTerminal",
-            "justMyCode": true
+            "program": "${file}",
+            "console": "integratedTerminal"
         },
         {
             "name": "Cell GUI",
@@ -48,14 +45,6 @@
             "type": "python",
             "request": "launch",
             "program": "finalization_viewer.py",
-            "console": "integratedTerminal",
-            "justMyCode": true
-        }   ,
-        {
-            "name": "Finalization Runner",
-            "type": "python",
-            "request": "launch",
-            "module": "cap_tools.cluster_finalize",
             "console": "integratedTerminal",
             "justMyCode": true
         }  

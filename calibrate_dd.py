@@ -10,6 +10,7 @@ import sys
 from matplotlib.patches import Ellipse
 import pandas as pd
 from time import sleep
+import warnings
 
 # Calibrant data Aluminum        
 d_vec = np.array([2.338, 2.024, 1.431, 1.221, 1.169, 1.0124, 0.9289, 0.9055, 0.8266])
@@ -53,8 +54,9 @@ def radial_profile(pattern, ctr = (0,0), pxmap = None, stepsize = 0.5):
     num_pix, _ = np.histogram(R.ravel(), bins=r_bin, weights=pxmap.ravel())
     raw_sum, _ = np.histogram(R.ravel(), bins=r_bin, weights=(pxmap*pattern).ravel())
     r = (r_bin[:-1] + r_bin[1:])/2   # double-check this
-    # r = r_bin[:-1]
-    corr_sum = raw_sum/num_pix * np.pi*r
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', RuntimeWarning)
+        corr_sum = raw_sum/num_pix * np.pi*r
     
     return corr_sum, r
     
@@ -88,13 +90,19 @@ def polar_pattern(pattern, ctr = (0,0), n_theta = 30, pxmap = None, stepsize = 0
     
     num_pix_2d, _, _ = np.histogram2d(R.ravel(), theta.ravel(), bins=(r_bin, theta_bin), weights=pxmap.ravel())
     raw_sum_2d, _, _ = np.histogram2d(R.ravel(), theta.ravel(), bins=(r_bin, theta_bin), weights=(pxmap*pattern*R).ravel())
-    corr_sum_2d = raw_sum_2d/num_pix_2d
+    
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', category=RuntimeWarning)
+        corr_sum_2d = raw_sum_2d/num_pix_2d
     r = (r_bin[:-1] + r_bin[1:])/2   # double-check this
     theta = (theta_bin[1:] + theta_bin[:-1])/2
     
     return corr_sum_2d, r_bin, theta_bin, r, theta
 
-def main(basedir: str):
+def main(basedir: str, print_fn = None):
+    
+    if print_fn is None:
+        print_fn = print
 
     # step 1: make CAP script to create PETS files and TIF frames, if they are not there yet
     cmds = []
@@ -142,7 +150,7 @@ def main(basedir: str):
                         imread(os.path.join(folder, l.split()[0]))
             dd = 0.1/(lmbd*apix)
             dd0[label] = dd
-            print(f'Loaded set {label} with current DD = {dd:.1f}')
+            print_fn(f'Processing set {label} with current DD = {dd:.1f}...')
 
     # and get to the real action
     for (k, img) in imgs.items():        
@@ -173,9 +181,9 @@ def main(basedir: str):
         ellipticity_fun = lambda x, ang, span, avg: avg + span/2*np.cos(2*np.pi/180*(x-ang))
         res, cov = curve_fit(ellipticity_fun, theta2, dd2, p0 = init_vals)
         
-        print(f'RESULTS FOR {k} -------')
-        print(f'DD from radial profile is {dd_final:.1f} mm. Center offset x={ctr[1]}, y={ctr[0]}')
-        print(f'Average segment DD is {res[2]:.1f} mm with ellipticity {res[1]/res[2]*100:.2f}%, long axis at {res[0]:.1f} deg.')
+        print_fn('\n'.join([f'RESULTS FOR {k} -------',
+                           f'DD from radial profile is {dd_final:.1f} mm. Center offset x={ctr[1]}, y={ctr[0]}',
+                           f'Average segment DD is {res[2]:.1f} mm with ellipticity {res[1]/res[2]*100:.2f}%, long axis at {res[0]:.1f} deg.']))
 
         pdf_fn = os.path.join(basedir, k + '.pdf')
 
@@ -285,10 +293,11 @@ def gui():
         info.delete('1.0', tk.END)
         info.insert("end", string)
         info.configure(state="disabled")
+        info.update()
                 
     basedir = tk.StringVar()
     
-    info_write('Please select calibration folder and press "Compute"')
+    info_write('Please select calibration folder and press "Compute".')
     
     def set_folder():
         fn = askdirectory(title=f'Open folder containing calibration data sets')
@@ -300,9 +309,9 @@ def gui():
         # sleep(0.1)
         
         try:
-            report = main(basedir.get())
+            report = main(basedir.get(), print_fn=info_write)
         except PetsFilesNotFoundError as err:
-            info_write('\n'.join(str(err).split('\n')[:-1]))
+            info_write('\n'.join([str(err), 'Then, please press "Compute" again.']))
             return
             
         report_fn = os.path.join(basedir.get(), 'detector_distance.csv')
@@ -319,8 +328,12 @@ def gui():
     ttk.Separator(root, orient='horizontal').grid(row=19, columnspan=2, sticky=tk.EW)
     info.grid(row=20, column=0, columnspan=2, sticky=tk.NSEW)
 
-    tk.mainloop()
-    
+    def _on_closing():
+            root.quit()  # stops mainloop
+            root.destroy()  # this is necessary on Windows to prevent Fatal Python Error: PyEval_RestoreThread: NULL tstate
+
+    root.protocol("WM_DELETE_WINDOW", _on_closing)  # bind closing routine    
+    root.mainloop()
       
 if __name__ == '__main__':
     
@@ -332,7 +345,7 @@ if __name__ == '__main__':
             report = main(sys.argv[1])
         except PetsFilesNotFoundError as err:
             print(str(err))
-            print('Press Enter to quit...')
+            print('Please re-run this script. Press Enter to quit...')
             input()
             exit()
             

@@ -12,3 +12,6 @@ compute_z.spec
 finalization_viewer.spec
 version.txt
 *~lock~
+minimal_test.*
+minimal_test.*
+*.pdf

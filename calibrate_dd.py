@@ -182,7 +182,7 @@ def main(basedir: str, print_fn = None):
         res, cov = curve_fit(ellipticity_fun, theta2, dd2, p0 = init_vals)
         
         print_fn('\n'.join([f'RESULTS FOR {k} -------',
-                           f'DD from radial profile is {dd_final:.1f} mm. Center offset x={ctr[1]}, y={ctr[0]}',
+                           f'DD from radial profile is {dd_final:.1f} mm. Center offset x={ctr[1]:.2f}, y={ctr[0]:.2f}',
                            f'Average segment DD is {res[2]:.1f} mm with ellipticity {res[1]/res[2]*100:.2f}%, long axis at {res[0]:.1f} deg.']))
 
         pdf_fn = os.path.join(basedir, k + '.pdf')
@@ -285,6 +285,12 @@ def gui():
     
     root = tk.Tk()
     root.title('Detector distance calibration')
+    
+    try:       
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    root.iconbitmap(os.path.join(base_path, "calibrate_dd_icon.ico"))
 
     info = tk.Text(root, font='TkFixedFont', height=20, width=100)
     

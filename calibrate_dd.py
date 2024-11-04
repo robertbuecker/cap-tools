@@ -122,13 +122,8 @@ def main(basedir: str, print_fn = None):
         fn = os.path.join(basedir, 'export_tif.mac')
         with open(fn, 'w') as fh:
             fh.write('\n'.join(cmds))
-        
-        msg = 'Not all calibration data found in PETS/TIF format. Please run:\n'
-        msg += f'SCRIPT {fn}\n'
-        msg += 'in CrysAlisPro and re-run this script.\n'
-        msg += 'Press Enter to quit.'
-        
-        raise PetsFilesNotFoundError(msg)
+
+        raise PetsFilesNotFoundError(f'SCRIPT {fn}\n')
         
     dd0 = {}
     imgs = {}
@@ -306,7 +301,7 @@ def gui():
     info_write('Please select calibration folder and press "Compute".')
     
     def set_folder():
-        fn = askdirectory(title=f'Open folder containing calibration data sets')
+        fn = os.path.normpath(askdirectory(title=f'Open folder containing calibration data sets'))
         basedir.set(fn)
         
     def compute():
@@ -317,7 +312,13 @@ def gui():
         try:
             report = main(basedir.get(), print_fn=info_write)
         except PetsFilesNotFoundError as err:
-            info_write('\n'.join([str(err), 'Then, please press "Compute" again.']))
+            info_write('\n'.join(['Not all calibration data found in PETS/TIF format. Please run:',
+                str(err).strip(), 
+                '[copied to clipboard]\nin the CrysAlisPro CMD window and press "Compute" again.']))
+            
+            root.clipboard_clear()
+            root.clipboard_append(str(err).strip())       
+            root.update()       
             return
             
         report_fn = os.path.join(basedir.get(), 'detector_distance.csv')
@@ -325,7 +326,7 @@ def gui():
         report.to_csv(report_fn, float_format='%.2f')
         info_write(report[['Label','DD segmented fit (mm)', 'DD change (%)', 'Ellipticity (span %)', 'Ellipticity long axis (deg)']].to_string(
             header=['Label', 'DD', 'Change (%)', 'Ellipticity (%)', 'Long axis (deg)'], float_format='%.2f') 
-                        + f'\n---\nFigures are in {basedir.get()}.\nFull report written to {report_fn}')
+                        + f'\n---\nFigures are in {basedir.get()}\nFull report written to {report_fn}')
     
     ttk.Label(root, text='Please use aluminum ring calibration data recorded in CrysAlisPro').grid(row=0, column=0, columnspan=2)
     ttk.Button(root, text='Open folder', command=set_folder).grid(row=5, column=0, sticky=tk.W)
@@ -350,8 +351,9 @@ if __name__ == '__main__':
         try:
             report = main(sys.argv[1])
         except PetsFilesNotFoundError as err:
-            print(str(err))
-            print('Please re-run this script. Press Enter to quit...')
+            print('PETS/TIF files not found. Please run this in CAP:')
+            print(str(err).strip())
+            print('Then, please re-run this script. Press Enter to quit...')
             input()
             exit()
             

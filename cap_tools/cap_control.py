@@ -6,28 +6,125 @@ import pandas as pd
 from cap_tools.cell_list import CellList
 from typing import *
 import queue
+import shutil
+
+class ListenModeError(RuntimeError):
+    pass
+class CAPInstance:
+    
+    def __init__(self, cmd_folder: Optional[str] = 'C:\\Xcalibur\\tmp\\listen_mode_offline', wait_complete: bool = True):
+
+        self.cmd_folder = cmd_folder
+        self.cap_handle = None #TODO: start and handle CAP offline process here
+        self.start_timeout = 3        
+        if not wait_complete:
+            raise NotImplementedError('Non-blocking execution of CAP commands not implemented yet.')
+        
+    def run_cmd(self, cmd: Union[str, List[str]], use_mac: bool = True, timeout: Optional[float] = None):        
+        
+        multi_cmd = isinstance(cmd, list) 
+        macro = '\n'.join(cmd) if multi_cmd else ''
+        listen_fn = lambda ext: os.path.join(self.cmd_folder, f'command.{ext}')      
+        
+        if os.path.exists(listen_fn('busy')):
+            raise ListenModeError('CAP Instance is busy. Cannot submit new command.')  
+                
+        for fn in glob.glob(listen_fn('*')): 
+            os.remove(fn)
+               
+        if multi_cmd and use_mac:
+            # replace calls by macro call (might be faster for many little calls)
+            with open(fn := listen_fn('mac'), 'w') as fh:
+                fh.write(macro)
+            cmd = f'script {fn}'
+        elif multi_cmd:
+            for the_cmd in cmd:
+                self.run_cmd(the_cmd)
+            return
+                                
+        with open(listen_fn('in'), 'w') as fh:
+            fh.write(cmd)        
+            
+        t0 = time.time()
+        while not os.path.exists(listen_fn('busy')):
+            if (time.time() - t0) < self.start_timeout:
+                time.sleep(0.01)
+            else:
+                raise ListenModeError(f'CAP listen mode not reacting in {self.cmd_folder}. Is listen mode active?')
+            
+        t0 = time.time()
+        while os.path.exists(listen_fn('busy')):
+            if not timeout or ((time.time() - t0) < timeout):
+                time.sleep(0.01)
+            else:
+                with open(listen_fn('stop'), 'w') as fh:
+                    pass
+                raise ListenModeError(f'CAP command {cmd} timed out after {time.time()-t0:.2f} seconds.')
+        
+        while not (os.path.exists(listen_fn('done'))
+                   | os.path.exists(listen_fn('error'))):
+            time.sleep(0.01)        
+                    
+        if os.path.exists(fn := listen_fn('error')):
+            with open(fn, 'r') as fh:
+                cmd_ret = fh.read().strip()
+            os.remove(fn)
+            raise ListenModeError(f'Failed CAP command: {cmd_ret}')
+                        
+        elif os.path.exists(fn := listen_fn('done')):
+            with open(fn, 'r') as fh:
+                cmd_ret = fh.read().strip()
+            os.remove(fn)
+            if cmd == cmd_ret:
+                print(f'Command:\n{cmd_ret}\nfinished successfully.')
+            else:
+                raise ListenModeError(f'Returned command:\n{cmd_ret}\ndoes not match request:\n{cmd}')
+            
+        else:
+            # this should never be reached, unless really bad timing conditions surface
+            raise ListenModeError('Confirmation file not found.')
 
 class CAPControl:
-    """Class to control CrysAlisPro by generating macros or listen mode (planned)
-    """
-    
+ 
     def __init__(self, work_folder: str, 
                  cmd_folder: Optional[str] = None,
                  message_func: Optional[Union[Callable[[str], None], queue.Queue]] = None,
+                 response_func: Optional[Union[Callable[[str], None], queue.Queue]] = None, 
                  cmd_func: Optional[Union[Callable[[str], None], queue.Queue]] = None):
+        """Base class for Python-controlled CAP workflows, to be executed via macros or listen mode.
+        Functions that run command sequences can be blocking, and should communicate to the outside (e.g. GUI) via queues.
+
+        Args:
+            work_folder (str): _description_
+            cmd_folder (Optional[str], optional): _description_. Defaults to None.
+            message_func (Optional[Union[Callable[[str], None], queue.Queue]], optional): Callable or Queue to send status messages and prompts back to the 
+            user interface. If None, messages are simply printed. Defaults to None.
+            cmd_func (Optional[Union[Callable[[str], None], queue.Queue]], optional): Callable or Queue for commands to be executed by CAP. Defaults to None.
+        """
         
         self._work_folder = work_folder
         self._cmd_folder = cmd_folder
         self.message_func = message_func
+        self.response_func = response_func
         self.cmd_func = cmd_func
         
-    def send_message(self, msg):
+    def _send_message(self, msg):
         if isinstance(self.message_func, queue.Queue):
             self.message_func.put(msg)
         elif self.message_func is None:
             print(msg)
         else:
             self.message_func(msg)
+            
+    def _request(self, prompt: Optional[str] = None):
+        if prompt is not None:
+            self._send_message(prompt)
+        if isinstance(self.response_func, queue.Queue):
+            return self.response_func.get()
+        elif self.message_func is None:
+            return input()
+        else:
+            return self.response_func()        
             
     def send_cmd(self, cmd):
         if isinstance(self.cmd_func, queue.Queue):
@@ -39,6 +136,7 @@ class CAPControl:
         
     def write_macro(self, macro_name: str, macro: Union[List[str], str],
                     append: bool = False):
+        # just writes a macro file into the work folder and returns the command to run it
         
         if not macro_name.endswith('.mac'): macro_name += '.mac'
         if not os.path.split(macro_name)[0]:
@@ -49,11 +147,10 @@ class CAPControl:
         with open(macro_name, 'a' if append else 'w') as fh:
             fh.write(macro)
             
-        self.send_cmd(f'script {macro_name}')
-            
         return f'script {macro_name}'     
     
 class CAPMergeFinalize(CAPControl):
+    # TODO: split into classes for merging and finalizing
     
     def __init__(self, path: str, clusters: Dict[int, CellList],
                  message_func: Optional[Callable[[str], None]] = None,
@@ -101,8 +198,9 @@ class CAPMergeFinalize(CAPControl):
             print(f'Deleting {fn}')      
         
         if write_mac:
+            # this does not quite make sense
             mac_cmd = self.write_macro(self.macro_fn, cmds)
-            self.send_message(f'Wrote merging macro to {self.macro_fn}. Copied CAP command to clipboard.')
+            self._send_message(f'Wrote merging macro to {self.macro_fn}. Copied CAP command to clipboard.')
             self.send_cmd(mac_cmd)
         else:
             mac_cmd = None
@@ -154,7 +252,7 @@ class CAPMergeFinalize(CAPControl):
 
         mac_cmd = self.write_macro(self.macro_fn, cmds, append=False)
         self.send_cmd(mac_cmd)
-        self.send_message('CAP command copied to Clipboard.\nPlease paste into CMD window, run, and set options.')
+        self._send_message('CAP command copied to Clipboard.\nPlease paste into CMD window, run, and set options.')
         
         print('Please run the following command in CAP:\n-----')
         print(mac_cmd)
@@ -179,14 +277,14 @@ class CAPMergeFinalize(CAPControl):
                             autochem=False, gral=False, res_limit=res_limit)
                     
                     _templates.remove((cluster, template_fn))
-                    self.send_message(f'Still waiting for {len(_templates)}/{N_templates} template files.')
+                    self._send_message(f'Still waiting for {len(_templates)}/{N_templates} template files.')
             sleep(0.05)
                 
         print('All finalization parameter files have been created. CAP should start with finalizations now...')
 
         from time import sleep
         fins_todo = list(fc.sort_by_meta(by=['Cluster', 'File path']).keys())        
-        self.send_message(f'0/{len(fc)} finalizations finished.')        
+        self._send_message(f'0/{len(fc)} finalizations finished.')        
 
         while fins_todo:
             for fin_name in fins_todo:
@@ -194,7 +292,7 @@ class CAPMergeFinalize(CAPControl):
                     fc[fin_name].parse_finalization_results(check_current=True, timeout=finalization_timeout)
                     print(f'Finalization for {fin_name} completed, results found')
                     fins_todo.remove(fin_name)            
-                    self.send_message(f'{len(fc)-len(fins_todo)}/{len(fc)} finalizations finished.')                            
+                    self._send_message(f'{len(fc)-len(fins_todo)}/{len(fc)} finalizations finished.')                            
                 except FileNotFoundError:
                     pass
                     

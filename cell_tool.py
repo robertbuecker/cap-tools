@@ -18,7 +18,7 @@ from cap_tools.widgets import ClusterTableWidget
 from cap_tools.widgets import FinalizationWidget
 from cap_tools.widgets import CellHistogramWidget
 from cap_tools.widgets import ClusterWidget
-from cap_tools.cap_control import CAPMergeFinalize
+from cap_tools.cap_control import CAPMergeFinalize, CAPInstance, ListenModeError
 import queue
 import sys
 
@@ -62,10 +62,9 @@ class CellGUI:
 
         self.root.iconbitmap(os.path.join(base_path, "cell_tool_icon.ico"))
         
-        # tools for multithreading (for long-running tasks)
-        self.exec = ThreadPoolExecutor()
+        # tools for multithreading (for long-running tasks) and CAP control        
         self.status_q = queue.Queue()
-        self.clipboard_q = queue.Queue()            
+        self.clipboard_q = queue.Queue()               
         def check_queues():
             if not self.status_q.empty():
                 self.set_status_message(self.status_q.get())
@@ -73,6 +72,9 @@ class CellGUI:
                 self.set_clipboard(self.clipboard_q.get())
             self.root.after(100, check_queues)
         check_queues()
+        
+        self.exec = ThreadPoolExecutor()
+        self.cap_instance = CAPInstance()            
         
         ## CONTROL FRAME --
         cf = self.cells_frame = ttk.LabelFrame(self.root, text='Cell Lists')
@@ -380,7 +382,7 @@ class CellGUI:
         #         cluster.to_csv(cluster_fn)
         #         print(f'Wrote cluster {c_id} with {len(cluster)} crystals to file {cluster_fn}')
                 
-    def set_clustering_active(self, active: bool=True):
+    def _set_clustering_active(self, active: bool=True):
         # activate/deactive clustering controls
         
         self._clustering_disabled = not active        
@@ -412,13 +414,14 @@ class CellGUI:
 
         cap_control = CAPMergeFinalize(path=os.path.splitext(self.fn)[0],
                                        clusters=self.cluster_table.selected_clusters,
-                                       message_func=self.status_q, cmd_func=self.clipboard_q)
+                                       message_func=self.status_q, 
+                                       cmd_func=self.cap_instance.run_cmd)
         
         cap_control.cluster_merge(write_mac=True)                       
                 
         if finalize:
 
-            self.set_clustering_active(False)
+            self._set_clustering_active(False)
             # TODO why is the following required?
             for child in self._mff.winfo_children():
                 child.config(state='normal')      

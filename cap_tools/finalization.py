@@ -243,8 +243,6 @@ class Finalization:
                     raise err            
                 elif verbose:
                     print(f'No result file found for {path}. Creating dummy finalization object') 
-            except RuntimeError as err:
-                warnings.warn(f'Result file for {path} is older than settings XML. Not parsing')
                     
     @property
     def foms(self):
@@ -277,7 +275,7 @@ class Finalization:
         if not os.path.exists(fn):
             raise FileNotFoundError(f'Result summary file {fn} not found.')            
         
-        if os.path.exists(self.pars_xml_path) and (os.path.getmtime(self.pars_xml_path) > os.path.getmtime(fn)):
+        if os.path.exists(self.pars_xml_path) and (os.path.getmtime(self.pars_xml_path) > (os.path.getmtime(fn) + 5)):
             msg = f'Result summary {os.path.basename(fn)} is older than parameter file {os.path.basename(self.pars_xml_path)}'
             if check_current:
                 raise RuntimeError(msg)
@@ -365,10 +363,15 @@ class FinalizationCollection(MutableMapping[str, Finalization]):
     def from_folder(cls, folder: str, include_subfolders: bool = False,
                     ignore_parse_errors: bool = False, **kwargs):
         from glob import glob
+        
+        folder = os.path.normpath(folder)
+        
         if include_subfolders:
-                paths = [fn[:-8] for fn in glob(os.path.join(folder, '*_red.sum'))]
-            
-        paths = [fn[:-8] for fn in glob(os.path.join(folder, '**', '*_red.sum'), recursive=True)]
+            paths = [fn[:-8] for fn in glob(os.path.join(folder, '**', '*_red.sum'), recursive=True)]
+        else:            
+            paths = [fn[:-8] for fn in glob(os.path.join(folder, '*_red.sum'))]
+
+        paths = [p for p in paths if not os.path.dirname(p).endswith(os.path.sep.join(['struct', 'tmp']))]
 
         fc = cls()
 
@@ -377,7 +380,7 @@ class FinalizationCollection(MutableMapping[str, Finalization]):
                 fc[os.path.basename(path)] = Finalization(path, **kwargs)
             except RuntimeError as err:
                 if ignore_parse_errors:
-                    print(f'{path} could not be parsed, skipping.')
+                    warnings.warn(f'{path} could not be parsed, skipping. Error was: {str(err)}', RuntimeWarning)
                 else:
                     raise err
 
@@ -416,7 +419,7 @@ class FinalizationCollection(MutableMapping[str, Finalization]):
 
         for path in filenames:
             try:
-                fc[os.path.basename(path)] = Finalization(path, **kwargs)
+                fc[os.path.basename(path)] = Finalization(os.path.normpath(path), **kwargs)
             except RuntimeError as err:
                 print(f'{path} could not be parsed, skipping.')
                 raise err

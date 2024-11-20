@@ -182,7 +182,7 @@ class CAPMergeFinalize(CAPControl):
                  message_func: Optional[Union[Callable[[str], None], queue.Queue]] = None,
                  request_func: Optional[Union[Callable[[str], None], queue.Queue]] = None,                 
                  response_func: Optional[Union[Callable[[], Any], queue.Queue]] = None):
-        """CAP workflow for bulk merging and finalization of clustered (or any, in fact) experiments.
+        """CAP workflow for bulk merging and/or finalization of clustered (or any, in fact) experiments.
 
         Args:
             path (str): _description_

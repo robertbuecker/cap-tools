@@ -28,7 +28,7 @@
             "name": "DD Tool (GUI)",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
+            "program": "calibrate_dd.py",
             "console": "integratedTerminal"
         },
         {
@@ -37,7 +37,7 @@
             "request": "launch",
             "program": "cell_tool.py",
             "console": "integratedTerminal",
-            "args": ["C:\\XcaliburData\\Mixtures\\PunschB-3\\PunschB-3.csv"],
+            "args": ["C:\\XcaliburData\\Mixtures\\PunschB-3\\PunschB-3.csv", "--debug"],
             "justMyCode": true
         },
         {

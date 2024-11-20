@@ -121,30 +121,43 @@ def fom_radar_plot(overall_df: pd.DataFrame,
                fom_lbl: Optional[Union[List[str], Tuple[str]]] = None,
                colors: Optional[List[str]] = None):
     
+    if fig_handle:
+        fig = fig_handle
+        fig.clear()
+    else:
+        fig = plt.figure(figsize=(9, 5))
+
+    if not (len(overall_df) and len(highest_df)):
+        if fig_handle is None:
+            plt.show()
+        else:
+            fig.canvas.draw()
+        return
+       
     if foms is None:
         foms = ['Comp', 'I/sig (rel)', '1/Rurim (rel)', '1/Rpim (rel)', 'CC1/2', 'Red. (rel)']
         
     if fom_lbl is None:
         fom_lbl = foms
        
+    # filter out missing FOMs
+    fom_lbl, foms = zip(*[(fl, fom) for fl, fom in zip(fom_lbl, foms) 
+                          if ((fom in overall_df.columns) and (fom in highest_df.columns))])
+    fom_lbl, foms = list(fom_lbl), list(foms)
+       
     data = []
     data.append(overall_df[foms].to_numpy())
     data.append(highest_df[foms].to_numpy())
-
+    
     N = len(foms)
 
     theta = radar_factory(N, frame='polygon')
-    
-    if fig_handle:
-        fig = fig_handle
-        fig.clear()
-    else:
-        plt.figure(figsize=(9, 5))
 
     axs = np.array([fig.add_subplot(1, 2, 1, projection='radar'),
            fig.add_subplot(1, 2, 2, projection='radar')])
 
     fig.subplots_adjust(wspace=0.25, hspace=0.20, top=0.85, bottom=0.15)
+    
 
     if colors is None:
         colors = [f'C{ii}' for ii in range(len(overall_df))]

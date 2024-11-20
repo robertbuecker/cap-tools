@@ -8,7 +8,7 @@ from typing import *
 import queue
 import shutil
 
-class ListenModeError(RuntimeError):
+class CAPListenModeError(RuntimeError):
     pass
 class CAPInstance:
     
@@ -17,8 +17,19 @@ class CAPInstance:
         self.cmd_folder = cmd_folder
         self.cap_handle = None #TODO: start and handle CAP offline process here
         self.start_timeout = 3        
+        self.last_command = ''
         if not wait_complete:
             raise NotImplementedError('Non-blocking execution of CAP commands not implemented yet.')
+        
+    def status(self):
+        listen_fn = lambda ext: os.path.join(self.cmd_folder, f'command.{ext}')      
+        if os.path.exists(listen_fn('busy')):
+            return('Busy')
+        elif os.path.exists(listen_fn('error')):
+            return('Error')
+        else:
+            return('Idle')
+        
         
     def run_cmd(self, cmd: Union[str, List[str]], use_mac: bool = True, timeout: Optional[float] = None):        
         
@@ -26,8 +37,8 @@ class CAPInstance:
         macro = '\n'.join(cmd) if multi_cmd else ''
         listen_fn = lambda ext: os.path.join(self.cmd_folder, f'command.{ext}')      
         
-        if os.path.exists(listen_fn('busy')):
-            raise ListenModeError('CAP Instance is busy. Cannot submit new command.')  
+        if self.status == 'Busy':
+            raise CAPListenModeError('CAP Instance is busy. Cannot submit new command.')  
                 
         for fn in glob.glob(listen_fn('*')): 
             os.remove(fn)
@@ -44,13 +55,14 @@ class CAPInstance:
                                 
         with open(listen_fn('in'), 'w') as fh:
             fh.write(cmd)        
+        self.last_command = cmd
             
         t0 = time.time()
         while not os.path.exists(listen_fn('busy')):
             if (time.time() - t0) < self.start_timeout:
                 time.sleep(0.01)
             else:
-                raise ListenModeError(f'CAP listen mode not reacting in {self.cmd_folder}. Is listen mode active?')
+                raise CAPListenModeError(f'CAP listen mode not reacting in {self.cmd_folder}. If listen mode is not active, start it by running "xx listenmode on" in the CrysAlisPro CMD window.')
             
         t0 = time.time()
         while os.path.exists(listen_fn('busy')):
@@ -59,7 +71,7 @@ class CAPInstance:
             else:
                 with open(listen_fn('stop'), 'w') as fh:
                     pass
-                raise ListenModeError(f'CAP command {cmd} timed out after {time.time()-t0:.2f} seconds.')
+                raise CAPListenModeError(f'CAP command {cmd} timed out after {time.time()-t0:.2f} seconds.')
         
         while not (os.path.exists(listen_fn('done'))
                    | os.path.exists(listen_fn('error'))):
@@ -69,7 +81,13 @@ class CAPInstance:
             with open(fn, 'r') as fh:
                 cmd_ret = fh.read().strip()
             os.remove(fn)
-            raise ListenModeError(f'Failed CAP command: {cmd_ret}')
+            if cmd_ret.startswith('script'):
+                # expand error message to macro
+                with open(cmd_ret.split(maxsplit=1)[-1], 'r') as fh:
+                    cmds_ret = fh.readlines()
+                raise CAPListenModeError(f'Failed CAP commands: {"\n".join(cmds_ret)}')
+            else:
+                raise CAPListenModeError(f'Failed CAP command: {cmd_ret}')
                         
         elif os.path.exists(fn := listen_fn('done')):
             with open(fn, 'r') as fh:
@@ -78,19 +96,19 @@ class CAPInstance:
             if cmd == cmd_ret:
                 print(f'Command:\n{cmd_ret}\nfinished successfully.')
             else:
-                raise ListenModeError(f'Returned command:\n{cmd_ret}\ndoes not match request:\n{cmd}')
+                raise CAPListenModeError(f'Returned command:\n{cmd_ret}\ndoes not match request:\n{cmd}')
             
         else:
             # this should never be reached, unless really bad timing conditions surface
-            raise ListenModeError('Confirmation file not found.')
+            raise CAPListenModeError('Confirmation file not found.')
 
 class CAPControl:
  
-    def __init__(self, work_folder: str, 
-                 cmd_folder: Optional[str] = None,
+    def __init__(self, work_folder: str, cap_instance: CAPInstance,
                  message_func: Optional[Union[Callable[[str], None], queue.Queue]] = None,
-                 response_func: Optional[Union[Callable[[str], None], queue.Queue]] = None, 
-                 cmd_func: Optional[Union[Callable[[str], None], queue.Queue]] = None):
+                 request_func: Optional[Union[Callable[[str], None], queue.Queue]] = None,                 
+                 response_func: Optional[Union[Callable[[], Any], queue.Queue]] = None):
+        
         """Base class for Python-controlled CAP workflows, to be executed via macros or listen mode.
         Functions that run command sequences can be blocking, and should communicate to the outside (e.g. GUI) via queues.
 
@@ -102,37 +120,45 @@ class CAPControl:
             cmd_func (Optional[Union[Callable[[str], None], queue.Queue]], optional): Callable or Queue for commands to be executed by CAP. Defaults to None.
         """
         
-        self._work_folder = work_folder
-        self._cmd_folder = cmd_folder
-        self.message_func = message_func
-        self.response_func = response_func
-        self.cmd_func = cmd_func
+        self._cap = cap_instance
+        self.work_folder = work_folder
         
-    def _send_message(self, msg):
-        if isinstance(self.message_func, queue.Queue):
-            self.message_func.put(msg)
-        elif self.message_func is None:
-            print(msg)
+        if message_func is None:
+            self._message_func = print
+        elif isinstance(message_func, queue.Queue):
+            self._message_func = message_func.put
         else:
-            self.message_func(msg)
+            self._message_func = message_func
             
-    def _request(self, prompt: Optional[str] = None):
+        if request_func is None:
+            self._request_func = print
+        elif isinstance(request_func, queue.Queue):
+            self._request_func = request_func.put
+        else:
+            self._request_func = request_func
+            
+        if response_func is None:
+            self._response_func = input
+        elif isinstance(response_func, queue.Queue):
+            self._response_func = response_func.get
+        else:
+            self._response_func = response_func                        
+
+    def message(self, msg):
+        self._message_func(msg)
+            
+    def request(self, prompt: Optional[str] = None):
         if prompt is not None:
-            self._send_message(prompt)
-        if isinstance(self.response_func, queue.Queue):
-            return self.response_func.get()
-        elif self.message_func is None:
-            return input()
-        else:
-            return self.response_func()        
+            self._request_func(prompt)
+        return self._response_func()
+    
+    def run(self, cmd, timeout: Optional[float] = None, **kwargs):
+        try:
+            self._cap.run_cmd(cmd, timeout=timeout, **kwargs)
             
-    def send_cmd(self, cmd):
-        if isinstance(self.cmd_func, queue.Queue):
-            self.cmd_func.put(cmd)
-        elif self.cmd_func is None:
-            print(f'Discarding CAP command: {cmd}')
-        else:
-            self.cmd_func(cmd)
+        except CAPListenModeError as err:
+            self.message(str(err))
+            raise(err)
         
     def write_macro(self, macro_name: str, macro: Union[List[str], str],
                     append: bool = False):
@@ -140,7 +166,7 @@ class CAPControl:
         
         if not macro_name.endswith('.mac'): macro_name += '.mac'
         if not os.path.split(macro_name)[0]:
-            macro_name = os.path.join(self._work_folder, macro_name)
+            macro_name = os.path.join(self.work_folder, macro_name)
         
         if isinstance(macro, list): macro = '\n'.join(macro)
         
@@ -150,30 +176,41 @@ class CAPControl:
         return f'script {macro_name}'     
     
 class CAPMergeFinalize(CAPControl):
-    # TODO: split into classes for merging and finalizing
     
     def __init__(self, path: str, clusters: Dict[int, CellList],
-                 message_func: Optional[Callable[[str], None]] = None,
-                 cmd_func: Optional[Callable[[str], None]] = None):
+                 cap_instance: CAPInstance,
+                 message_func: Optional[Union[Callable[[str], None], queue.Queue]] = None,
+                 request_func: Optional[Union[Callable[[str], None], queue.Queue]] = None,                 
+                 response_func: Optional[Union[Callable[[], Any], queue.Queue]] = None):
+        """CAP workflow for bulk merging and finalization of clustered (or any, in fact) experiments.
+
+        Args:
+            path (str): _description_
+            clusters (Dict[int, CellList]): _description_
+            cap_instance (CAPInstance): _description_
+            message_func (Optional[Union[Callable[[str], None], queue.Queue]], optional): _description_. Defaults to None.
+            request_func (Optional[Union[Callable[[str], None], queue.Queue]], optional): _description_. Defaults to None.
+            response_func (Optional[Union[Callable[[], Any], queue.Queue]], optional): _description_. Defaults to None.
+        """
         
-        super().__init__(work_folder=os.path.split(path)[0], message_func=message_func, cmd_func=cmd_func)
+        super().__init__(work_folder=os.path.split(path)[0], cap_instance=cap_instance,
+                         message_func=message_func,
+                         request_func=request_func,
+                         response_func=response_func)
         self.path = path
         self.clusters = clusters
         
     @property
     def node_info_fn(self) -> str:
-        #TODO Factor this into clustering
-        return self.path + '_nodes.csv'
-    
-    @property
-    def macro_fn(self) -> str:
-        return self.path + '.mac'
+        return self.path + '_nodes.csv'    
     
     @property
     def merge_files_found(self) -> bool:
-        return os.path.exists(self.macro_fn) and os.path.exists(self.node_info_fn)
+        return os.path.exists(self.node_info_fn)
     
-    def cluster_merge(self, write_mac: bool = True, delete_existing: bool = False):
+    def cluster_merge(self, delete_existing: bool = False):
+        
+        self.message(f'Running full-tree merging for clusters: {[int(k) for k in self.clusters.keys()]}')
         
         cmds = []
         old_fns = []
@@ -195,23 +232,18 @@ class CAPMergeFinalize(CAPControl):
 
         for fn in old_fns:        
             os.remove(fn)
-            print(f'Deleting {fn}')      
+            print(f'Deleting {fn}')
         
-        if write_mac:
-            # this does not quite make sense
-            mac_cmd = self.write_macro(self.macro_fn, cmds)
-            self._send_message(f'Wrote merging macro to {self.macro_fn}. Copied CAP command to clipboard.')
-            self.send_cmd(mac_cmd)
-        else:
-            mac_cmd = None
-                
-        return mac_cmd, cmds
+        self.run(cmds)
+        
+        self.message(f'Completed full-tree merging for clusters: {[int(k) for k in self.clusters.keys()]}')
+                                
 
     def cluster_finalize(self, 
                         res_limit: float = 0.8,
                         finalization_timeout: float = 10):    
 
-        _, cmds = self.cluster_merge(write_mac=False, delete_existing=True)
+        self.cluster_merge(delete_existing=True)
 
         tmp_folder = os.path.join(os.path.dirname(self.path), 'tmp')
         os.makedirs(tmp_folder, exist_ok=True)        
@@ -226,79 +258,54 @@ class CAPMergeFinalize(CAPControl):
         top_node_names = list(fc.meta.sort_values(by=['Cluster', 'Nexp', 'File path']).drop_duplicates(subset='Cluster', keep='last')['name'])
         top_nodes = fc.get_subset(top_node_names)
 
+        IMMEDIATE_TOP_NODE = False
+
         template_files = {}
-        for name, fin in top_nodes.items():
-            folder = os.path.dirname(fin.path)
-            the_xml = os.path.join(tmp_folder, f'C{fin.meta["Cluster"]}_finalizer_dlg.xml')
-            cmds.append(f'xx selectexpnogui_ignoreerror ' + os.path.join(folder, os.path.split(folder)[-1] + ".par"))
-            cmds.append(f'dc xmlrrp {name} ' + the_xml)
-            template_files[fin.meta['Cluster']] = the_xml
+        for top_name, top_fin in top_nodes.items():
             
-        # append commands to run finalizations based on individual XML for each node (assuming they exist!)
-        cmds.append('xx sleep 1000')
-        
+            cluster = top_fin.meta['Cluster']
+            folder = os.path.dirname(top_fin.path)
+            fn_template = os.path.join(tmp_folder, f'C{cluster}_finalizer_dlg.xml')
+            self.run(f'xx selectexpnogui ' + os.path.join(folder, os.path.split(folder)[-1] + ".par"))
+            self.message(f'Please choose finalization settings (Laue group!) for cluster {cluster} in CAP.')
+            self.run(f'dc xmlrrp {top_name} ' + fn_template)
+            while not os.path.exists(fn_template):
+                time.sleep(0.1)
+            template_files[cluster] = fn_template
+            
+            self.message(f'Finalization XML template for cluster {cluster} found. Generating finalization parameter files...')       
+            for _, fin in fc.items():
+                if fin.meta['Cluster'] == cluster:
+                    fin.pars_xml.set_parameters(template=fn_template, 
+                    autochem=False, gral=False, res_limit=res_limit)
+                                
+            if IMMEDIATE_TOP_NODE:
+                self.message(f'Running finalization for top-node merge {top_name} in cluster {cluster}.')
+                self.run(f'dc rrpfromxml {top_fin.pars_xml_path}')
+                top_fin.parse_finalization_results(check_current=True)    
+                self.message(f'Finalization for top-level node {top_name} completed, results found.')            
+                
         prev_folder = ''
 
-        for name, fin in fc.sort_by_meta(by=['Cluster', 'File path']).items():
+        for ii, (name, fin) in enumerate(fc.sort_by_meta(by=['Cluster', 'File path']).items()):
             # print(node)
             folder = fin.folder
             
             if folder != prev_folder:
                 par =  os.path.basename(folder)
-                cmds.append(f'xx selectexpnogui_ignoreerror {os.path.join(folder, par) + ".par"}')
+                self.run(f'xx selectexpnogui {os.path.join(folder, par) + ".par"}')
                 
-            cmds.append(f'dc rrpfromxml {fin.pars_xml_path}')
+            if not (IMMEDIATE_TOP_NODE and (name in top_node_names)):                    
+                self.message(f'Running finalization for merge {name} in cluster {fin.meta["Cluster"]}. [{ii+1}/{len(fc)}]')
+                self.run(f'dc rrpfromxml {fin.pars_xml_path}')
+                fin.parse_finalization_results(check_current=True)
+            else:
+                self.message(f'Skipping top-node finalization for merge {name} in cluster {fin.meta["Cluster"]}. [{ii+1}/{len(fc)}]')
+                
+            self.message(f'Finalization for {name} completed, results found.')
             prev_folder = folder
-
-        mac_cmd = self.write_macro(self.macro_fn, cmds, append=False)
-        self.send_cmd(mac_cmd)
-        self._send_message('CAP command copied to Clipboard.\nPlease paste into CMD window, run, and set options.')
-        
-        print('Please run the following command in CAP:\n-----')
-        print(mac_cmd)
-        print('-----')
-        print('...and set finalization parameters (Laue group, most importantly) for each cluster')
-
-        # wait for template XML files and broadcast to XML for each node
-
-        from time import sleep
-        print('Waiting for template XML files...')
-
-        _templates = list(template_files.items())
-        N_templates = len(_templates)
-
-        while _templates:
-            for cluster, template_fn in _templates:
-                if os.path.exists(template_fn):
-                    print(f'Finalization template for cluster {cluster} found:', template_fn)
-                    for _, fin in fc.items():
-                        if fin.meta['Cluster'] == cluster:
-                            fin.pars_xml.set_parameters(template=template_fn, 
-                            autochem=False, gral=False, res_limit=res_limit)
-                    
-                    _templates.remove((cluster, template_fn))
-                    self._send_message(f'Still waiting for {len(_templates)}/{N_templates} template files.')
-            sleep(0.05)
-                
-        print('All finalization parameter files have been created. CAP should start with finalizations now...')
-
-        from time import sleep
-        fins_todo = list(fc.sort_by_meta(by=['Cluster', 'File path']).keys())        
-        self._send_message(f'0/{len(fc)} finalizations finished.')        
-
-        while fins_todo:
-            for fin_name in fins_todo:
-                try:
-                    fc[fin_name].parse_finalization_results(check_current=True, timeout=finalization_timeout)
-                    print(f'Finalization for {fin_name} completed, results found')
-                    fins_todo.remove(fin_name)            
-                    self._send_message(f'{len(fc)-len(fins_todo)}/{len(fc)} finalizations finished.')                            
-                except FileNotFoundError:
-                    pass
-                    
-            sleep(0.5)
-
-        print(f'Finalizations completed for {self.path}')
+            
+        self.message(f'All requested finalizations completed. Please use the "Merge/Finalize" tab to inspect the results.')
 
         return fc
 

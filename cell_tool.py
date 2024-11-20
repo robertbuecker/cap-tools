@@ -18,7 +18,7 @@ from cap_tools.widgets import ClusterTableWidget
 from cap_tools.widgets import FinalizationWidget
 from cap_tools.widgets import CellHistogramWidget
 from cap_tools.widgets import ClusterWidget
-from cap_tools.cap_control import CAPMergeFinalize, CAPInstance, ListenModeError
+from cap_tools.cap_control import CAPMergeFinalize, CAPInstance, CAPListenModeError
 import queue
 import sys
 
@@ -37,6 +37,7 @@ class CellGUI:
                  metric: str = 'euclidian',
                  preproc: str = 'none',
                  use_raw_cell: bool = False,
+                 debug: bool = False,
                  **kwargs):
         
         if kwargs:
@@ -145,6 +146,7 @@ class CellGUI:
                 
         ttk.Button(mff, text='Merge only', command=lambda *args: self.merge_finalize(finalize=False)).grid(row=5, column=0, columnspan=2)
         ttk.Button(mff, text='Merge/Finalize', command=lambda *args: self.merge_finalize(finalize=True)).grid(row=10, column=0, columnspan=2)
+        ttk.Button(mff, text='Reset', command=lambda *args: self.reset_clusters()).grid(row=15, column=0, columnspan=2)
         # ttk.Button(mff, text='Reload last', 
         #            command=lambda *args: self.mergefin_widget.update_fc(
         #                FinalizationCollection.from_csv(os.path.splitext(self.fn)[0] + '_nodes.csv')
@@ -241,8 +243,9 @@ class CellGUI:
         tab_text_out.rowconfigure(0, weight=100)             
         self.text_out = tk.Text(tab_text_out, wrap="word")
         self.text_out.grid(row=0, column=0, sticky=tk.NSEW)
-        sys.stdout = TextRedirector(self.text_out, "stdout")
-        sys.stderr = TextRedirector(self.text_out, "stderr")        
+        if not debug:
+            sys.stdout = TextRedirector(self.text_out, "stdout")
+            sys.stderr = TextRedirector(self.text_out, "stderr")        
         self.text_out.tag_configure("stderr", foreground="#b22222")        
         self.tabs.add(tab_text_out, text='Log', sticky=tk.NSEW)       
 
@@ -414,10 +417,10 @@ class CellGUI:
 
         cap_control = CAPMergeFinalize(path=os.path.splitext(self.fn)[0],
                                        clusters=self.cluster_table.selected_clusters,
-                                       message_func=self.status_q, 
-                                       cmd_func=self.cap_instance.run_cmd)
+                                       cap_instance=self.cap_instance,
+                                       message_func=self.status_q)
         
-        cap_control.cluster_merge(write_mac=True)                       
+        cap_control.cluster_merge()                       
                 
         if finalize:
 
@@ -447,6 +450,11 @@ class CellGUI:
 
         if top_only:
             raise NotImplementedError('Top-node-only finalization not supported (yet)')
+        
+    def reset_clusters(self):
+        self._set_clustering_active(True)
+        self.mergefin_widget.clear()
+        self.set_status_message('Finalization viewer cleared. Clustering unlocked.')
         
             
 def parse_args():
@@ -480,6 +488,10 @@ def parse_args():
     parser.add_argument("-w","--raw-cell",
                        action="store_true", dest="use_raw_cell",
                        help="Use the raw lattice (from Lattice Explorer/IDXREF as opposed to the refined one from GRAL/CORRECT) for unit cell finding and clustering")
+    
+    parser.add_argument("--debug",
+                        action="store_true", dest="debug",
+                        help="Debug mode - print errors and log messages to console instead of log window.")
 
     parser.set_defaults(filename=None,
                         distance=0.0,

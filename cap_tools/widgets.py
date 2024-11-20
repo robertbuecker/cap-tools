@@ -235,6 +235,11 @@ class FinalizationWidget(ttk.Frame):
 
         plot_frame.grid(row=0, column=1, sticky='NSEW')
         self.rowconfigure(0, weight=100)
+        
+    def clear(self):
+        self.update_fc(fc = FinalizationCollection())
+        self.update_radar_plot()
+        self.update_shell_plot()
 
     def update_fc(self, fc: FinalizationCollection):
         self.fc = fc
@@ -259,8 +264,12 @@ class FinalizationWidget(ttk.Frame):
 
         for the_id in self.shell_view.get_children():
             self.shell_view.delete(the_id)
-
-        fin = self.selected_fc[self.selected_fin_ids[0]]
+            
+        if (not len(self.fc)) or (not len(self.selected_fin_ids)):
+            self.fin_info.delete(1.0, tk.END)
+            return
+        
+        fin = self.selected_fc[self.selected_fin_ids[0]]        
 
         info_str = f'Selected finalization: {fin.name}, merged from {fin.meta["Nexp"] if "Nexp"in fin.meta else "?"} experiments:\n'
         info_str +=(f'{fin.meta["Data sets"]}\n'.replace(':', ', ') if 'Data sets' in fin.meta else '')
@@ -301,7 +310,7 @@ class FinalizationWidget(ttk.Frame):
 
     def update_radar_plot(self):
 
-        def mangle_plot_data(plot_data: pd.DataFrame):
+        def mangle_plot_data(plot_data: pd.DataFrame) -> pd.DataFrame:
             
             if 'Cluster' not in plot_data:
                 plot_data['Cluster'] = -1
@@ -316,7 +325,7 @@ class FinalizationWidget(ttk.Frame):
                 cl_data['1/Rpim (rel)'] = cl_data['Rpim'].min()/cl_data['Rpim']
                 cluster_plots.append(cl_data)
 
-            return pd.concat(cluster_plots, axis=0)
+            return pd.concat(cluster_plots, axis=0) if cluster_plots else pd.DataFrame(columns=['name'])
 
         overall_plot_data = mangle_plot_data(
             self.fc.overall.merge(self.fc.meta, on='name')).query('name in @self.selected_fin_ids')

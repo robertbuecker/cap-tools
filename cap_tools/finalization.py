@@ -260,7 +260,7 @@ class Finalization:
     
     @property
     def pars_xml_path(self):
-        return self.path + '_rrp.xml'
+        return self.path + '_finalizer.xml'
     
     @property
     def have_proffit(self):
@@ -269,15 +269,6 @@ class Finalization:
     @property
     def have_pars_xml(self):
         return self.pars_xml.tree is not None
-        
-    def parse_finalization_parameters(self):
-        
-        fn = self.pars_xml_path
-        
-        if not os.path.exists(fn):
-            raise FileNotFoundError(f'Result parameters file {fn} not found.')   
-                
-        self.pars_xml = ET.parse(fn)
 
     def parse_finalization_results(self, check_current: bool = True, timeout: float = 0):
 

@@ -114,7 +114,7 @@ def main(basedir: str, print_fn = None):
         pets_file = glob(os.path.join(dir, '**\\*.pts2'), recursive=True)
         if not pets_file:
             cmds.append(f'xx selectexpnogui_ignoreerror "{cf}"')
-            cmds.append(f'DC IMGTOPETS "{dir}\\frames\\PETS_{lbl}\\frames" 0 1 0 1 0')
+            cmds.append(f'DC IMGTOPETS "{dir}\\frames\\PETS_{lbl}\\frames" 0 1 0 1 0 0')
         else:
             pets_files.extend(pets_file)
 

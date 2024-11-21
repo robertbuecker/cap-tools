@@ -300,10 +300,9 @@ class CellList:
         exps = {} # dict of Tuple[path, finalization_name]
         for d in self.ds:
             name, path = d['Experiment name'], d['Dataset path']
-            if ('Finalization file' in d) and d['Finalization file'] and not d['Finalization file'].startswith('exp'):
+            if ('Finalization file' in d) and d['Finalization file'] and d['Finalization file'].startswith('exp'):
                 fin_lbl = d['Finalization file']
-                fn = os.path.join(path, f'{fin_lbl}.rrpprof')
-                if os.path.exists(fn):
+                if os.path.exists(fn := os.path.join(path, f'{fin_lbl}.rrpprof')):
                     exps[name] = (path, fin_lbl)
                 else:
                     raise FileNotFoundError(f'Specified profile file {fn} does not exist.')
@@ -311,7 +310,7 @@ class CellList:
                 for appendix in appendices:
                     if os.path.exists(os.path.join(path, f'{name}{appendix}.rrpprof')):
                         exps[name] = (path, f'{name}{appendix}')
-                        if not d['Finalization file'].startswith('exp'):
+                        if ('Finalization file' in d) and d['Finalization file']:
                             print(f'Warning: selected finalization {d["Finalization file"]} rejected as it seems to be a merged one. Using {exps[name]} instead.')                             
                         break
                 else:

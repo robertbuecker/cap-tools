@@ -263,7 +263,7 @@ class CellGUI:
         
         # if filename is provided on CLI, open it now
         if filename is not None:
-            self.fn = filename
+            self.fn = filename            
             self.reload_cells()
             
     @property
@@ -336,6 +336,7 @@ class CellGUI:
 
     def reload_cells(self):
         raw = self.v_use_raw.get()        
+        print(f'Loading cells from {self.fn}')
         self.all_cells = CellList.from_csv(self.fn, use_raw_cell=raw) #TODO change this to selection of raw cells           
         self.w_all_fn.config(text=os.path.basename(self.fn) + (' (raw)' if raw else ''))       
         self.run_clustering()

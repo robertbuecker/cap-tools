@@ -133,7 +133,7 @@ class CellGUI:
         }
         self.w_merge_fin_setting = {
             'Resolution': ttk.Entry(mff, textvariable=self.v_merge_fin_setting['resolution']),
-            #'Top nodes only': ttk.Checkbutton(mff, text='Top nodes only', variable=self.v_merge_fin_setting['top_only'])
+            'Top nodes only': ttk.Checkbutton(mff, text='Top nodes only', variable=self.v_merge_fin_setting['top_only'])
         }
         for k in ['Resolution']:#, 'Top nodes only']:
             self.w_merge_fin_setting[k].config(w=15)
@@ -144,13 +144,13 @@ class CellGUI:
             else:
                 w.grid(row=ii, column=0, columnspan=2)
                 
-        ttk.Button(mff, text='Merge only', command=lambda *args: self.merge_finalize(finalize=False)).grid(row=5, column=0, columnspan=2)
-        ttk.Button(mff, text='Merge/Finalize', command=lambda *args: self.merge_finalize(finalize=True)).grid(row=10, column=0, columnspan=2)
+        ttk.Button(mff, text='Merge only', command=lambda *args: self.merge_finalize(
+            finalize=False, top_only=self.v_merge_fin_setting['top_only'].get())).grid(
+            row=5, column=0, columnspan=2)
+        ttk.Button(mff, text='Merge/Finalize', command=lambda *args: self.merge_finalize(
+            finalize=True, top_only=self.v_merge_fin_setting['top_only'].get())).grid(
+            row=10, column=0, columnspan=2)
         ttk.Button(mff, text='Reset', command=lambda *args: self.reset_clusters()).grid(row=15, column=0, columnspan=2)
-        # ttk.Button(mff, text='Reload last', 
-        #            command=lambda *args: self.mergefin_widget.update_fc(
-        #                FinalizationCollection.from_csv(os.path.splitext(self.fn)[0] + '_nodes.csv')
-        #                )).grid(row=15, column=0, columnspan=2)
         mff.grid_columnconfigure(0, weight=1)
         mff.grid(row=30, column=0)
 
@@ -420,7 +420,7 @@ class CellGUI:
                                        cap_instance=self.cap_instance,
                                        message_func=self.status_q)
         
-        cap_control.cluster_merge()                       
+        cap_control.cluster_merge(top_only=top_only)                       
                 
         if finalize:
 
@@ -430,7 +430,8 @@ class CellGUI:
                 child.config(state='normal')      
             
             fin_future = self.exec.submit(cap_control.cluster_finalize, 
-                                          res_limit=self.v_merge_fin_setting['resolution'].get())            
+                                          res_limit=self.v_merge_fin_setting['resolution'].get(),
+                                          top_only=top_only)            
                 
             def check_fin_running():
                 if fin_future.done():
@@ -447,9 +448,6 @@ class CellGUI:
                     self.root.after(100, check_fin_running)              
                 
             self.root.after(100, check_fin_running)
-
-        if top_only:
-            raise NotImplementedError('Top-node-only finalization not supported (yet)')
         
     def reset_clusters(self):
         self._set_clustering_active(True)

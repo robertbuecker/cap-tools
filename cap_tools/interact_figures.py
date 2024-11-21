@@ -156,8 +156,8 @@ def fom_radar_plot(overall_df: pd.DataFrame,
     axs = np.array([fig.add_subplot(1, 2, 1, projection='radar'),
            fig.add_subplot(1, 2, 2, projection='radar')])
 
-    fig.subplots_adjust(wspace=0.25, hspace=0.20, top=0.85, bottom=0.15)
-    
+    fig.subplots_adjust(wspace=0.25, hspace=0.20, top=0.85, bottom=0.2)
+
 
     if colors is None:
         colors = [f'C{ii}' for ii in range(len(overall_df))]

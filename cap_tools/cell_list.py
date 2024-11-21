@@ -256,7 +256,7 @@ class CellList:
             
             for ii, (c_id, cluster) in enumerate(self.clusters.items()):
                 if c_id not in selection:
-                    print(f'Skipping Cluster {c_id} (not selected in list)')
+                    print(f'Skipping Cluster {c_id} (not in selection)')
                     continue
                 out_paths, in_paths, out_codes, out_info = cluster.get_merging_paths(prefix=f'C{c_id}', short_form=True)                
                 for out, (in1, in2), code, info in zip(out_paths, in_paths, out_codes, out_info):

@@ -208,22 +208,27 @@ class CAPMergeFinalize(CAPControl):
     def merge_files_found(self) -> bool:
         return os.path.exists(self.node_info_fn)
     
-    def cluster_merge(self, delete_existing: bool = False):
+    def cluster_merge(self, delete_existing: bool = False, top_only: bool = False):
         
         self.message(f'Running full-tree merging for clusters: {[int(k) for k in self.clusters.keys()]}')
         
         cmds = []
         old_fns = []
+        redundant_fns = []
         
         with open(self.node_info_fn, 'w') as ifh:
             # TODO factor this into cluster class. Why is this here?!
             ifh.write('Name,File path,Cluster,Data sets,Merge code\n')
             merged_cids = []
             for ii, (c_id, cluster) in enumerate(self.clusters.items()):
+                N_merges = len(cluster.merge_tree)
                 out_paths, in_paths, out_codes, out_info = cluster.get_merging_paths(prefix=f'C{c_id}', short_form=True)                
-                for out, (in1, in2), code, info in zip(out_paths, in_paths, out_codes, out_info):
+                for ii, (out, (in1, in2), code, info) in enumerate(zip(out_paths, in_paths, out_codes, out_info)):
                     cmds.append(f'xx proffitmerge "{out}" "{in1}" "{in2}"')
-                    ifh.write(f'{os.path.basename(out)},{out},{c_id},{info},{code}\n')
+                    if (not top_only) or ((ii+1) == N_merges):
+                        ifh.write(f'{os.path.basename(out)},{out},{c_id},{info},{code}\n')
+                    else:
+                        redundant_fns += glob.glob(out + '*.*')
                     if delete_existing:
                         old_fns += glob.glob(out + '*.*')
                   
@@ -235,15 +240,19 @@ class CAPMergeFinalize(CAPControl):
             print(f'Deleting {fn}')
         
         self.run(cmds)
+
+        for fn in redundant_fns:        
+            os.remove(fn)
+            print(f'Deleting {fn}')
         
-        self.message(f'Completed full-tree merging for clusters: {[int(k) for k in self.clusters.keys()]}')
+        self.message(f'Completed full-tree merging for clusters: {[int(k) for k in self.clusters.keys()]}{" (top nodes only)" if top_only else ""}. Cluster data written to {self.node_info_fn}')
                                 
 
     def cluster_finalize(self, 
                         res_limit: float = 0.8,
-                        finalization_timeout: float = 10):    
+                        top_only: bool = False):    
 
-        self.cluster_merge(delete_existing=True)
+        self.cluster_merge(delete_existing=True, top_only=top_only)
 
         tmp_folder = os.path.join(os.path.dirname(self.path), 'tmp')
         os.makedirs(tmp_folder, exist_ok=True)        

@@ -29,60 +29,60 @@ _FOM_DICT = {'Rint': 1,
             'RshelX': 12}
 
 
-def write_fin_xml(template: str, name: str, folder: str, 
-                  gral: Optional[bool] = None, autochem: Optional[bool] = None,
-                  laue: Optional[Union[int]] = None, z: Optional[float] = None,
-                  chem: Optional[str] = None, res_limit: Optional[float] = None,
-                  fom: Union[list, tuple] = ('Rint', 'Rurim', 'Rpim', 'CC 1/2', 'deltaCC', 'Sigma', 'SigmaA', 'SigmaB', 'CC*'),
-                  pars: Optional[Dict[str, str]] = None):
+# def write_fin_xml(template: str, name: str, folder: str, 
+#                   gral: Optional[bool] = None, autochem: Optional[bool] = None,
+#                   laue: Optional[Union[int]] = None, z: Optional[float] = None,
+#                   chem: Optional[str] = None, res_limit: Optional[float] = None,
+#                   fom: Union[list, tuple] = ('Rint', 'Rurim', 'Rpim', 'CC 1/2', 'deltaCC', 'Sigma', 'SigmaA', 'SigmaB', 'CC*'),
+#                   pars: Optional[Dict[str, str]] = None):
 
-    tree = ET.parse(template)
-    root = tree.getroot()
-    root.find('__FINALIZER_SAMPLE__/__Input_file__').text = name
-    root.find('__FINALIZER_SAMPLE__/__Input_file_path__').text = folder
-    root.find('__FINALIZER_OUTPUT__/__Output_file__').text = name
-    root.find('__FINALIZER_OUTPUT__/__Output_file_path__').text = os.path.join(folder, name)
+#     tree = ET.parse(template)
+#     root = tree.getroot()
+#     root.find('__FINALIZER_SAMPLE__/__Input_file__').text = name
+#     root.find('__FINALIZER_SAMPLE__/__Input_file_path__').text = folder
+#     root.find('__FINALIZER_OUTPUT__/__Output_file__').text = name
+#     root.find('__FINALIZER_OUTPUT__/__Output_file_path__').text = os.path.join(folder, name)
 
-    pars = {} if pars is None else pars
+#     pars = {} if pars is None else pars
     
-    if gral is not None:
-        pars['__FINALIZER_SPACE_GROUP_AND_AUTOCHEM__/__Is_GRAL_on__'] = '1' if gral else '0'
-    if autochem is not None:
-        pars['__FINALIZER_SPACE_GROUP_AND_AUTOCHEM__/__Is_AutoChem_active__'] = '1' if autochem else '0'
-    if autochem is not None:
-        pars['__FINALIZER_SPACE_GROUP_AND_AUTOCHEM__/__Is_AutoChem_active__'] = '1' if autochem else '0'
-    if laue is not None:
-        if isinstance(laue, str):
-            lcls = root.find('__FINALIZER_SAMPLE__/__Type_of_Laue__indexinfo__').text.split(';')
-            laue = {v.strip(): int(k) for k, v in (lcl.split('-', 1) for lcl in lcls)}[laue]
-        pars['__FINALIZER_SAMPLE__/__Type_of_Laue__'] = str(laue)
-    if res_limit is not None:
-        pars['__FINALIZER_FILTERS_AND_LIMITS__/__Automated__'] = '0'
-        pars['__FINALIZER_FILTERS_AND_LIMITS__/__Apply_resolution_limits__'] = '1'
-        pars['__FINALIZER_FILTERS_AND_LIMITS__/__Resolution_limits_-_high_limit__'] = str(res_limit)
-        pars['__FINALIZER_FILTERS_AND_LIMITS__/__Dmin_for_completness__'] = str(res_limit)
-    if z is not None:
-        pars['__FINALIZER_SAMPLE__/__Z__'] = str(z)
-    if chem is not None:
-        pars['__FINALIZER_SAMPLE__/__Chemical_formula__'] = str(chem)
+#     if gral is not None:
+#         pars['__FINALIZER_SPACE_GROUP_AND_AUTOCHEM__/__Is_GRAL_on__'] = '1' if gral else '0'
+#     if autochem is not None:
+#         pars['__FINALIZER_SPACE_GROUP_AND_AUTOCHEM__/__Is_AutoChem_active__'] = '1' if autochem else '0'
+#     if autochem is not None:
+#         pars['__FINALIZER_SPACE_GROUP_AND_AUTOCHEM__/__Is_AutoChem_active__'] = '1' if autochem else '0'
+#     if laue is not None:
+#         if isinstance(laue, str):
+#             lcls = root.find('__FINALIZER_SAMPLE__/__Type_of_Laue__indexinfo__').text.split(';')
+#             laue = {v.strip(): int(k) for k, v in (lcl.split('-', 1) for lcl in lcls)}[laue]
+#         pars['__FINALIZER_SAMPLE__/__Type_of_Laue__'] = str(laue)
+#     if res_limit is not None:
+#         pars['__FINALIZER_FILTERS_AND_LIMITS__/__Automated__'] = '0'
+#         pars['__FINALIZER_FILTERS_AND_LIMITS__/__Apply_resolution_limits__'] = '1'
+#         pars['__FINALIZER_FILTERS_AND_LIMITS__/__Resolution_limits_-_high_limit__'] = str(res_limit)
+#         pars['__FINALIZER_FILTERS_AND_LIMITS__/__Dmin_for_completness__'] = str(res_limit)
+#     if z is not None:
+#         pars['__FINALIZER_SAMPLE__/__Z__'] = str(z)
+#     if chem is not None:
+#         pars['__FINALIZER_SAMPLE__/__Chemical_formula__'] = str(chem)
         
-    pars['__FINALIZER_FILTERS_AND_LIMITS__/__Apply_printout_options__'] = '1'
+#     pars['__FINALIZER_FILTERS_AND_LIMITS__/__Apply_printout_options__'] = '1'
     
-    for ii, the_fom in enumerate(fom):
-        # print(the_fom)
-        pars[f'__FINALIZER_FILTERS_AND_LIMITS__/__Printout_options_-_Output_order_-_{ii}__'] = str(_FOM_DICT.get(the_fom, 0))
+#     for ii, the_fom in enumerate(fom):
+#         # print(the_fom)
+#         pars[f'__FINALIZER_FILTERS_AND_LIMITS__/__Printout_options_-_Output_order_-_{ii}__'] = str(_FOM_DICT.get(the_fom, 0))
     
-    # global settings
-    for k, v in pars.items():
-        try:
-            root.find(k).text = v
-        except AttributeError:
-            print('Entry',k, 'not found in XML template.')
+#     # global settings
+#     for k, v in pars.items():
+#         try:
+#             root.find(k).text = v
+#         except AttributeError:
+#             print('Entry',k, 'not found in XML template.')
         
-    xml_name = os.path.join(folder, name) + '_rrp.xml'
-    tree.write(xml_name)
+#     xml_name = os.path.join(folder, name) + '_rrp.xml'
+#     tree.write(xml_name)
     
-    return xml_name
+#     return xml_name
    
    
 class FinalizationXML:
@@ -138,7 +138,8 @@ class FinalizationXML:
                 raise FileNotFoundError(f'Finalization parameter file {self.filename} does not exist (yet).')
         
     def set_parameters(self, template: Optional[str] = None, 
-                    gral: Optional[bool] = None, autochem: Optional[bool] = None,
+                    gral: Optional[bool] = None, gral_interactive: Optional[bool] = None,
+                    autochem: Optional[bool] = None,
                     laue: Optional[Union[int]] = None, z: Optional[float] = None,
                     chem: Optional[str] = None, res_limit: Optional[float] = None,
                     fom: Union[list, tuple] = ('Rint', 'Rurim', 'Rpim', 'CC 1/2', 'deltaCC', 'Sigma', 'SigmaA', 'SigmaB', 'CC*'),
@@ -165,6 +166,8 @@ class FinalizationXML:
         
         if gral is not None:
             pars['__FINALIZER_SPACE_GROUP_AND_AUTOCHEM__/__Is_GRAL_on__'] = '1' if gral else '0'
+        if gral_interactive is not None:
+            pars['__FINALIZER_SPACE_GROUP_AND_AUTOCHEM__/__GRAL_mode__'] = '1' if gral_interactive else '0'            
         if autochem is not None:
             pars['__FINALIZER_SPACE_GROUP_AND_AUTOCHEM__/__Is_AutoChem_active__'] = '1' if autochem else '0'
         if autochem is not None:

@@ -250,7 +250,11 @@ class CAPMergeFinalize(CAPControl):
 
     def cluster_finalize(self, 
                         res_limit: float = 0.8,
-                        top_only: bool = False):    
+                        top_only: bool = False,
+                        top_gral: bool = False,
+                        top_ac: bool = False):    
+
+        if top_ac: top_gral = True
 
         self.cluster_merge(delete_existing=True, top_only=top_only)
 
@@ -267,8 +271,6 @@ class CAPMergeFinalize(CAPControl):
         top_node_names = list(fc.meta.sort_values(by=['Cluster', 'Nexp', 'File path']).drop_duplicates(subset='Cluster', keep='last')['name'])
         top_nodes = fc.get_subset(top_node_names)
 
-        IMMEDIATE_TOP_NODE = False
-
         template_files = {}
         for top_name, top_fin in top_nodes.items():
             
@@ -283,13 +285,17 @@ class CAPMergeFinalize(CAPControl):
             template_files[cluster] = fn_template
             
             self.message(f'Finalization XML template for cluster {cluster} found. Generating finalization parameter files...')       
-            for _, fin in fc.items():
+            for name, fin in fc.items():
                 if fin.meta['Cluster'] == cluster:
-                    fin.pars_xml.set_parameters(template=fn_template, 
-                    autochem=False, gral=False, res_limit=res_limit)
+                    fin.pars_xml.set_parameters(template=fn_template,
+                    gral=True if (top_gral and (name == top_name)) else False, 
+                    gral_interactive=True if (top_gral and (name == top_name)) else False, 
+                    autochem=True if (top_ac and (name == top_name)) else False, 
+                    res_limit=res_limit)
                                 
-            if IMMEDIATE_TOP_NODE:
-                self.message(f'Running finalization for top-node merge {top_name} in cluster {cluster}.')
+            if top_gral:
+                self.message(f'Running finalization for top-node merge {top_name} in cluster {cluster}.'
+                             + (' Interactive space group determination started' if top_gral else ''))
                 self.run(f'dc rrpfromxml {top_fin.pars_xml_path}')
                 top_fin.parse_finalization_results(check_current=True)    
                 self.message(f'Finalization for top-level node {top_name} completed, results found.')            
@@ -304,7 +310,7 @@ class CAPMergeFinalize(CAPControl):
                 par =  os.path.basename(folder)
                 self.run(f'xx selectexpnogui {os.path.join(folder, par) + ".par"}')
                 
-            if not (IMMEDIATE_TOP_NODE and (name in top_node_names)):                    
+            if not (top_gral and (name in top_node_names)):                    
                 self.message(f'Running finalization for merge {name} in cluster {fin.meta["Cluster"]}. [{ii+1}/{len(fc)}]')
                 self.run(f'dc rrpfromxml {fin.pars_xml_path}')
                 fin.parse_finalization_results(check_current=True)

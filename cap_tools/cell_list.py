@@ -235,6 +235,8 @@ class CellList:
                                            cluster_distance=distance)
 
                 self._clusters = cluster_lists
+                
+                return node_cids
             
     def save_clusters(self, fn_template: str, list_fn: Optional[str] = None, 
                       selection: List[int] = ()):

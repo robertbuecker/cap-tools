@@ -129,11 +129,15 @@ class CellGUI:
         self._mff = mff
         self.v_merge_fin_setting = {
             'resolution': tk.DoubleVar(mff, value=0.8),
-            'top_only': tk.BooleanVar(mff, value=False)
+            'top_only': tk.BooleanVar(mff, value=False),
+            'top_gral': tk.BooleanVar(mff, value=False),
+            'top_ac': tk.BooleanVar(mff, value=False)
         }
         self.w_merge_fin_setting = {
             'Resolution': ttk.Entry(mff, textvariable=self.v_merge_fin_setting['resolution']),
-            'Top nodes only': ttk.Checkbutton(mff, text='Top nodes only', variable=self.v_merge_fin_setting['top_only'])
+            'Top nodes only': ttk.Checkbutton(mff, text='Top nodes only', variable=self.v_merge_fin_setting['top_only']),
+            'GRAL on top nodes': ttk.Checkbutton(mff, text='GRAL on top nodes', variable=self.v_merge_fin_setting['top_gral']),
+            'AutoChem on top nodes': ttk.Checkbutton(mff, text='AutoChem on top nodes', variable=self.v_merge_fin_setting['top_ac'])
         }
         for k in ['Resolution']:#, 'Top nodes only']:
             self.w_merge_fin_setting[k].config(w=15)
@@ -145,10 +149,10 @@ class CellGUI:
                 w.grid(row=ii, column=0, columnspan=2)
                 
         ttk.Button(mff, text='Merge only', command=lambda *args: self.merge_finalize(
-            finalize=False, top_only=self.v_merge_fin_setting['top_only'].get())).grid(
+            finalize=False)).grid(
             row=5, column=0, columnspan=2)
         ttk.Button(mff, text='Merge/Finalize', command=lambda *args: self.merge_finalize(
-            finalize=True, top_only=self.v_merge_fin_setting['top_only'].get())).grid(
+            finalize=True)).grid(
             row=10, column=0, columnspan=2)
         ttk.Button(mff, text='Reset', command=lambda *args: self.reset_clusters()).grid(row=15, column=0, columnspan=2)
         mff.grid_columnconfigure(0, weight=1)
@@ -290,7 +294,10 @@ class CellGUI:
     def active_tab(self):
         return self.tabs.index(self.tabs.select())
         
-    def run_clustering(self, distance: Optional[float] = None, tree: Optional[Dict[str,Any]] = None):        
+    def run_clustering(self, distance: Optional[float] = None, tree: Optional[Dict[str,Any]] = None):       
+        # invoked directly from clustering recomputation button or clicking into the dendrogram via callback
+        # (determined by whether distance parameter is supplied). Gets everything for clustering from the UI,
+        # calls CellList.cluster, and writes back the outcome
         
         if self._clustering_disabled:
             # raise RuntimeError('Clustering is disabled. How did you get here?')
@@ -316,7 +323,8 @@ class CellGUI:
             self.v_cluster_setting['distance'].set(distance)
             redraw = False
             
-        self.all_cells.cluster(distance=None if distance==0 else distance, cluster_pars=cluster_pars)     
+        #TODO consider a structure where the plots directly run CellList.cluster and the GUI is updated via a callback. It's very confusing as it is.
+        node_cids = self.all_cells.cluster(distance=None if distance==0 else distance, cluster_pars=cluster_pars)     
         
         self.cluster_widget.tree = tree
         self.cluster_table.update_table(clusters=self.clusters)
@@ -332,7 +340,9 @@ class CellGUI:
                 labels = None          
                         
             _, self._click_cid = distance_from_dendrogram(self.all_cells._z, ylabel=cluster_pars.metric, initial_distance=distance,
-                                labels=labels, fig_handle=self.cluster_widget.fig, callback=lambda distance, tree: self.run_clustering(distance, tree))                        
+                                labels=labels, fig_handle=self.cluster_widget.fig, callback=lambda distance, tree: self.run_clustering(distance, tree))            
+            
+        return node_cids
 
     def reload_cells(self):
         raw = self.v_use_raw.get()        
@@ -410,7 +420,7 @@ class CellGUI:
         self.root.clipboard_clear()
         self.root.clipboard_append(msg)        
         
-    def merge_finalize(self, finalize: bool = True, top_only: bool = False):
+    def merge_finalize(self, finalize: bool = True):
         
         if not self.cluster_table.selected_cluster_ids:
             showinfo('No cluster selected', 'Please first select one or more cluster(s).')
@@ -421,7 +431,7 @@ class CellGUI:
                                        cap_instance=self.cap_instance,
                                        message_func=self.status_q)
         
-        cap_control.cluster_merge(top_only=top_only)                       
+        cap_control.cluster_merge(top_only=self.v_merge_fin_setting['top_only'].get())                       
                 
         if finalize:
 
@@ -432,7 +442,9 @@ class CellGUI:
             
             fin_future = self.exec.submit(cap_control.cluster_finalize, 
                                           res_limit=self.v_merge_fin_setting['resolution'].get(),
-                                          top_only=top_only)            
+                                          top_only=self.v_merge_fin_setting['top_only'].get(),
+                                          top_gral=self.v_merge_fin_setting['top_gral'].get(),
+                                          top_ac=self.v_merge_fin_setting['top_ac'].get())            
                 
             def check_fin_running():
                 if fin_future.done():

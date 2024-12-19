@@ -9,6 +9,7 @@ from typing import *
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from .utils import node_id_from_link
 
 from matplotlib.patches import Circle, RegularPolygon
 from matplotlib.path import Path
@@ -183,6 +184,8 @@ def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None,
                              labels: Optional[List[str]] = None, 
                              fig_handle: Optional[Figure] = None, callback: Optional[callable] = None) -> float:
     """Interactive dendrogram plot. Function mostly taken from edtools by Stef Smeets.
+    Invoked when dendrogram is recomputed (e.g. if the method is changed), but _not_ when reclustering by changing the distance
+    cutoff.
     
     Takes a linkage object `z` from scipy.cluster.hierarchy.linkage and displays a
     dendrogram. The cutoff distance can be picked interactively, and is returned
@@ -212,7 +215,7 @@ def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None,
     set_link_color_palette([f'C{ii}' for ii in range(10)])
 
     tree = dendrogram(z, color_threshold=distance, ax=ax, labels=labels, leaf_rotation=90 if labels is not None else 0, above_threshold_color='k')
-
+            
     # use 1-based indexing for display by incrementing label    
     # _, xlabels = plt.xticks()
     # for l in xlabels:
@@ -224,6 +227,8 @@ def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None,
     hline = ax.axhline(y=distance, color='g')
 
     def get_cutoff(event):
+        # called via callback when clicking into the dendrogram. Repaints the dendrogram with the new clusters,
+        # then calls the actual clustering function `callback`, which would usually be CellGUI.run_clustering
         nonlocal hline
         nonlocal tree
         nonlocal distance
@@ -231,18 +236,47 @@ def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None,
         if event:
             distance = round(event.ydata, 4)
             ax.set_title(f"Dendrogram (cutoff={distance:.2f})")
-            hline.remove()
-            hline = ax.axhline(y=distance, color='g')
 
             for c in ax.collections:
                 c.remove()
+                
+            for child in ax.get_children():
+                if type(child) in [matplotlib.text.Annotation, matplotlib.lines.Line2D]:
+                    child.remove()
 
+            # hline.remove()
+            hline = ax.axhline(y=distance, color='g')
+            
             yl = ax.get_ylim()
             tree = dendrogram(z, color_threshold=distance, ax=ax, labels=labels, leaf_rotation=90 if labels is not None else 0, above_threshold_color='k')
             ax.set_ylim(yl)
             
             if callback is not None:
-                callback(distance, tree)
+                node_cids = callback(distance, tree)
+                
+                # get cluster IDs of top-level cluster nodes
+                found = []
+                top_node_cids = []                
+                for idx in reversed(node_cids):
+                    if idx in found:
+                        top_node_cids.append(-2)
+                    else:
+                        found.append(idx)
+                        top_node_cids.append(idx)
+                top_node_cids = np.array(top_node_cids[::-1])
+                link_cids = top_node_cids[node_id_from_link(z)]
+                
+                # ...and annotate them
+                if node_cids is not None:                                            
+                    for ii,(cid, i, d, c) in enumerate(zip(link_cids, tree['icoord'], tree['dcoord'], tree['color_list'])):
+                        x = 0.5 * sum(i[1:3])
+                        y = d[1]
+                        if (y < distance) & (cid >= 0):
+                            ax.plot(x, y, 'o', c=c)
+                            ax.annotate(f'{cid}', (x, y), xytext=(0, 5.3),
+                                            textcoords='offset points',
+                                            va='bottom', ha='center', 
+                                            bbox={'boxstyle': 'square,pad=0.1', 'fc': 'w', 'ec': c})                            
 
             fig.canvas.draw()
 

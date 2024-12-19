@@ -161,3 +161,33 @@ def volume_difference(cell1: list, cell2: list):
     return abs(v1-v2)
 
 ClusterOptions = namedtuple('ClusterOptions', ['preproc', 'metric', 'method'])
+
+
+def node_id_from_link(Z):
+    # get list of node IDs (i.e., positions of entries in the linkage matrix) ordered like the
+    # link items returned by the dendrogram function. Adapted from:
+    # https://stackoverflow.com/questions/73103010/matching-up-the-output-of-scipy-linkage-and-dendrogram
+        
+    def append_index(n, i, node_id_list):
+        
+        # i is the ID of the node (counting in all 2 * n - 1 nodes)
+        # so i-n is the idx in the "Z"
+        if i < n:
+            return
+        aa = int(Z[i - n, 0])
+        ab = int(Z[i - n, 1])
+
+        append_index(n, aa, node_id_list)
+        append_index(n, ab, node_id_list)
+
+        node_id_list.append(i-n)
+        # Imitate the progress in hierarchy.dendrogram
+        # so how `i-n` is appended , is the same as how the element in 'icoord'&'dcoord' be.
+        return    
+        
+    n = Z.shape[0] + 1
+    i = 2 * n - 2
+    node_id_list = []
+    append_index(n, i, node_id_list)
+
+    return node_id_list

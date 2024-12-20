@@ -53,7 +53,7 @@ class CellGUI:
         
         # initialize master GUI 
         self.root = tk.Tk()
-        self.root.geometry('1300x800')
+        self.root.geometry('1300x900')
         self.root.title("3D ED/MicroED cell tool")
         
         try:       
@@ -431,10 +431,10 @@ class CellGUI:
                                        cap_instance=self.cap_instance,
                                        message_func=self.status_q)
         
-        cap_control.cluster_merge(top_only=self.v_merge_fin_setting['top_only'].get())                       
+        if not finalize:        
+            cap_control.cluster_merge(top_only=self.v_merge_fin_setting['top_only'].get())                       
                 
-        if finalize:
-
+        else:
             self._set_clustering_active(False)
             # TODO why is the following required?
             for child in self._mff.winfo_children():

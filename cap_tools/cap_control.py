@@ -115,9 +115,13 @@ class CAPControl:
         Args:
             work_folder (str): _description_
             cmd_folder (Optional[str], optional): _description_. Defaults to None.
-            message_func (Optional[Union[Callable[[str], None], queue.Queue]], optional): Callable or Queue to send status messages and prompts back to the 
-            user interface. If None, messages are simply printed. Defaults to None.
-            cmd_func (Optional[Union[Callable[[str], None], queue.Queue]], optional): Callable or Queue for commands to be executed by CAP. Defaults to None.
+            cap_instance (CAPInstance): Listen mode CAP instance
+            message_func (Optional[Union[Callable[[str], None], queue.Queue]], optional): Function/queue via which info messages are sent. 
+            If None, just prints messages. Defaults to None.
+            request_func (Optional[Union[Callable[[str], None], queue.Queue]], optional): Function/queue via which requests are sent that require a response. 
+            If None, just prints requests. Defaults to None.
+            response_func (Optional[Union[Callable[[], Any], queue.Queue]], optional): Function/queue via which info responses are returned. 
+            If None, reads from command line. Defaults to None.
         """
         
         self._cap = cap_instance
@@ -186,11 +190,14 @@ class CAPMergeFinalize(CAPControl):
 
         Args:
             path (str): _description_
-            clusters (Dict[int, CellList]): _description_
-            cap_instance (CAPInstance): _description_
-            message_func (Optional[Union[Callable[[str], None], queue.Queue]], optional): _description_. Defaults to None.
-            request_func (Optional[Union[Callable[[str], None], queue.Queue]], optional): _description_. Defaults to None.
-            response_func (Optional[Union[Callable[[], Any], queue.Queue]], optional): _description_. Defaults to None.
+            clusters (Dict[int, CellList]): Clusters (dictionary of cell lists)
+            cap_instance (CAPInstance): Listen mode CAP instance
+            message_func (Optional[Union[Callable[[str], None], queue.Queue]], optional): Function/queue via which info messages are sent. 
+            If None, just prints messages. Defaults to None.
+            request_func (Optional[Union[Callable[[str], None], queue.Queue]], optional): Function/queue via which requests are sent that require a response. 
+            If None, just prints requests. Defaults to None.
+            response_func (Optional[Union[Callable[[], Any], queue.Queue]], optional): Function/queue via which info responses are returned. 
+            If None, reads from command line. Defaults to None.
         """
         
         super().__init__(work_folder=os.path.split(path)[0], cap_instance=cap_instance,
@@ -209,6 +216,12 @@ class CAPMergeFinalize(CAPControl):
         return os.path.exists(self.node_info_fn)
     
     def cluster_merge(self, delete_existing: bool = False, top_only: bool = False):
+        """Runs merging of all clusters
+
+        Args:
+            delete_existing (bool, optional): _description_. Defaults to False.
+            top_only (bool, optional): _description_. Defaults to False.
+        """
         
         self.message(f'Running full-tree merging for clusters: {[int(k) for k in self.clusters.keys()]}')
         
@@ -217,7 +230,7 @@ class CAPMergeFinalize(CAPControl):
         redundant_fns = []
         
         with open(self.node_info_fn, 'w') as ifh:
-            # TODO factor this into cluster class. Why is this here?!
+            # TODO quite redundant with storing clustering data (almost same file format)
             ifh.write('Name,File path,Cluster,Data sets,Merge code\n')
             merged_cids = []
             for ii, (c_id, cluster) in enumerate(self.clusters.items()):
@@ -252,7 +265,18 @@ class CAPMergeFinalize(CAPControl):
                         res_limit: float = 0.8,
                         top_only: bool = False,
                         top_gral: bool = False,
-                        top_ac: bool = False):    
+                        top_ac: bool = False) -> FinalizationCollection:    
+        """Runs finalization of all clusters
+
+        Args:
+            res_limit (float, optional): Resolution limit to which to finalize. Defaults to 0.8.
+            top_only (bool, optional): Only finalize top nodes where all experiments of the cluster are merged. Defaults to False.
+            top_gral (bool, optional): Run GRAL (SG determination) on top nodes. Defaults to False.
+            top_ac (bool, optional): Run AutoChem on top nodes. Implies that GRAL is run as well. Defaults to False.
+
+        Returns:
+            FinalizationCollection: All finalization data
+        """
 
         if top_ac: top_gral = True
 
@@ -264,13 +288,13 @@ class CAPMergeFinalize(CAPControl):
             os.remove(fn)
             print(f'Deleting {fn}')
                       
+        # generate finalization collection from CSV file stored by cluster_merge
         fc = FinalizationCollection.from_csv(self.node_info_fn, allow_missing=True, verbose=False)
 
         # append commands to interactively create dummy finalization XMLs from top nodes (which are never executed)
         # TODO add ability to use existing files or infer Laue class automatically
         top_node_names = list(fc.meta.sort_values(by=['Cluster', 'Nexp', 'File path']).drop_duplicates(subset='Cluster', keep='last')['name'])
         top_nodes = fc.get_subset(top_node_names)
-
         template_files = {}
         for top_name, top_fin in top_nodes.items():
             
@@ -280,44 +304,46 @@ class CAPMergeFinalize(CAPControl):
             self.run(f'xx selectexpnogui ' + os.path.join(folder, os.path.split(folder)[-1] + ".par"))
             self.message(f'Please choose finalization settings (Laue group!) for cluster {cluster} in CAP.')
             self.run(f'dc xmlrrp {top_name} ' + fn_template)
-            while not os.path.exists(fn_template):
-                time.sleep(0.1)
-            template_files[cluster] = fn_template
             
+            while not os.path.exists(fn_template):
+                time.sleep(0.1) # wait until user has finished setting the finalization options
+            template_files[cluster] = fn_template
+         
             self.message(f'Finalization XML template for cluster {cluster} found. Generating finalization parameter files...')       
             for name, fin in fc.items():
                 if fin.meta['Cluster'] == cluster:
                     fin.pars_xml.set_parameters(template=fn_template,
-                    gral=True if (top_gral and (name == top_name)) else False, 
-                    gral_interactive=True if (top_gral and (name == top_name)) else False, 
-                    autochem=True if (top_ac and (name == top_name)) else False, 
-                    res_limit=res_limit)
+                                                gral=True if (top_gral and (name == top_name)) else False, 
+                                                gral_interactive=True if (top_gral and (name == top_name)) else False, 
+                                                autochem=True if (top_ac and (name == top_name)) else False, 
+                                                res_limit=res_limit)
                                 
             if top_gral:
-                self.message(f'Running finalization for top-node merge {top_name} in cluster {cluster}.'
-                             + (' Interactive space group determination started' if top_gral else ''))
+                # if GRAL should be run, start finalization straight away (otherwise order will be confusing to user)
+                self.message(f'Running finalization with interactive GRAL for {top_name} in cluster {cluster}.')
                 self.run(f'dc rrpfromxml {top_fin.pars_xml_path}')
-                top_fin.parse_finalization_results(check_current=True)    
+                top_fin.parse_finalization_results(check_current=False)    # no idea why false is required here (GRAL/AC seems to change XML somehow)
                 self.message(f'Finalization for top-level node {top_name} completed, results found.')            
                 
         prev_folder = ''
 
         for ii, (name, fin) in enumerate(fc.sort_by_meta(by=['Cluster', 'File path']).items()):
-            # print(node)
+ 
+            if top_gral and (name in top_node_names):                    
+                self.message(f'Skipping top-node finalization for merge {name} in cluster {fin.meta["Cluster"]}. [{ii+1}/{len(fc)}]')
+                continue
+                                
             folder = fin.folder
             
             if folder != prev_folder:
                 par =  os.path.basename(folder)
                 self.run(f'xx selectexpnogui {os.path.join(folder, par) + ".par"}')
-                
-            if not (top_gral and (name in top_node_names)):                    
-                self.message(f'Running finalization for merge {name} in cluster {fin.meta["Cluster"]}. [{ii+1}/{len(fc)}]')
-                self.run(f'dc rrpfromxml {fin.pars_xml_path}')
-                fin.parse_finalization_results(check_current=True)
-            else:
-                self.message(f'Skipping top-node finalization for merge {name} in cluster {fin.meta["Cluster"]}. [{ii+1}/{len(fc)}]')
-                
+                            
+            self.message(f'Running finalization for merge {name} in cluster {fin.meta["Cluster"]}. [{ii+1}/{len(fc)}]')
+            self.run(f'dc rrpfromxml {fin.pars_xml_path}')
+            fin.parse_finalization_results(check_current=True)
             self.message(f'Finalization for {name} completed, results found.')
+            
             prev_folder = folder
             
         self.message(f'All requested finalizations completed. Please use the "Merge/Finalize" tab to inspect the results.')

@@ -130,6 +130,7 @@ class CellList:
                     return ValueError('First clustering run; you need to supply parameters.')
                 elif (cluster_pars is None) or (cluster_pars == self._cluster_pars):
                     z = self._z
+                    if distance is None: distance = self._distance
                 else:
                     self._cluster_pars = cluster_pars
                                     

@@ -215,7 +215,10 @@ class CAPMergeFinalize(CAPControl):
     def merge_files_found(self) -> bool:
         return os.path.exists(self.node_info_fn)
     
-    def cluster_merge(self, delete_existing: bool = False, top_only: bool = False):
+    def cluster_merge(self, 
+                      delete_existing: bool = False, 
+                      top_only: bool = False,
+                      reintegrate: bool = False):
         """Runs merging of all clusters
 
         Args:
@@ -228,6 +231,13 @@ class CAPMergeFinalize(CAPControl):
         cmds = []
         old_fns = []
         redundant_fns = []
+        
+        if reintegrate:
+            for cid, cluster in self.clusters.items():
+                for the_ds in cluster.ds:
+                    self.message(f'Running proffit (auto) on {the_ds["Experiment name"]}')
+                    self.run(f'xx selectexpnogui ' + os.path.join(the_ds['Dataset path'], the_ds['Experiment name']) + ".par")
+                    self.run('dc proffit auto') # one day, allow XML templates etc.....                    
         
         with open(self.node_info_fn, 'w') as ifh:
             # TODO quite redundant with storing clustering data (almost same file format)
@@ -261,11 +271,12 @@ class CAPMergeFinalize(CAPControl):
         self.message(f'Completed full-tree merging for clusters: {[int(k) for k in self.clusters.keys()]}{" (top nodes only)" if top_only else ""}. Cluster data written to {self.node_info_fn}')
                                 
 
-    def cluster_finalize(self, 
+    def cluster_finalize(self,                          
                         res_limit: float = 0.8,
                         top_only: bool = False,
                         top_gral: bool = False,
-                        top_ac: bool = False) -> FinalizationCollection:    
+                        top_ac: bool = False,
+                        reintegrate: bool = False) -> FinalizationCollection:    
         """Runs finalization of all clusters
 
         Args:
@@ -280,7 +291,7 @@ class CAPMergeFinalize(CAPControl):
 
         if top_ac: top_gral = True
 
-        self.cluster_merge(delete_existing=True, top_only=top_only)
+        self.cluster_merge(delete_existing=True, top_only=top_only, reintegrate=reintegrate)
 
         tmp_folder = os.path.join(os.path.dirname(self.path), 'tmp')
         os.makedirs(tmp_folder, exist_ok=True)        

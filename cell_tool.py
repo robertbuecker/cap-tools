@@ -131,13 +131,15 @@ class CellGUI:
             'resolution': tk.DoubleVar(mff, value=0.8),
             'top_only': tk.BooleanVar(mff, value=False),
             'top_gral': tk.BooleanVar(mff, value=False),
-            'top_ac': tk.BooleanVar(mff, value=False)
+            'top_ac': tk.BooleanVar(mff, value=False),
+            'reintegrate': tk.BooleanVar(mff, value=False)
         }
         self.w_merge_fin_setting = {
             'Resolution': ttk.Entry(mff, textvariable=self.v_merge_fin_setting['resolution']),
             'Top nodes only': ttk.Checkbutton(mff, text='Top nodes only', variable=self.v_merge_fin_setting['top_only']),
             'GRAL on top nodes': ttk.Checkbutton(mff, text='GRAL on top nodes', variable=self.v_merge_fin_setting['top_gral']),
-            'AutoChem on top nodes': ttk.Checkbutton(mff, text='AutoChem on top nodes', variable=self.v_merge_fin_setting['top_ac'])
+            'AutoChem on top nodes': ttk.Checkbutton(mff, text='AutoChem on top nodes', variable=self.v_merge_fin_setting['top_ac']),
+            'Reintegrate (proffit)': ttk.Checkbutton(mff, text='Reintegrate (proffit)', variable=self.v_merge_fin_setting['reintegrate']),
         }
         for k in ['Resolution']:#, 'Top nodes only']:
             self.w_merge_fin_setting[k].config(w=15)
@@ -339,10 +341,11 @@ class CellGUI:
                 print('Experiment names not found in CSV list. Consider including them.')
                 labels = None          
                         
+            # generate the dendrogram, supplying the function itself as callback
             _, self._click_cid = distance_from_dendrogram(self.all_cells._z, ylabel=cluster_pars.metric, initial_distance=distance,
                                 labels=labels, fig_handle=self.cluster_widget.fig, callback=lambda distance, tree: self.run_clustering(distance, tree))            
             
-        return node_cids
+        return node_cids, self.cluster_table.apply_cluster_colors
 
     def reload_cells(self):
         raw = self.v_use_raw.get()        
@@ -432,7 +435,8 @@ class CellGUI:
                                        message_func=self.status_q)
         
         if not finalize:        
-            cap_control.cluster_merge(top_only=self.v_merge_fin_setting['top_only'].get())                       
+            cap_control.cluster_merge(top_only=self.v_merge_fin_setting['top_only'].get(),
+                                      reintegrate=self.v_merge_fin_setting['reintegrate'].get())                       
                 
         else:
             self._set_clustering_active(False)
@@ -444,7 +448,8 @@ class CellGUI:
                                           res_limit=self.v_merge_fin_setting['resolution'].get(),
                                           top_only=self.v_merge_fin_setting['top_only'].get(),
                                           top_gral=self.v_merge_fin_setting['top_gral'].get(),
-                                          top_ac=self.v_merge_fin_setting['top_ac'].get())            
+                                          top_ac=self.v_merge_fin_setting['top_ac'].get(),
+                                          reintegrate=self.v_merge_fin_setting['reintegrate'].get())            
                 
             def check_fin_running():
                 if fin_future.done():

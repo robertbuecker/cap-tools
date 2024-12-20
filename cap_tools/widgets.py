@@ -122,7 +122,15 @@ class ClusterTableWidget(ttk.Frame):
                              -int(math.floor(math.log10(hi-lo))) if std != 0 else 0)
                 cpar_strs.append('{0:.{4}f} ({1:.{4}f}) [{2:.{4}f}, {3:.{4}f}]'.format(avg, std, lo, hi, digits))
 
-            self._entry_ids.append(self.cluster_view.insert('', tk.END, values=[c_id, len(cl)] + cpar_strs))
+            self._entry_ids.append(self.cluster_view.insert('', tk.END, values=[c_id, len(cl)] + cpar_strs, tags=(str(c_id),)))
+            
+            # self.apply_cluster_colors()
+            
+    def apply_cluster_colors(self, cluster_colors: Dict[int, str] = None):
+        
+        for c_id in self._clusters.keys():
+            self.cluster_view.tag_configure(str(c_id), foreground=cluster_colors.get(int(c_id), 'white'))
+        
 
     def show_entry_info(self, event):
         for cluster_id in self.selected_cluster_ids:

@@ -355,7 +355,7 @@ class Finalization:
     
     @property
     def overall_highest(self) -> pd.DataFrame:
-        ov_high = pd.concat((self.overall, self.highest_shell)).reset_index(drop=True).drop(columns='1/d').astype(str).transpose()
+        ov_high = pd.concat((self.overall.iloc[[0],:], self.highest_shell)).reset_index(drop=True).drop(columns='1/d').astype(str).transpose()
         return pd.DataFrame('' + ov_high[0] + ' (' + ov_high[1] + ')').transpose()    
     
 

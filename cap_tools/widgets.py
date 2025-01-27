@@ -314,7 +314,10 @@ class FinalizationWidget(ttk.Frame):
                 continue
             else:
                 for ax, fom in zip(axs, self.fom_plot.selected_fom):
-                    fin.shells.plot(x='1/d', y=fom, color=f'C{c}', label=name, ax=ax)
+                    if fom in fin.shells:
+                        fin.shells.plot(x='1/d', y=fom, color=f'C{c}', label=name, ax=ax)
+                    else:
+                        print(f'Figure of merit {fom} not specified for {name}')
 
         self.fom_plot.canvas.draw()
 

@@ -258,7 +258,7 @@ class FinalizationWidget(ttk.Frame):
         for the_id in self._fv_entry_ids:
             self.fin_view.delete(the_id)
 
-        tdata = self.fc.overall_highest.merge(self.fc.meta, on='name')
+        tdata = self.fc.overall_highest.merge(self.fc.meta, on='name').copy()
         cols = list(self.ft_columns.keys())
         for c in cols:
             if c not in tdata:
@@ -287,12 +287,14 @@ class FinalizationWidget(ttk.Frame):
         self.fin_info.delete(1.0, tk.END)
         self.fin_info.insert(tk.END, info_str)
 
+        tdata = fin.shells.copy()
+
         cols = list(self.sv_columns)
         for col in cols:
-            if col not in fin.shells:
-                fin.shells[col] = '?'
-
-        tdata = fin.shells[list(self.sv_columns)]
+            if col not in tdata:
+                tdata[col] = '?'                
+                
+        tdata = tdata[cols]
 
         self._sv_entry_ids = []
         for _, shell_data in tdata.iterrows():
@@ -326,11 +328,13 @@ class FinalizationWidget(ttk.Frame):
             cluster_plots = []
             for _, cl_data in plot_data.groupby('Cluster'):
                 cl_data = cl_data.copy()
-                cl_data['Comp'] = cl_data['complete']/100
-                cl_data['I/sig (rel)'] = cl_data['F2/sig(F2)']/cl_data['F2/sig(F2)'].max()
-                cl_data['Red. (rel)'] = cl_data['redundancy']/cl_data['redundancy'].max()
-                cl_data['1/Rurim (rel)'] = cl_data['Rurim'].min()/cl_data['Rurim']
-                cl_data['1/Rpim (rel)'] = cl_data['Rpim'].min()/cl_data['Rpim']
+                default = cl_data.iloc[:,0].copy()
+                default[:] = np.nan
+                cl_data['Comp'] = cl_data.get('complete', default=default)/100
+                cl_data['I/sig (rel)'] = cl_data.get('F2/sig(F2)', default=default)/cl_data.get('F2/sig(F2)', default=default).max()
+                cl_data['Red. (rel)'] = cl_data.get('redundancy', default=default)/cl_data.get('redundancy', default=default).max()
+                cl_data['1/Rurim (rel)'] = cl_data.get('Rurim', default=default).min()/cl_data.get('Rurim', default=default)
+                cl_data['1/Rpim (rel)'] = cl_data.get('Rpim', default=default).min()/cl_data.get('Rpim', default=default)
                 cluster_plots.append(cl_data)
 
             return pd.concat(cluster_plots, axis=0) if cluster_plots else pd.DataFrame(columns=['name'])

@@ -245,7 +245,7 @@ class CAPMergeFinalize(CAPControl):
             print('Deleting existing cluster data folder:', cluster_data_folder)
             shutil.rmtree(cluster_data_folder)
             
-        os.makedirs(cluster_data_folder)
+        os.makedirs(cluster_data_folder, exist_ok=True)
                            
         with open(self.node_info_fn, 'w') as ifh:
             # TODO quite redundant with storing clustering data (almost same file format)

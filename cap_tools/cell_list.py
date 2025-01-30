@@ -239,11 +239,14 @@ class CellList:
                 
                 return node_cids
             
-    def save_clusters(self, fn_template: str, list_fn: Optional[str] = None, 
+    def save_clusters(self, fn_template: str, list_fn: Optional[str] = None, out_dir: str = None,
                       selection: List[int] = ()):
         
         ver = 1
         info_fn = os.path.splitext(fn_template)[0] + '_cluster_info.csv'
+        cluster_data_folder = os.path.dirname(info_fn)
+        
+        os.makedirs(cluster_data_folder, exist_ok=True)
         
         with open(info_fn, 'w') as ifh:
             ifh.write(
@@ -261,10 +264,20 @@ class CellList:
                 if c_id not in selection:
                     print(f'Skipping Cluster {c_id} (not in selection)')
                     continue
-                out_paths, in_paths, out_codes, out_info = cluster.get_merging_paths(prefix=f'C{c_id}', short_form=True)                
-                for out, (in1, in2), code, info in zip(out_paths, in_paths, out_codes, out_info):
-                    ifh.write(f'{os.path.basename(out)},{out},{c_id},{info},{code}\n')
-                cluster_fn = os.path.splitext(fn_template)[0] + f'-cluster_{ii}_ID{c_id}.csv'
+                try:
+                    out_paths, in_paths, out_codes, out_info = cluster.get_merging_paths(prefix=f'C{c_id}', 
+                                                                                     short_form=True, 
+                                                                                     legacy=False, 
+                                                                                     common_path=os.path.join(cluster_data_folder, f'Cluster-{c_id}'))  
+                except FileNotFoundError as err:
+                    print('WARNING: ', str(err) + f' - SKIPPING CLUSTER {c_id}')
+                    continue
+      
+                for out, inp, code, info in zip(out_paths, in_paths, out_codes, out_info):
+                    out_path = os.path.join(out, os.path.basename(out)) if out_dir else ''                 
+                    ifh.write(f'{os.path.basename(out)},{out_path},{c_id},{' | '.join(inp)},{code}\n')
+                    
+                cluster_fn = os.path.splitext(fn_template)[0] + f'-Cluster-{c_id}.csv'
                 cluster.to_csv(cluster_fn)
                 print(f'Wrote cluster {c_id} with {len(cluster)} crystals to file {cluster_fn}')
         

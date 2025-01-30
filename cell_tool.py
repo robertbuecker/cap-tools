@@ -371,29 +371,6 @@ class CellGUI:
         self.all_cells.save_clusters(fn_template, 
                                      list_fn=self.fn + (' (raw)' if self.v_use_raw.get() else ''),
                                      selection = self.cluster_table.selected_cluster_ids)
-        # ver = 1
-        # with open(info_fn, 'w') as ifh:
-        #     ifh.write(
-        #         f'VERSION {ver}\n'
-        #         f'HEADER INFO:\n'
-        #         f'Experiment list: {self.fn}\n' #TODO add (raw) info
-        #         f'Preprocessing: {self.all_cells._cluster_pars.preproc}\n'
-        #         f'Metric: {self.all_cells._cluster_pars.metric}\n'
-        #         f'Method: {self.all_cells._cluster_pars.method}\n'
-        #         f'Distance: {self.all_cells._distance}\n'
-        #     )
-        #     ifh.write('Name,File path,Cluster,Data sets,Merge code\n')
-            
-        #     for ii, (c_id, cluster) in enumerate(self.clusters.items()):
-        #         if c_id not in self.cluster_table.selected_cluster_ids:
-        #             print(f'Skipping Cluster {c_id} (not selected in list)')
-        #             continue
-        #         out_paths, in_paths, out_codes, out_info = cluster.get_merging_paths(prefix=f'C{c_id}', short_form=True)                
-        #         for out, (in1, in2), code, info in zip(out_paths, in_paths, out_codes, out_info):
-        #             ifh.write(f'{os.path.basename(out)},{out},{c_id},{info},{code}\n')
-        #         cluster_fn = os.path.splitext(fn_template)[0] + f'-cluster_{ii}_ID{c_id}.csv'
-        #         cluster.to_csv(cluster_fn)
-        #         print(f'Wrote cluster {c_id} with {len(cluster)} crystals to file {cluster_fn}')
                 
     def _set_clustering_active(self, active: bool=True):
         # activate/deactive clustering controls
@@ -432,12 +409,17 @@ class CellGUI:
                 ii += 1
             else:
                 break
+            
+        self.all_cells.save_clusters(fn_template=os.path.join(results_folder, f'run{ii}'), 
+                                     out_dir=results_folder,
+                                     list_fn=self.fn + (' (raw)' if self.v_use_raw.get() else ''),
+                                     selection=self.cluster_table.selected_cluster_ids)
 
         cap_control = CAPMergeFinalize(path=results_folder,
                                        clusters=self.cluster_table.selected_clusters,
                                        cap_instance=self.cap_instance,
                                        message_func=self.status_q)
-        
+      
         if not finalize:        
             cap_control.cluster_merge(top_only=self.v_merge_fin_setting['top_only'].get(),
                                       reintegrate=self.v_merge_fin_setting['reintegrate'].get())                       

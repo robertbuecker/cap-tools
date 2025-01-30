@@ -210,7 +210,7 @@ class CAPMergeFinalize(CAPControl):
         
     @property
     def node_info_fn(self) -> str:
-        return self.path + '_nodes.csv'    
+        return os.path.join(self.path, 'merged_datasets.csv')    
     
     @property
     def merge_files_found(self) -> bool:
@@ -237,8 +237,16 @@ class CAPMergeFinalize(CAPControl):
                 for the_ds in cluster.ds:
                     self.message(f'Running proffit (auto) on {the_ds["Experiment name"]}')
                     self.run(f'xx selectexpnogui ' + os.path.join(the_ds['Dataset path'], the_ds['Experiment name']) + ".par")
-                    self.run('dc proffit auto') # one day, allow XML templates etc.....                    
-        
+                    self.run('dc proffit auto') # one day, allow XML templates etc.....     
+                    
+        #TODO if old merges should be removed, now is the time
+        cluster_data_folder = self.path
+        if delete_existing and os.path.exists(cluster_data_folder):
+            print('Deleting existing cluster data folder:', cluster_data_folder)
+            shutil.rmtree(cluster_data_folder)
+            
+        os.makedirs(cluster_data_folder)
+                           
         with open(self.node_info_fn, 'w') as ifh:
             # TODO quite redundant with storing clustering data (almost same file format)
             ifh.write('Name,File path,Cluster,Data sets,Merge code\n')
@@ -249,14 +257,10 @@ class CAPMergeFinalize(CAPControl):
                     out_paths, in_paths, out_codes, out_info = cluster.get_merging_paths(prefix=f'C{c_id}', 
                                                                                      short_form=True, 
                                                                                      legacy=False, 
-                                                                                     common_path=os.path.join(self.path + '_clusters', f'Cluster-{c_id}'))  
+                                                                                     common_path=os.path.join(cluster_data_folder, f'Cluster-{c_id}'))  
                 except FileNotFoundError as err:
                     print('WARNING: ', str(err) + f' - SKIPPING CLUSTER {c_id}')
                     continue
-                    
-                #TODO if old merges should be removed, now is the time  
-                if delete_existing:
-                    pass
                             
                 for ii, (out, inp, code, info) in enumerate(zip(out_paths, in_paths, out_codes, out_info)):                
                     if (not top_only) or ((ii+1) == N_merges):
@@ -296,7 +300,8 @@ class CAPMergeFinalize(CAPControl):
                         top_only: bool = False,
                         top_gral: bool = False,
                         top_ac: bool = False,
-                        reintegrate: bool = False) -> FinalizationCollection:    
+                        reintegrate: bool = False,
+                        delete_existing: bool = False) -> FinalizationCollection:    
         """Runs finalization of all clusters
 
         Args:

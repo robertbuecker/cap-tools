@@ -174,10 +174,6 @@ class CellGUI:
         self.w_fin_view_setting = {
 
         }
-        ttk.Button(finf, text='Last clustering', 
-                   command=lambda *args: self.mergefin_widget.update_fc(
-                       FinalizationCollection.from_csv(os.path.splitext(self.fn)[0] + '_nodes.csv')
-                       )).grid(row=10, column=0, columnspan=2)
         ttk.Button(finf, text='Files', 
                    command=lambda *args: self.mergefin_widget.update_fc(
                        FinalizationCollection.from_files(
@@ -429,7 +425,15 @@ class CellGUI:
             showinfo('No cluster selected', 'Please first select one or more cluster(s).')
             return
 
-        cap_control = CAPMergeFinalize(path=os.path.splitext(self.fn)[0],
+        ii = 1
+        while True:
+            results_folder = os.path.splitext(self.fn)[0] + f'_clusters-run{ii}'
+            if os.path.exists(results_folder):
+                ii += 1
+            else:
+                break
+
+        cap_control = CAPMergeFinalize(path=results_folder,
                                        clusters=self.cluster_table.selected_clusters,
                                        cap_instance=self.cap_instance,
                                        message_func=self.status_q)

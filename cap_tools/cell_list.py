@@ -295,7 +295,7 @@ class CellList:
         return out_codes, in_codes
             
     def get_merging_paths(self, prefix: str = '', common_path: Optional[str] = None, short_form: bool = False,
-                          appendices: Union[list, tuple] = ('', '_autored', '_auto')):
+                          appendices: Union[list, tuple] = ('', '_autored', '_auto'), legacy: bool = True):
         """
         define merging paths: by default, place merged file into folder of involved experiment with lowest number        
         """
@@ -317,8 +317,7 @@ class CellList:
                             print(f'Warning: selected finalization {d["Finalization file"]} rejected as it seems to be a merged one. Using {exps[name]} instead.')                             
                         break
                 else:
-                    print(f'No rrpprof file found for {name} in {path} - Skipping.')
-                    continue
+                    raise FileNotFoundError(f'No rrpprof file found for {name} in {path}.')                    
                             
         # create mangle-able ID strings from merging tree
         out_codes, in_codes = self.get_merge_codes()
@@ -340,16 +339,24 @@ class CellList:
                     for out_code in out_codes]
 
         # get input paths
-        in_paths = []
-        for in_code in in_codes:
-            paths = []
-            for cd in in_code:
-                if not ':' in cd:
-                    # non-merged file
-                    paths.append(os.path.join(*exps[cd]))
-                else:
-                    # merged file
-                    paths.append(out_paths[out_codes.index(cd)])            
-            in_paths.append(tuple(paths))
+        if legacy:
+            in_paths = []
+            for in_code in in_codes:
+                paths = []
+                for cd in in_code:
+                    if not ':' in cd:
+                        # non-merged file
+                        paths.append(os.path.join(*exps[cd]))
+                    else:
+                        # merged file
+                        paths.append(out_paths[out_codes.index(cd)])            
+                in_paths.append(tuple(paths))
+                
+        else:
+            in_paths = []
+            for prof_paths in out_codes:
+                in_paths.append(
+                    tuple(os.path.join(*exps[name]) for name in prof_paths.split(':'))
+                    )
             
         return out_paths, in_paths, out_codes, out_info

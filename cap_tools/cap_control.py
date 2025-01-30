@@ -7,6 +7,7 @@ from cap_tools.cell_list import CellList
 from typing import *
 import queue
 import shutil
+from configparser import ConfigParser
 
 class CAPListenModeError(RuntimeError):
     pass
@@ -219,6 +220,9 @@ class CAPMergeFinalize(CAPControl):
                       delete_existing: bool = False, 
                       top_only: bool = False,
                       reintegrate: bool = False):
+        
+        ini = ConfigParser()
+        
         """Runs merging of all clusters
 
         Args:
@@ -227,10 +231,6 @@ class CAPMergeFinalize(CAPControl):
         """
         
         self.message(f'Running full-tree merging for clusters: {[int(k) for k in self.clusters.keys()]}')
-        
-        cmds = []
-        old_fns = []
-        redundant_fns = []
         
         if reintegrate:
             for cid, cluster in self.clusters.items():
@@ -245,29 +245,49 @@ class CAPMergeFinalize(CAPControl):
             merged_cids = []
             for ii, (c_id, cluster) in enumerate(self.clusters.items()):
                 N_merges = len(cluster.merge_tree)
-                out_paths, in_paths, out_codes, out_info = cluster.get_merging_paths(prefix=f'C{c_id}', short_form=True)                
-                for ii, (out, (in1, in2), code, info) in enumerate(zip(out_paths, in_paths, out_codes, out_info)):
-                    cmds.append(f'xx proffitmerge "{out}" "{in1}" "{in2}"')
+                try:
+                    out_paths, in_paths, out_codes, out_info = cluster.get_merging_paths(prefix=f'C{c_id}', 
+                                                                                     short_form=True, 
+                                                                                     legacy=False, 
+                                                                                     common_path=os.path.join(self.path + '_clusters', f'Cluster-{c_id}'))  
+                except FileNotFoundError as err:
+                    print('WARNING: ', str(err) + f' - SKIPPING CLUSTER {c_id}')
+                    continue
+                    
+                #TODO if old merges should be removed, now is the time  
+                if delete_existing:
+                    pass
+                            
+                for ii, (out, inp, code, info) in enumerate(zip(out_paths, in_paths, out_codes, out_info)):                
                     if (not top_only) or ((ii+1) == N_merges):
-                        ifh.write(f'{os.path.basename(out)},{out},{c_id},{info},{code}\n')
-                    else:
-                        redundant_fns += glob.glob(out + '*.*')
-                    if delete_existing:
-                        old_fns += glob.glob(out + '*.*')
+                        
+                        out_path = os.path.join(out, os.path.basename(out))
+                        ini_fn = out_path + '_merge.ini'
+                        
+                        ifh.write(f'{os.path.basename(out)},{out_path},{c_id},{info},{code}\n')
+                        
+                        os.makedirs(out, exist_ok=True)
+                        #TODO check if an rmtree is required, or if CAP cleans up the folder anywayx``
+                        
+                        print(f'--- Writing INI file {ini_fn}---\nOutput: ', out_path, '\nInputs:', inp)      
+                        ini = ConfigParser()
+                        ini['Number of experiments to merge'] = {
+                            'number of experiments to merge': str(len(inp))       
+                        }       
+                        ini['Target Merged experiment'] = {
+                            'target rrpprof path filename with ext': out_path + '.rrprof'
+                            }
+                        for ii, in_name in enumerate(inp):
+                            ini[f'Source merged experiment {ii+1}'] = {
+                                'source rrpprof path filename with ext': in_name + '.rrpprof'
+                                }                           
+                        ini.write(open(ini_fn, 'w'))
+                        
+                        self.run(f'XX PROFFITMERGE2FROMINI {ini_fn}')
                   
                 print(f'Full-cluster merge for cluster {c_id}: {out_paths[-1]}')
                 merged_cids.append(c_id)
 
-        for fn in old_fns:        
-            os.remove(fn)
-            print(f'Deleting {fn}')
-        
-        self.run(cmds)
-
-        for fn in redundant_fns:        
-            os.remove(fn)
-            print(f'Deleting {fn}')
-        
         self.message(f'Completed full-tree merging for clusters: {[int(k) for k in self.clusters.keys()]}{" (top nodes only)" if top_only else ""}. Cluster data written to {self.node_info_fn}')
                                 
 
@@ -312,7 +332,7 @@ class CAPMergeFinalize(CAPControl):
             cluster = top_fin.meta['Cluster']
             folder = os.path.dirname(top_fin.path)
             fn_template = os.path.join(tmp_folder, f'C{cluster}_finalizer_dlg.xml')
-            self.run(f'xx selectexpnogui ' + os.path.join(folder, os.path.split(folder)[-1] + ".par"))
+            self.run(f'xx selectexpnogui ' + os.path.join(folder, top_name + ".par"))
             self.message(f'Please choose finalization settings (Laue group!) for cluster {cluster} in CAP.')
             self.run(f'dc xmlrrp {top_name} ' + fn_template)
             

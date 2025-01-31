@@ -409,20 +409,19 @@ class CellGUI:
                 ii += 1
             else:
                 break
-            
-        self.all_cells.save_clusters(fn_template=os.path.join(results_folder, f'run{ii}'), 
+        
+        merge_fn = self.all_cells.save_clusters(fn_template=os.path.join(results_folder, f'run{ii}'), 
                                      out_dir=results_folder,
                                      list_fn=self.fn + (' (raw)' if self.v_use_raw.get() else ''),
-                                     selection=self.cluster_table.selected_cluster_ids)
+                                     selection=self.cluster_table.selected_cluster_ids,
+                                     top_only=self.v_merge_fin_setting['top_only'].get())
 
-        cap_control = CAPMergeFinalize(path=results_folder,
-                                       clusters=self.cluster_table.selected_clusters,
+        cap_control = CAPMergeFinalize(merge_file=merge_fn,
                                        cap_instance=self.cap_instance,
                                        message_func=self.status_q)
       
         if not finalize:        
-            cap_control.cluster_merge(top_only=self.v_merge_fin_setting['top_only'].get(),
-                                      reintegrate=self.v_merge_fin_setting['reintegrate'].get())                       
+            cap_control.merge(reintegrate=self.v_merge_fin_setting['reintegrate'].get())                       
                 
         else:
             self._set_clustering_active(False)
@@ -430,9 +429,8 @@ class CellGUI:
             for child in self._mff.winfo_children():
                 child.config(state='normal')      
             
-            fin_future = self.exec.submit(cap_control.cluster_finalize, 
+            fin_future = self.exec.submit(cap_control.finalize, 
                                           res_limit=self.v_merge_fin_setting['resolution'].get(),
-                                          top_only=self.v_merge_fin_setting['top_only'].get(),
                                           top_gral=self.v_merge_fin_setting['top_gral'].get(),
                                           top_ac=self.v_merge_fin_setting['top_ac'].get(),
                                           reintegrate=self.v_merge_fin_setting['reintegrate'].get())            

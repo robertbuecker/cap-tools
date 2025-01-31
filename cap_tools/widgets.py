@@ -280,7 +280,7 @@ class FinalizationWidget(ttk.Frame):
         fin = self.selected_fc[self.selected_fin_ids[0]]        
 
         info_str = f'Selected finalization: {fin.name}, merged from {fin.meta["Nexp"] if "Nexp"in fin.meta else "?"} experiments:\n'
-        info_str +=(f'{fin.meta["Data sets"]}\n'.replace(':', ', ') if 'Data sets' in fin.meta else '')
+        info_str +=(f'{fin.meta["Merge code"]}\n'.replace(':', ', ') if 'Merge code' in fin.meta else '')
         info_str +=f'Path: {os.path.dirname(fin.path)}\n'
         info_str +=f'proffit file {"found" if fin.have_proffit else "not found"}; '
         info_str +=f'parameter XML file {"found" if fin.have_pars_xml else "not found"}\n'

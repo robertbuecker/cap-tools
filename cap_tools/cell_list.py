@@ -240,7 +240,7 @@ class CellList:
                 return node_cids
             
     def save_clusters(self, fn_template: str, list_fn: Optional[str] = None, out_dir: str = None,
-                      selection: List[int] = ()):
+                      selection: List[int] = (), top_only: bool = False):
         
         ver = 1
         info_fn = os.path.splitext(fn_template)[0] + '_cluster_info.csv'
@@ -273,13 +273,19 @@ class CellList:
                     print('WARNING: ', str(err) + f' - SKIPPING CLUSTER {c_id}')
                     continue
       
-                for out, inp, code, info in zip(out_paths, in_paths, out_codes, out_info):
-                    out_path = os.path.join(out, os.path.basename(out)) if out_dir else ''                 
-                    ifh.write(f'{os.path.basename(out)},{out_path},{c_id},{' | '.join(inp)},{code}\n')
+                N_exp = [len(inp) for inp in in_paths]
+                full_merge_pos = N_exp.index(max(N_exp))
+      
+                for ii, (out, inp, code, info) in enumerate(zip(out_paths, in_paths, out_codes, out_info)):
+                    if (not top_only) or (ii == full_merge_pos):
+                        out_path = os.path.join(out, os.path.basename(out)) if out_dir else ''                 
+                        ifh.write(f'{os.path.basename(out)},{out_path},{c_id},{' | '.join(inp)},{code}\n')
                     
                 cluster_fn = os.path.splitext(fn_template)[0] + f'-Cluster-{c_id}.csv'
                 cluster.to_csv(cluster_fn)
                 print(f'Wrote cluster {c_id} with {len(cluster)} crystals to file {cluster_fn}')
+                
+        return info_fn
         
     @property
     def clusters(self) -> Dict[int, 'CellList']:

@@ -2,12 +2,12 @@ import os
 from cap_tools.finalization import Finalization, FinalizationCollection
 import glob
 import time
-import pandas as pd
 from cap_tools.cell_list import CellList
 from typing import *
 import queue
 import shutil
 from configparser import ConfigParser
+import csv
 
 class CAPListenModeError(RuntimeError):
     pass
@@ -182,7 +182,7 @@ class CAPControl:
     
 class CAPMergeFinalize(CAPControl):
     
-    def __init__(self, path: str, clusters: Dict[int, CellList],
+    def __init__(self, merge_file: str,
                  cap_instance: CAPInstance,
                  message_func: Optional[Union[Callable[[str], None], queue.Queue]] = None,
                  request_func: Optional[Union[Callable[[str], None], queue.Queue]] = None,                 
@@ -201,108 +201,78 @@ class CAPMergeFinalize(CAPControl):
             If None, reads from command line. Defaults to None.
         """
         
-        super().__init__(work_folder=os.path.split(path)[0], cap_instance=cap_instance,
+        super().__init__(work_folder=os.path.split(merge_file)[0], cap_instance=cap_instance,
                          message_func=message_func,
                          request_func=request_func,
                          response_func=response_func)
-        self.path = path
-        self.clusters = clusters
+        self.merge_file = merge_file
+        self.merge_data = {}
+        self.read_merge_file()
         
-    @property
-    def node_info_fn(self) -> str:
-        return os.path.join(self.path, 'merged_datasets.csv')    
-    
-    @property
-    def merge_files_found(self) -> bool:
-        return os.path.exists(self.node_info_fn)
-    
-    def cluster_merge(self, 
-                      delete_existing: bool = False, 
-                      top_only: bool = False,
-                      reintegrate: bool = False):
+    def read_merge_file(self):
+        with open(self.merge_file) as fh:
+            
+            while l := fh.readline():
+                if 'Merge code' not in l:
+                    continue
+                else:
+                    fields = [k.strip() for k in l.split(',')]
+                    break
+                    
+            reader = csv.DictReader(fh, fieldnames=fields)
+            self.merge_data = list(reader)
+            
+        for md in self.merge_data:
+            md['Data sets'] = [ds.strip() for ds in md['Data sets'].split('|')]
+                      
+    def merge(self, reintegrate: bool = False):
         
         ini = ConfigParser()
-        
-        """Runs merging of all clusters
-
-        Args:
-            delete_existing (bool, optional): _description_. Defaults to False.
-            top_only (bool, optional): _description_. Defaults to False.
-        """
-        
-        self.message(f'Running full-tree merging for clusters: {[int(k) for k in self.clusters.keys()]}')
+        self.message(f'Starting merging...')
         
         if reintegrate:
-            for cid, cluster in self.clusters.items():
-                for the_ds in cluster.ds:
-                    self.message(f'Running proffit (auto) on {the_ds["Experiment name"]}')
-                    self.run(f'xx selectexpnogui ' + os.path.join(the_ds['Dataset path'], the_ds['Experiment name']) + ".par")
-                    self.run('dc proffit auto') # one day, allow XML templates etc.....     
-                    
-        #TODO if old merges should be removed, now is the time
-        cluster_data_folder = self.path
-        if delete_existing and os.path.exists(cluster_data_folder):
-            print('Deleting existing cluster data folder:', cluster_data_folder)
-            shutil.rmtree(cluster_data_folder)
+            raise NotImplementedError('Reintegration currently not implemented') #TODO fix this
+            # for cid, cluster in self.clusters.items():
+            #     for the_ds in cluster.ds:
+            #         self.message(f'Running proffit (auto) on {the_ds["Experiment name"]}')
+            #         self.run(f'xx selectexpnogui ' + os.path.join(the_ds['Dataset path'], the_ds['Experiment name']) + ".par")
+            #         self.run('dc proffit auto') # one day, allow XML templates etc.....     
+    
+        for ii, md in enumerate(self.merge_data):     
             
-        os.makedirs(cluster_data_folder, exist_ok=True)
-                           
-        with open(self.node_info_fn, 'w') as ifh:
-            # TODO quite redundant with storing clustering data (almost same file format)
-            ifh.write('Name,File path,Cluster,Data sets,Merge code\n')
-            merged_cids = []
-            for ii, (c_id, cluster) in enumerate(self.clusters.items()):
-                N_merges = len(cluster.merge_tree)
-                try:
-                    out_paths, in_paths, out_codes, out_info = cluster.get_merging_paths(prefix=f'C{c_id}', 
-                                                                                     short_form=True, 
-                                                                                     legacy=False, 
-                                                                                     common_path=os.path.join(cluster_data_folder, f'Cluster-{c_id}'))  
-                except FileNotFoundError as err:
-                    print('WARNING: ', str(err) + f' - SKIPPING CLUSTER {c_id}')
-                    continue
-                            
-                for ii, (out, inp, code, info) in enumerate(zip(out_paths, in_paths, out_codes, out_info)):                
-                    if (not top_only) or ((ii+1) == N_merges):
-                        
-                        out_path = os.path.join(out, os.path.basename(out))
-                        ini_fn = out_path + '_merge.ini'
-                        
-                        ifh.write(f'{os.path.basename(out)},{out_path},{c_id},{info},{code}\n')
-                        
-                        os.makedirs(out, exist_ok=True)
-                        #TODO check if an rmtree is required, or if CAP cleans up the folder anywayx``
-                        
-                        print(f'--- Writing INI file {ini_fn}---\nOutput: ', out_path, '\nInputs:', inp)      
-                        ini = ConfigParser()
-                        ini['Number of experiments to merge'] = {
-                            'number of experiments to merge': str(len(inp))       
-                        }       
-                        ini['Target Merged experiment'] = {
-                            'target rrpprof path filename with ext': out_path + '.rrprof'
-                            }
-                        for ii, in_name in enumerate(inp):
-                            ini[f'Source merged experiment {ii+1}'] = {
-                                'source rrpprof path filename with ext': in_name + '.rrpprof'
-                                }                           
-                        ini.write(open(ini_fn, 'w'))
-                        
-                        self.run(f'XX PROFFITMERGE2FROMINI {ini_fn}')
-                  
-                print(f'Full-cluster merge for cluster {c_id}: {out_paths[-1]}')
-                merged_cids.append(c_id)
+            # TODO put a skip here for top_only
+            
+            self.message(f'Running merging [{ii+1}/{len(self.merge_data)}]: ' + md['Name'])
+            
+            out_path, inp = md['File path'], md['Data sets']
+            os.makedirs(os.path.dirname(md['File path']), exist_ok=True)
+            ini_fn = md['File path'] + '_merge.ini'
+            
+            print(f'--- Writing INI file {ini_fn}---\nOutput: ', out_path, '\nInputs:', inp)      
+            ini = ConfigParser()
+            ini['Number of experiments to merge'] = {
+                'number of experiments to merge': str(len(inp))       
+            }       
+            ini['Target Merged experiment'] = {
+                'target rrpprof path filename with ext': out_path + '.rrprof'
+                }
+            for ii, in_name in enumerate(inp):
+                ini[f'Source merged experiment {ii+1}'] = {
+                    'source rrpprof path filename with ext': in_name + '.rrpprof'
+                    }                           
+            ini.write(open(ini_fn, 'w'))
+            
+            self.run(f'XX PROFFITMERGE2FROMINI {ini_fn}')
+            
+        self.message(f'{len(self.merge_data)} merging runs finished')
 
-        self.message(f'Completed full-tree merging for clusters: {[int(k) for k in self.clusters.keys()]}{" (top nodes only)" if top_only else ""}. Cluster data written to {self.node_info_fn}')
-                                
-
-    def cluster_finalize(self,                          
-                        res_limit: float = 0.8,
-                        top_only: bool = False,
-                        top_gral: bool = False,
-                        top_ac: bool = False,
-                        reintegrate: bool = False,
-                        delete_existing: bool = False) -> FinalizationCollection:    
-        """Runs finalization of all clusters
+    def finalize(self, 
+                 res_limit: float = 0.8, 
+                 top_gral: bool = False,
+                 top_ac: bool = False,
+                 reintegrate: bool = False) -> FinalizationCollection:    
+        
+        """Runs finalizations
 
         Args:
             res_limit (float, optional): Resolution limit to which to finalize. Defaults to 0.8.
@@ -316,22 +286,24 @@ class CAPMergeFinalize(CAPControl):
 
         if top_ac: top_gral = True
 
-        self.cluster_merge(delete_existing=True, top_only=top_only, reintegrate=reintegrate)
+        self.merge(reintegrate=reintegrate)
 
-        tmp_folder = os.path.join(os.path.dirname(self.path), 'tmp')
+        tmp_folder = os.path.join(os.path.dirname(self.merge_file), 'tmp')
         os.makedirs(tmp_folder, exist_ok=True)        
         for fn in glob.glob(os.path.join(tmp_folder, '*.xml')):  
             os.remove(fn)
             print(f'Deleting {fn}')
                       
         # generate finalization collection from CSV file stored by cluster_merge
-        fc = FinalizationCollection.from_csv(self.node_info_fn, allow_missing=True, verbose=False)
+        fc = FinalizationCollection.from_csv(self.merge_file, allow_missing=True, verbose=False)
 
         # append commands to interactively create dummy finalization XMLs from top nodes (which are never executed)
         # TODO add ability to use existing files or infer Laue class automatically
+        # TODO generalize to cases without clustering
         top_node_names = list(fc.meta.sort_values(by=['Cluster', 'Nexp', 'File path']).drop_duplicates(subset='Cluster', keep='last')['name'])
         top_nodes = fc.get_subset(top_node_names)
         template_files = {}
+        
         for top_name, top_fin in top_nodes.items():
             
             cluster = top_fin.meta['Cluster']

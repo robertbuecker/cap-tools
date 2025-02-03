@@ -139,7 +139,7 @@ class CellGUI:
             'Top nodes only': ttk.Checkbutton(mff, text='Top nodes only', variable=self.v_merge_fin_setting['top_only']),
             'GRAL on top nodes': ttk.Checkbutton(mff, text='GRAL on top nodes', variable=self.v_merge_fin_setting['top_gral']),
             'AutoChem on top nodes': ttk.Checkbutton(mff, text='AutoChem on top nodes', variable=self.v_merge_fin_setting['top_ac']),
-            'Reintegrate (proffit)': ttk.Checkbutton(mff, text='Reintegrate (proffit)', variable=self.v_merge_fin_setting['reintegrate']),
+            # 'Reintegrate (proffit)': ttk.Checkbutton(mff, text='Reintegrate (proffit)', variable=self.v_merge_fin_setting['reintegrate']),
         }
         for k in ['Resolution']:#, 'Top nodes only']:
             self.w_merge_fin_setting[k].config(w=15)
@@ -356,8 +356,13 @@ class CellGUI:
         )
         self.reload_cells()
         
+    def load_clusters(self, fn: str = None):
+        if self.fn is None:
+            self.fn = os.path.normpath(
+                askopenfilename(title='Open cluster info file', filetypes=(('Cell Tool', '*_cluster_info.csv'),))
+            )            
+        
     def save_clusters(self, fn_template: Optional[str] = None):
-        # TODO Factor into cell list class
         
         if fn_template is None:
             fn_template = asksaveasfilename(confirmoverwrite=False, title='Select root filename for cluster CSVs', 

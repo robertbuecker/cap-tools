@@ -270,6 +270,7 @@ class CAPMergeFinalize(CAPControl):
                  res_limit: float = 0.8, 
                  top_gral: bool = False,
                  top_ac: bool = False,
+                 use_default_settings: bool = True,
                  reintegrate: bool = False) -> FinalizationCollection:    
         
         """Runs finalizations
@@ -289,7 +290,6 @@ class CAPMergeFinalize(CAPControl):
         self.merge(reintegrate=reintegrate)
 
         tmp_folder = os.path.join(os.path.dirname(self.merge_file), 'tmp')
-        os.makedirs(tmp_folder, exist_ok=True)        
         for fn in glob.glob(os.path.join(tmp_folder, '*.xml')):  
             os.remove(fn)
             print(f'Deleting {fn}')
@@ -308,16 +308,31 @@ class CAPMergeFinalize(CAPControl):
             
             cluster = top_fin.meta['Cluster']
             folder = os.path.dirname(top_fin.path)
-            fn_template = os.path.join(tmp_folder, f'C{cluster}_finalizer_dlg.xml')
-            self.run(f'xx selectexpnogui ' + os.path.join(folder, top_name + ".par"))
-            self.message(f'Please choose finalization settings (Laue group!) for cluster {cluster} in CAP.')
-            self.run(f'dc xmlrrp {top_name} ' + fn_template)
             
-            while not os.path.exists(fn_template):
-                time.sleep(0.1) # wait until user has finished setting the finalization options
-            template_files[cluster] = fn_template
+            if use_default_settings:
+                # use finalization options (Laue group, mostly) from merged reduction (requires 44.92 or higher)
+                fn_template = top_fin.path + '_finalizer_default_merged.xml'
+                if not os.path.exists(fn_template):
+                    # Finalizer XML missing - likely, top-level merge needs to be opened once.
+                    self.run(f'xx selectexpnogui ' + os.path.join(folder, top_name + ".par"))
+                    time.sleep(1)
+                if not os.path.exists(fn_template):                    
+                    # Finalizer XML _still_ missing. Something is wrong.
+                    msg = f'Merged finalizer XML not found. Make sure that "Make finalizer xml file during data reduction" is enabled in CAP options.'
+                    self.message(msg)
+                    raise FileNotFoundError(f'Merged finalizer XML {fn_template} not found.')
+            else:
+                # dry-run top-level finalization to set proper finalization options
+                os.makedirs(tmp_folder, exist_ok=True)                        
+                fn_template = os.path.join(tmp_folder, f'C{cluster}_finalizer_dlg.xml')
+                self.run(f'xx selectexpnogui ' + os.path.join(folder, top_name + ".par"))
+                self.message(f'Please choose finalization settings (Laue group!) for cluster {cluster} in CAP.')
+                self.run(f'dc xmlrrp {top_name} ' + fn_template)
+                while not os.path.exists(fn_template):
+                    time.sleep(0.1) # wait until user has finished setting the finalization options
+                template_files[cluster] = fn_template
          
-            self.message(f'Finalization XML template for cluster {cluster} found. Generating finalization parameter files...')       
+            self.message(f'Finalization XML template for cluster {cluster} found. Generating finalization parameter files...')
             for name, fin in fc.items():
                 if fin.meta['Cluster'] == cluster:
                     fin.pars_xml.set_parameters(template=fn_template,
@@ -337,7 +352,8 @@ class CAPMergeFinalize(CAPControl):
 
         for ii, (name, fin) in enumerate(fc.sort_by_meta(by=['Cluster', 'File path']).items()):
  
-            if top_gral and (name in top_node_names):                    
+            if top_gral and (name in top_node_names):      
+                # If GRAL has been selected for top-level finalization, it is not redone here              
                 self.message(f'Skipping top-node finalization for merge {name} in cluster {fin.meta["Cluster"]}. [{ii+1}/{len(fc)}]')
                 continue
                                 

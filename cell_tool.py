@@ -426,7 +426,19 @@ class CellGUI:
                                        message_func=self.status_q)
       
         if not finalize:        
-            cap_control.merge(reintegrate=self.v_merge_fin_setting['reintegrate'].get())                       
+            
+            merge_future = self.exec.submit(cap_control.merge,
+                                            reintegrate=self.v_merge_fin_setting['reintegrate'].get())
+            
+            def check_proc_running():
+                if merge_future.done():
+                    self.status_q.put(f'Merging completed into {results_folder}')
+                else:
+                    self.root.after(100, check_proc_running)
+                    
+            self.root.after(100, check_proc_running)
+            
+            # cap_control.merge(reintegrate=self.v_merge_fin_setting['reintegrate'].get())                       
                 
         else:
             self._set_clustering_active(False)
@@ -445,9 +457,8 @@ class CellGUI:
                     self.fc = fin_future.result()
                     print('OVERALL RESULTS TABLE')
                     print('---------------------')
-                    print(self.fc.overall_highest)      
-                    self.status.delete(1.0, tk.END)
-                    self.status.insert(tk.END, 'Finalization complete')              
+                    print(self.fc.overall_highest)  
+                    self.status_q.put(f'Finalization completed into {results_folder}')                        
                     for child in self._mff.winfo_children():
                         child.config(state='normal')     
                     self.mergefin_widget.update_fc(self.fc)

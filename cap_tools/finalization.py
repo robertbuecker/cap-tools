@@ -143,6 +143,7 @@ class FinalizationXML:
                     laue: Optional[Union[int]] = None, z: Optional[float] = None,
                     chem: Optional[str] = None, res_limit: Optional[float] = None,
                     fom: Union[list, tuple] = ('Rint', 'Rurim', 'Rpim', 'CC 1/2', 'deltaCC', 'Sigma', 'SigmaA', 'SigmaB', 'CC*'),
+                    N_shells: int = 10,
                     pars: Optional[Dict[str, str]] = None):
         #TODO why is there another template mechanism here?
         
@@ -188,6 +189,7 @@ class FinalizationXML:
             pars['__FINALIZER_SAMPLE__/__Chemical_formula__'] = str(chem)
             
         pars['__FINALIZER_FILTERS_AND_LIMITS__/__Apply_printout_options__'] = '1'
+        pars['__FINALIZER_FILTERS_AND_LIMITS__/__Printout_options_-_number_of_shells__'] = str(N_shells)
         
         for ii, the_fom in enumerate(fom):
             # print(the_fom)

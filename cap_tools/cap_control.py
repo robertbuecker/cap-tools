@@ -365,6 +365,7 @@ class CAPMergeFinalize(CAPControl):
                             
             self.message(f'Running finalization for merge {name} in cluster {fin.meta["Cluster"]}. [{ii+1}/{len(fc)}]')
             self.run(f'dc rrpfromxml {fin.pars_xml_path}')
+            time.sleep(0.5)
             fin.parse_finalization_results(check_current=True)
             self.message(f'Finalization for {name} completed, results found.')
             

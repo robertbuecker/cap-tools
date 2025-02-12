@@ -409,7 +409,12 @@ class CellGUI:
 
         ii = 1
         while True:
-            results_folder = os.path.splitext(self.fn)[0] + f'_clusters-run{ii}'
+            if os.path.basename(self.fn) == 'cell_tool_input.csv':
+                # generic CSV file from cell tool
+                results_folder = os.path.join(os.path.dirname(self.fn), f'run{ii}')
+            else:
+                # named CSV file
+                results_folder = os.path.splitext(self.fn)[0] + f'_clusters-run{ii}'
             if os.path.exists(results_folder):
                 ii += 1
             else:

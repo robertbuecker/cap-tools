@@ -2,3 +2,4 @@
 * Save/load of clustering parameters and/or linkage matrix
 * Check of proffitmerge2 outputs
 * Merging seems to proceed despite no listen mode being active
+* Check presence of correct tabbin files before trying to merge

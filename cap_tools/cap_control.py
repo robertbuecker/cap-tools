@@ -261,7 +261,7 @@ class CAPMergeFinalize(CAPControl):
                     'source rrpprof path filename with ext': in_name + '.rrpprof'
                     }                           
             ini.write(open(ini_fn, 'w'))
-            
+                        
             self.run(f'XX PROFFITMERGE2FROMINI {ini_fn}')
             
         self.message(f'{len(self.merge_data)} merging runs finished')

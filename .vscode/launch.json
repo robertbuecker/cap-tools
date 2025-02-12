@@ -41,6 +41,15 @@
             "justMyCode": true
         },
         {
+            "name": "Cell GUI cement",
+            "type": "python",
+            "request": "launch",
+            "program": "cell_tool.py",
+            "console": "integratedTerminal",
+            "args": ["C:\\XcaliburData\\Cement_Queue_2688\\rc-cement.csv", "--debug"],
+            "justMyCode": true
+        },        
+        {
             "name": "Finalization Viewer",
             "type": "python",
             "request": "launch",

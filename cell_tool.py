@@ -432,6 +432,8 @@ class CellGUI:
             
             def check_proc_running():
                 if merge_future.done():
+                    if e := merge_future.exception():
+                        raise e
                     self.status_q.put(f'Merging completed into {results_folder}')
                 else:
                     self.root.after(100, check_proc_running)
@@ -454,6 +456,8 @@ class CellGUI:
                 
             def check_fin_running():
                 if fin_future.done():
+                    if e := fin_future.exception():
+                        raise e                    
                     self.fc = fin_future.result()
                     print('OVERALL RESULTS TABLE')
                     print('---------------------')

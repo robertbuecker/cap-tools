@@ -248,6 +248,16 @@ class CAPMergeFinalize(CAPControl):
             os.makedirs(os.path.dirname(md['File path']), exist_ok=True)
             ini_fn = md['File path'] + '_merge.ini'
             
+            for in_path in inp:
+                if not os.path.exists(fn_tabbin := in_path + '_proffitpeak.tabbin'):   
+                    print(fn_tabbin, 'not found.')
+                    if existing_tabbin := glob.glob(os.path.join(os.path.dirname(in_path), '*_proffitpeak.tabbin')):
+                        print('Copying', existing_tabbin[0], 'to', fn_tabbin)
+                        shutil.copyfile(existing_tabbin[0], fn_tabbin)
+                    else:
+                        print('No alternative _proffitmerge.tabbin file found. Please reprocess', in_path)
+                        self.message(f'Missing tabbin file found. Please reprocess {in_path}')
+            
             print(f'--- Writing INI file {ini_fn}---\nOutput: ', out_path, '\nInputs:', inp)      
             ini = ConfigParser()
             ini['Number of experiments to merge'] = {

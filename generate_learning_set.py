@@ -7,6 +7,7 @@ import hashlib
 from sys import argv
 from argparse import ArgumentParser
 from cap_tools.cap_control import CAPInstance, CAPListenModeError
+import csv
 
 parser = ArgumentParser(description='Generate anonymous ML training sets from CrysAlisPro ED datasets')
 parser.add_argument('exp_dir')
@@ -19,17 +20,34 @@ out_dir = args.out_dir
 include_path = args.include_path
 
 if not os.path.exists(exp_dir):
-    raise FileNotFoundError(f'Folder {exp_dir} does not exist')
+    raise FileNotFoundError(f'Input folder or CSV file {exp_dir} does not exist')
+
+if exp_dir.endswith('.csv'):
+    print('Experiments are supplied via Results Viewer CSV list:', exp_dir)
+    with open(exp_dir) as fh:
+        for _ in range(7):
+            _ = fh.readline()
+        ds = list(csv.DictReader(fh))
+        exp_list = [os.path.join(d['Dataset path'], d['Experiment name']) for d in ds]
+
+else:
+    print('Searching experiments in', exp_dir)
+    exp_list = [os.path.splitext(fn)[0] for fn in glob(os.path.join(exp_dir,'**\\*.par'), recursive=True)]
+    
+exp_list = [fn for fn in exp_list if  
+            (('_cracker' not in fn) 
+             and ('tomo' not in fn)
+             and ('DD_Calib' not in fn) 
+             and ('Preset' not in fn) 
+             and ('Cluster' not in fn)
+             and (not os.path.basename(fn).startswith('m_'))
+             )]
+    
+root_dir = ''
 
 if include_path:
     print('WARNING: experiment path will be included in output list file. Resulting data will not be anonymized.')
-
-print('Searching experiments in', exp_dir)
-exp_list = [os.path.splitext(fn)[0] for fn in glob(os.path.join(exp_dir,'**\\*.par'), recursive=True) 
-            if (('_cracker' not in fn) and ('tomo' not in fn) 
-                and ('DD_Calib' not in fn) and ('Preset' not in fn) and ('Cluster' not in fn))]
-root_dir = ''
-
+    
 print(len(exp_list), 'experiments of correct type found.')
 
 root_dir = ''
@@ -158,8 +176,5 @@ if cap_cmds:
             except KeyboardInterrupt:
                 print('Exiting.')
                 exit()
-
-
-
 
 print('Finished writing training data to:', out_dir)

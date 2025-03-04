@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 import hashlib
 from sys import argv
 from argparse import ArgumentParser
+from cap_tools.cap_control import CAPInstance, CAPListenModeError
 
 parser = ArgumentParser(description='Generate anonymous ML training sets from CrysAlisPro ED datasets')
 parser.add_argument('exp_dir')
@@ -97,7 +98,7 @@ for ii, exp in enumerate(sorted(exp_list)):
     
     exp_info['diff_img'] = basename + '_diff.tiff'
     
-    if os.path.exists(fn_out + '.tiff'):
+    if os.path.exists(fn_out):
         pass
     elif os.path.exists(fn_in + '.tiff'):
         shutil.copy(fn_in + '.tiff', fn_out)
@@ -139,7 +140,26 @@ if os.path.exists(fn := os.path.join(out_dir, 'info.csv')):
 info.to_csv(os.path.join(out_dir, 'info.csv'), index=False)
 
 if cap_cmds: 
-    with open(os.path.join(out_dir, 'convert.mac'), 'w') as fh:
-        fh.write('\n'.join(cap_cmds))
-    print(len(cap_cmds)//2, ' image/diffraction file conversions required. Please run this command in CrysAlisPro:')
-    print('SCRIPT', os.path.join(out_dir, 'convert.mac'))
+    # with open(os.path.join(out_dir, 'convert.mac'), 'w') as fh:
+    #     fh.write('\n'.join(cap_cmds))
+    # print(len(cap_cmds)//2, ' image/diffraction file conversions required. Please run this command in CrysAlisPro:')
+    # print('SCRIPT', os.path.join(out_dir, 'convert.mac'))
+    listen = CAPInstance()
+    while True:
+        try:
+            listen.run_cmd(cap_cmds, use_mac=True)
+            break
+        except CAPListenModeError as err:
+            print('-----')
+            print(str(err))
+            print('Press Return to Retry or Ctrl-C to quit.')
+            try:
+                input()
+            except KeyboardInterrupt:
+                print('Exiting.')
+                exit()
+
+
+
+
+print('Finished writing training data to:', out_dir)

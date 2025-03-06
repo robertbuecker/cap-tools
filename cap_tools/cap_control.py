@@ -19,6 +19,8 @@ class CAPInstance:
         self.cap_handle = None #TODO: start and handle CAP offline process here
         self.start_timeout = 3        
         self.last_command = ''
+        os.makedirs(cmd_folder, exist_ok=True)
+        
         if not wait_complete:
             raise NotImplementedError('Non-blocking execution of CAP commands not implemented yet.')
         

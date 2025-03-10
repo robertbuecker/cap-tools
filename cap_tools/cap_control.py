@@ -8,21 +8,50 @@ import queue
 import shutil
 from configparser import ConfigParser
 import csv
+import subprocess
 
 class CAPListenModeError(RuntimeError):
     pass
 class CAPInstance:
     
-    def __init__(self, cmd_folder: Optional[str] = 'C:\\Xcalibur\\tmp\\listen_mode_offline', wait_complete: bool = True):
+    def __init__(self, cmd_folder: str = 'C:\\Xcalibur\\tmp\\listen_mode_offline', 
+                 par_file: str = 'C:\\Xcalibur\\CrysAlisPro171.44\\help\\ideal_microed\\MicroED.par', 
+                 cap_folder: str = 'C:\\Xcalibur\\CrysAlisPro171.44',
+                 wait_complete: bool = True):
 
         self.cmd_folder = cmd_folder
-        self.cap_handle = None #TODO: start and handle CAP offline process here
+        self.par_file = par_file
+        self.cap_folder = cap_folder
+        self.cap_proc = None #TODO: start and handle CAP offline process here
         self.start_timeout = 3        
         self.last_command = ''
         os.makedirs(cmd_folder, exist_ok=True)
         
+        self.start_cap()
+        
         if not wait_complete:
             raise NotImplementedError('Non-blocking execution of CAP commands not implemented yet.')
+        
+    def start_cap(self, timeout=10):    
+        if self.running:
+            raise CAPListenModeError('CAP instance is already running; cannot start one.')
+                
+        self.cap_proc = subprocess.Popen(f'C:\\Xcalibur\\CrysAlisPro171.44\\pro.exe {self.par_file} -listenmode {self.cmd_folder}')
+        t0 = time.time()
+        while True:
+            try:
+                self.run_cmd('xx ping 127.0.0.1', timeout=0.2)
+                break
+            except CAPListenModeError as err:
+                if time.time() > (t0 + timeout):
+                    raise CAPListenModeError(f'CAP not reacting {timeout} seconds after launch. Please check if a CAP window is running and retry.')
+        
+    def stop_cap(self):
+        if not self.running:
+            raise CAPListenModeError('No CAP instance running.')
+                
+        self.cap_proc.terminate()
+        self.cap_proc = None
         
     def status(self):
         listen_fn = lambda ext: os.path.join(self.cmd_folder, f'command.{ext}')      
@@ -33,6 +62,9 @@ class CAPInstance:
         else:
             return('Idle')
         
+    @property
+    def running(self):
+        return (self.cap_proc is not None) and (self.cap_proc.poll() is None)
         
     def run_cmd(self, cmd: Union[str, List[str]], use_mac: bool = True, timeout: Optional[float] = None):        
         

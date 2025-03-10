@@ -244,7 +244,10 @@ class CellGUI:
         tab_text_out.columnconfigure(0, weight=100)
         tab_text_out.rowconfigure(0, weight=100)             
         self.text_out = tk.Text(tab_text_out, wrap="word")
+        scrollbar = ttk.Scrollbar(tab_text_out, orient=tk.VERTICAL, command=self.text_out.yview)
+        self.text_out.configure(yscrollcommand=scrollbar.set)
         self.text_out.grid(row=0, column=0, sticky=tk.NSEW)
+        scrollbar.grid(row=0, column=1, sticky=tk.NS)        
         if not debug:
             sys.stdout = TextRedirector(self.text_out, "stdout")
             sys.stderr = TextRedirector(self.text_out, "stderr")        

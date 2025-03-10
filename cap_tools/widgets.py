@@ -214,6 +214,9 @@ class FinalizationWidget(ttk.Frame):
 
         # INFO FOR SELECTED FINALIZATION
         self.fin_info = tk.Text(tbl_frame, height=4, wrap=tk.WORD)
+        scrollbar = ttk.Scrollbar(tbl_frame, orient=tk.VERTICAL, command=self.fin_info.yview)
+        scrollbar.grid(row=5, column=1, sticky=tk.NS)
+        self.fin_info.configure(yscrollcommand=scrollbar.set)        
         self.fin_info.grid(row=5, column=0, columnspan=1, sticky='EW')
 
         # PER-SHELL FOM FOR SELECTED FINALIZATION        

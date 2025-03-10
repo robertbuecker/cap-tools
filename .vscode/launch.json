@@ -50,12 +50,34 @@
             "justMyCode": true
         },        
         {
-            "name": "Finalization Viewer",
+            "name": "ML set generator",
             "type": "python",
             "request": "launch",
-            "program": "finalization_viewer.py",
+            "program": "generate_learning_set.py",
+            "console": "integratedTerminal",
+            "args": ["C:\\Users\\robert.buecker\\temp\\learning", 
+            "C:\\XcaliburData",            
+            "--include-path"],
+            "justMyCode": true
+        },
+        {
+            "name": "ML set generator (CSV)",
+            "type": "python",
+            "request": "launch",
+            "program": "generate_learning_set.py",
+            "console": "integratedTerminal",
+            "args": ["C:\\Users\\robert.buecker\\temp\\learning", 
+            "C:\\XcaliburData\\Cement_Queue_2688\\rc-cement.csv",            
+            "--include-path"],
+            "justMyCode": true
+        },
+        {
+            "name": "ML set generator (GUI)",
+            "type": "python",
+            "request": "launch",
+            "program": "generate_learning_set.py",
             "console": "integratedTerminal",
             "justMyCode": true
-        }  
+        }
     ]
 }

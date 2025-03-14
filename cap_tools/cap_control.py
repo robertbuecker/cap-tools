@@ -13,6 +13,7 @@ import subprocess
 class CAPListenModeError(RuntimeError):
     pass
 class CAPInstance:
+    # TODO this should be a context manager, if we'd want to be pythonic
     
     def __init__(self, cmd_folder: str = 'C:\\Xcalibur\\tmp\\listen_mode_offline', 
                  par_file: str = 'C:\\Xcalibur\\CrysAlisPro171.44\\help\\ideal_microed\\MicroED.par', 
@@ -53,9 +54,11 @@ class CAPInstance:
                 if time.time() > (t0 + timeout):
                     raise CAPListenModeError(f'CAP not reacting {timeout} seconds after launch. Please check if a CAP window is running and retry.')
         
-    def stop_cap(self):
-        if not self.running:
+    def stop_cap(self, allow_stopped: bool = False):
+        if (not self.running) and (not allow_stopped):
             raise CAPListenModeError('No CAP instance running.')
+        elif not self.running:
+            return
                 
         try:
             self.run_cmd('xx listenmode off', timeout=1)
@@ -64,6 +67,9 @@ class CAPInstance:
         finally:
             self.cap_proc.terminate()
             self.cap_proc = None
+            
+    def __del__(self):
+        self.stop_cap(allow_stopped=True)
         
     def status(self):
         listen_fn = lambda ext: os.path.join(self.cmd_folder, f'command.{ext}')      

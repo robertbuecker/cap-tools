@@ -11,6 +11,7 @@ from matplotlib.patches import Ellipse
 import pandas as pd
 from time import sleep
 import warnings
+from cap_tools.cap_control import CAPControl, CAPInstance
 
 # Calibrant data Aluminum        
 d_vec = np.array([2.338, 2.024, 1.431, 1.221, 1.169, 1.0124, 0.9289, 0.9055, 0.8266])
@@ -104,26 +105,39 @@ def main(basedir: str, print_fn = None):
     if print_fn is None:
         print_fn = print
 
-    # step 1: make CAP script to create PETS files and TIF frames, if they are not there yet
-    cmds = []
+    # step 1: make CAP script to create PETS files and TIF frames, if they are not there yet    
     cap_files = glob(os.path.join(basedir, '**\\*.par'), recursive=True)
     cap_files = [cf for cf in cap_files if not cf.endswith('_cracker.par')]
+    
+    if not cap_files:
+        print_fn(f'No CAP experiments found under {basedir}. Please check correct folder')
+        raise FileNotFoundError(f'No CAP experiments found under {basedir}')
+    
     pets_files = []
-    for cf in cap_files:
-        dir, lbl = os.path.dirname(cf), os.path.basename(cf).rsplit('.',1)[0]
-        pets_file = glob(os.path.join(dir, '**\\*.pts2'), recursive=True)
-        if not pets_file:
-            cmds.append(f'xx selectexpnogui_ignoreerror "{cf}"')
-            cmds.append(f'DC IMGTOPETS "{dir}\\frames\\PETS_{lbl}\\frames" 0 1 0 1 0 0')
-        else:
+    cap_instance = CAPInstance(cmd_folder='C:\\Xcalibur\\tmp\\listen_mode_dd-calib', start_now=False)
+    cap = CAPControl(basedir, cap_instance=cap_instance, message_func=print_fn)
+    
+    try: 
+        for cf in cap_files:
+            dir, lbl = os.path.dirname(cf), os.path.basename(cf).rsplit('.',1)[0]
+            pets_file = glob(os.path.join(dir, '**\\*.pts2'), recursive=True)
+            
+            if not pets_file:
+                print_fn(f'No PTS2 file found for {cf}. Starting export in CAP.')
+                cmds = [f'xx selectexpnogui_ignoreerror "{cf}"',
+                        f'DC IMGTOPETS "{dir}\\frames\\PETS_{lbl}\\frames" 0 1 0 1 0 0']
+                cap.run(cmds, use_mac=False)
+                pets_file = glob(os.path.join(dir, '**\\*.pts2'), recursive=True)       
+                if not pets_file:                    
+                    raise PetsFilesNotFoundError(f'PTS2 file creation in CAP did not work for {cf}')     
+                        
             pets_files.extend(pets_file)
-
-    if cmds:
-        fn = os.path.join(basedir, 'export_tif.mac')
-        with open(fn, 'w') as fh:
-            fh.write('\n'.join(cmds))
-
-        raise PetsFilesNotFoundError(f'SCRIPT {fn}\n')
+            
+    except Exception as err:
+        raise err
+            
+    finally:
+        cap_instance.stop_cap(allow_stopped=True)
         
     dd0 = {}
     imgs = {}
@@ -287,7 +301,7 @@ def gui():
         base_path = os.path.abspath(".")
     root.iconbitmap(os.path.join(base_path, "calibrate_dd_icon.ico"))
 
-    info = tk.Text(root, font='TkFixedFont', height=20, width=100)
+    info = tk.Text(root, font='TkFixedFont', height=20, width=100, wrap='word')
     
     def info_write(string):
         info.configure(state="normal")
@@ -312,14 +326,8 @@ def gui():
         try:
             report = main(basedir.get(), print_fn=info_write)
         except PetsFilesNotFoundError as err:
-            info_write('\n'.join(['Not all calibration data found in PETS/TIF format. Please run:',
-                str(err).strip(), 
-                '[copied to clipboard]\nin the CrysAlisPro CMD window and press "Compute" again.']))
-            
-            root.clipboard_clear()
-            root.clipboard_append(str(err).strip())       
-            root.update()       
-            return
+            info_write(str(err) + ' - stopping!')
+            raise err
             
         report_fn = os.path.join(basedir.get(), 'detector_distance.csv')
         report = pd.DataFrame(report)    
@@ -350,12 +358,8 @@ if __name__ == '__main__':
     else:
         try:
             report = main(sys.argv[1])
-        except PetsFilesNotFoundError as err:
-            print('PETS/TIF files not found. Please run this in CAP:')
-            print(str(err).strip())
-            print('Then, please re-run this script. Press Enter to quit...')
-            input()
-            exit()
+        except PetsFilesNotFoundError as err:            
+            raise err            
             
         report = pd.DataFrame(report)    
         report_fn = os.path.join(sys.argv[1], 'detector_distance.csv')

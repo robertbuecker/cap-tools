@@ -17,7 +17,7 @@ class CAPInstance:
     def __init__(self, cmd_folder: str = 'C:\\Xcalibur\\tmp\\listen_mode_offline', 
                  par_file: str = 'C:\\Xcalibur\\CrysAlisPro171.44\\help\\ideal_microed\\MicroED.par', 
                  cap_folder: str = 'C:\\Xcalibur\\CrysAlisPro171.44',
-                 wait_complete: bool = True):
+                 wait_complete: bool = True, start_now: bool = False):
 
         self.cmd_folder = cmd_folder
         self.par_file = par_file
@@ -27,7 +27,14 @@ class CAPInstance:
         self.last_command = ''
         os.makedirs(cmd_folder, exist_ok=True)
         
-        self.start_cap()
+        try:
+            # make sure that any CAP instance listening in this folder stops doing it
+            # (if there is any)            
+            self.run_cmd('xx listenmode off', timeout=0.2, auto_start=False)
+        except CAPListenModeError:
+            pass
+        
+        if start_now: self.start_cap()
         
         if not wait_complete:
             raise NotImplementedError('Non-blocking execution of CAP commands not implemented yet.')
@@ -36,11 +43,11 @@ class CAPInstance:
         if self.running:
             raise CAPListenModeError('CAP instance is already running; cannot start one.')
                 
-        self.cap_proc = subprocess.Popen(f'C:\\Xcalibur\\CrysAlisPro171.44\\pro.exe {self.par_file} -listenmode {self.cmd_folder}')
+        self.cap_proc = subprocess.Popen(f'{os.path.join(self.cap_folder, "pro.exe")} {self.par_file} -listenmode {self.cmd_folder}')
         t0 = time.time()
         while True:
             try:
-                self.run_cmd('xx ping 127.0.0.1', timeout=0.2)
+                self.run_cmd('xx sleep 1', timeout=0.2)
                 break
             except CAPListenModeError as err:
                 if time.time() > (t0 + timeout):
@@ -50,8 +57,13 @@ class CAPInstance:
         if not self.running:
             raise CAPListenModeError('No CAP instance running.')
                 
-        self.cap_proc.terminate()
-        self.cap_proc = None
+        try:
+            self.run_cmd('xx listenmode off', timeout=1)
+        except CAPListenModeError:
+            pass
+        finally:
+            self.cap_proc.terminate()
+            self.cap_proc = None
         
     def status(self):
         listen_fn = lambda ext: os.path.join(self.cmd_folder, f'command.{ext}')      
@@ -66,7 +78,13 @@ class CAPInstance:
     def running(self):
         return (self.cap_proc is not None) and (self.cap_proc.poll() is None)
         
-    def run_cmd(self, cmd: Union[str, List[str]], use_mac: bool = True, timeout: Optional[float] = None):        
+    def run_cmd(self, cmd: Union[str, List[str]], 
+                use_mac: bool = True, 
+                timeout: Optional[float] = None,
+                auto_start: bool = True):        
+        
+        if auto_start and not self.running:
+            self.start_cap()
         
         multi_cmd = isinstance(cmd, list) 
         macro = '\n'.join(cmd) if multi_cmd else ''
@@ -79,7 +97,7 @@ class CAPInstance:
             os.remove(fn)
                
         if multi_cmd and use_mac:
-            # replace calls by macro call (might be faster for many little calls)
+            # replace calls by macro call (will be faster for many little calls)
             with open(fn := listen_fn('mac'), 'w') as fh:
                 fh.write(macro)
             cmd = f'script {fn}'

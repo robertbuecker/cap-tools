@@ -132,7 +132,8 @@ class CellList:
                     z = self._z
                     if distance is None: distance = self._distance
                 else:
-                    self._cluster_pars = cluster_pars
+                    # pairwise distances and linkage matrix need to be recomputed
+                    
                                     
                     # cell data conditioning
                     pp_methods = {'none': self.cells, 
@@ -145,23 +146,36 @@ class CellList:
                         _cells = pp_methods[cluster_pars.preproc.lower()]
                     except IndexError:
                         raise ValueError(f'Unknown preprocessing method {cluster_pars.preproc}')
+                    
+                    meth = cluster_pars.method.lower()
 
-                    # compute distances and linkage
-                    if cluster_pars.metric.lower() == "lcv":
-                        dist = pdist(_cells, metric=unit_cell_lcv_distance)
-                        z = linkage(dist,  method=cluster_pars.method, optimal_ordering=True)
-                        distance = round(0.5*max(z[:,2]), 4) if distance is None else distance
-                    elif cluster_pars.metric.lower() == "alcv":
-                        dist = pdist(_cells, metric=lambda cell1, cell2: unit_cell_lcv_distance(cell1, cell2, True))
-                        z = linkage(dist,  method=cluster_pars.method, optimal_ordering=True)
-                        distance = round(0.5*max(z[:,2]), 4) if distance is None else distance                    
-                    elif cluster_pars.metric.lower() == "volume":
-                        dist = pdist(_cells, metric=volume_difference)
-                        z = linkage(dist,  method=cluster_pars.method, optimal_ordering=True)
-                        distance = 250.0 if distance is None else distance
-                    else:
-                        z = linkage(_cells,  metric=cluster_pars.metric.lower(), method=cluster_pars.method.lower(), optimal_ordering=True)
-                        distance = 2.0 if distance is None else distance
+                    try:
+                        # compute distances and linkage
+                        if cluster_pars.metric.lower() == "lcv":
+                            dist = pdist(_cells, metric=unit_cell_lcv_distance)
+                            z = linkage(dist,  method=meth, optimal_ordering=True)
+                            distance = round(0.5*max(z[:,2]), 4) if distance is None else distance
+                        elif cluster_pars.metric.lower() == "alcv":
+                            dist = pdist(_cells, metric=lambda cell1, cell2: unit_cell_lcv_distance(cell1, cell2, True))
+                            z = linkage(dist,  method=meth, optimal_ordering=True)
+                            distance = round(0.5*max(z[:,2]), 4) if distance is None else distance                    
+                        elif cluster_pars.metric.lower() == "volume":
+                            dist = pdist(_cells, metric=volume_difference)
+                            z = linkage(dist,  method=meth, optimal_ordering=True)
+                            distance = 250.0 if distance is None else distance
+                        else:
+                            z = linkage(_cells,  metric=cluster_pars.metric.lower(), method=meth, optimal_ordering=True)
+                            distance = 2.0 if distance is None else distance
+                            
+                        self._cluster_pars = cluster_pars
+                         
+                    except Exception as err:
+                        print(f'Could not recompute dendrogram with parameters:')                        
+                        print(f"-> Preprocessing = {cluster_pars.preproc}")
+                        print(f"-> Distance metric = {cluster_pars.metric}")
+                        print(f"-> Linkage method = {cluster_pars.method}")
+                        print(f'The error was:, {str(err)}')
+                        raise err
 
                     # if not distance:
                     #     distance = distance_from_dendrogram(z, ylabel=metric, initial_distance=initial_distance, labels=labels)

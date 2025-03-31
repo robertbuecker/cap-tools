@@ -2,7 +2,7 @@ import tkinter as tk
 import tkinter.ttk as ttk
 import numpy as np
 from tkinter.filedialog import askopenfilename, askdirectory, asksaveasfilename, askopenfilenames
-from tkinter.messagebox import showinfo
+from tkinter.messagebox import showinfo, showwarning
 # Implement the default Matplotlib key bindings.
 from matplotlib.backend_bases import key_press_handler
 from cap_tools.cell_list import CellList
@@ -21,6 +21,7 @@ from cap_tools.widgets import ClusterWidget
 from cap_tools.cap_control import CAPMergeFinalize, CAPInstance, CAPListenModeError
 import queue
 import sys
+from copy import copy, deepcopy
 
 cluster_presets = {'Direct': ClusterOptions(preproc='None', metric='Euclidean', method='Ward'),
                    'Whitened': ClusterOptions(preproc='PCA', metric='SEuclidean', method='Average'),
@@ -320,13 +321,29 @@ class CellGUI:
             distance = self.v_cluster_setting['distance'].get()
             redraw = True           
         else:
-            # distance as input parameter: called from figure callback
+            # distance as input parameter: called from figure callback (mouse click)
             self.v_cluster_setting['distance'].set(distance)
             redraw = False
             
         #TODO consider a structure where the plots directly run CellList.cluster and the GUI is updated via a callback. It's very confusing as it is.
-        node_cids = self.all_cells.cluster(distance=None if distance==0 else distance, cluster_pars=cluster_pars)     
+        _cluster_pars = deepcopy(self.all_cells._cluster_pars) # stash old clustering parameters
+        _distance = copy(self.all_cells._distance)
         
+        try:
+            node_cids = self.all_cells.cluster(distance=None if distance==0 else distance, cluster_pars=cluster_pars)
+        except Exception as err:
+            showwarning('Dendrogram computation failed', '\n'.join(['Dendrogram computation failed for parameters:','---', 
+                                                                    cluster_pars.preproc, cluster_pars.metric, cluster_pars.method,
+                                                                    '---', 'with the error:',
+                                                                    str(err),'',
+                                                                    'Reverting to old parameters:','---',
+                                                                    _cluster_pars.preproc, _cluster_pars.metric, _cluster_pars.method,'---']))
+            
+            for k in ['preproc', 'metric', 'method']: self.v_cluster_setting[k].set(getattr(_cluster_pars,k))
+            self.v_cluster_setting['distance'].set(_distance)
+            
+            node_cids = self.all_cells.cluster(distance=None if _distance==0 else _distance, cluster_pars=_cluster_pars)
+            
         self.cluster_widget.tree = tree
         self.cluster_table.update_table(clusters=self.clusters)
         
@@ -344,6 +361,7 @@ class CellGUI:
             _, self._click_cid = distance_from_dendrogram(self.all_cells._z, ylabel=cluster_pars.metric, initial_distance=distance,
                                 labels=labels, fig_handle=self.cluster_widget.fig, callback=lambda distance, tree: self.run_clustering(distance, tree))            
             
+        # needs to return the apply_cluster_colors function to properly update the colors in the list view (only the plot function knows the colors)
         return node_cids, self.cluster_table.apply_cluster_colors
 
     def reload_cells(self):

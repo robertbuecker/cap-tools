@@ -10,6 +10,7 @@ from argparse import ArgumentParser
 from cap_tools.cap_control import CAPInstance, CAPListenModeError
 import csv
 from zipfile import ZipFile
+import configparser
 
 
 def main(experiments: list, out_dir: str, include_path: bool = False, 
@@ -61,6 +62,10 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
 
     for ii, exp in enumerate(sorted(exp_list)):
         info_fn = os.path.join(root_dir, os.path.dirname(exp), 'experiment_results.xmlinfo')
+        if not os.path.exists(info_fn):
+            print('WARNING:', info_fn, 'is missing. Skipping this experiment.')
+            continue
+        
         info_str = open(info_fn).read()
         tree = ET.fromstring('<root>\n' + info_str + '\n</root>')
         exp_info = {'path': exp} if include_path else {}
@@ -109,11 +114,25 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
         for k, v in xml_entries.items():
             if v is not None:
                 exp_info[k] = float(v.text)
-                
+        
         if 'scan_range' not in exp_info:
             # print('No scan range found for', exp)
             continue
+        
+        # TODO to be changed later with non-centered NBD schemes
+        exp_info['grain_x_px'] = 387.5
+        exp_info['grain_y_px'] = 192.5
 
+        # Read the INI file to get SA diameter
+        try:
+            config = configparser.ConfigParser()
+            config.read(os.path.join(root_dir, os.path.dirname(exp), 'expinfo', exp_name + '_datacoll.ini'))
+            OL_demag, visual_pxs = 100, 0.036
+            exp_info['radius_px'] = float(config['MicroED'].get('Aperture SA info', None)) / OL_demag / visual_pxs
+        except Exception as err:
+            print('Could not decode aperture size for', exp)
+            print(str(err))
+        
         fn_in = os.path.join(root_dir, exp) + '_middle_microed_diff_snapshot'
         fn_out = os.path.join(out_dir, basename) + '_diff.tiff'
         
@@ -146,6 +165,7 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
             # print('No grain snapshot found for', exp)
             continue
                 
+
         info.append(exp_info)
         
     info = pd.DataFrame(info)

@@ -78,6 +78,16 @@
             "program": "generate_learning_set.py",
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "Z compute (cmd)",
+            "type": "python",
+            "request": "launch",
+            "program": "compute_z.py",
+            "console": "integratedTerminal",
+            "args": ["C:\\XcaliburData\\Clarithromycin_old\\exp_5661\\JANA_original_reproc\\Absolute_clarithromycin_original_xyz_adp_no_hydrogen.cif",
+        "C:\\XcaliburData\\Clarithromycin_old\\exp_5661\\JANA_inverted_reproc\\Absolute_meta_inverted_xyz_adp_no_hydrogen.cif"],
+            "justMyCode": true
         }
     ]
 }

@@ -70,7 +70,7 @@ def get_version():
             base_path = os.path.abspath(".")
             
         if os.path.exists(os.path.join(base_path, 'version.txt')):
-            with open('version.txt') as fh:
+            with open(os.path.join(base_path, 'version.txt'), 'r') as fh:
                 return fh.read()
             
         else:

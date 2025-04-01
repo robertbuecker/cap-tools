@@ -4,7 +4,7 @@ cell_a = Analysis(
     ['cell_tool.py'],
     pathex=[],
     binaries=[('cell_tool_icon.ico', '.')],
-    datas=[],
+    datas=[('version.txt', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -17,7 +17,7 @@ zscore_a = Analysis(
     ['compute_z.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('version.txt', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -43,7 +43,7 @@ calibrate_dd_a = Analysis(
     ['calibrate_dd.py'],
     pathex=[],
     binaries=[('calibrate_dd_icon.ico', '.')],
-    datas=[],
+    datas=[('version.txt', '.')],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -56,7 +56,7 @@ generate_learning_set_a = Analysis(
     ['generate_learning_set.py'],  # The script to analyze
     pathex=[],  # Add any additional paths if required
     binaries=[],  # Optional: include an icon
-    datas=[],  # Add any additional data files if required
+    datas=[=[('version.txt', '.')]],  # Add any additional data files if required
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

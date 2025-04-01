@@ -52,16 +52,32 @@ calibrate_dd_a = Analysis(
     hiddenimports=['matplotlib.backends.backend_pdf']
 )
 
-MERGE( (cell_a, 'cell_tool', 'cell_tool'), 
-      (zscore_a, 'compute_z', 'compute_z'),
-      (calibrate_dd_a, 'calibrate_dd', 'calibrate_dd'),
-    #   (finalization_a, 'finalization_viewer', 'finalization_viewer')
-      )
+generate_learning_set_a = Analysis(
+    ['generate_learning_set.py'],  # The script to analyze
+    pathex=[],  # Add any additional paths if required
+    binaries=[],  # Optional: include an icon
+    datas=[],  # Add any additional data files if required
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+    hiddenimports=[]  # Add any hidden imports if necessary
+)
+
+MERGE(
+    (cell_a, 'cell_tool', 'cell_tool'),
+    (zscore_a, 'compute_z', 'compute_z'),
+    (calibrate_dd_a, 'calibrate_dd', 'calibrate_dd'),
+    (generate_learning_set_a, 'generate_learning_set', 'generate_learning_set')  # Include the new Analysis
+    # (finalization_a, 'finalization_viewer', 'finalization_viewer')
+)
 
 cell_pyz = PYZ(cell_a.pure)
 zscore_pyz = PYZ(zscore_a.pure)
 # finalization_pyz = PYZ(finalization_a.pure)
 calibrate_dd_pyz = PYZ(calibrate_dd_a.pure)
+generate_learning_set_pyz = PYZ(generate_learning_set_a.pure)  # Add the PYZ for generate_learning_set
 
 cell_exe = EXE(
     cell_pyz,
@@ -137,6 +153,25 @@ calibrate_dd_exe = EXE(
     icon=['calibrate_dd_icon.ico']
 )
 
+# Add the EXE for generate_learning_set
+generate_learning_set_exe = EXE(
+    generate_learning_set_pyz,
+    generate_learning_set_a.scripts,
+    [],
+    exclude_binaries=True,
+    name='generate_learning_set',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None  # Optional: specify an icon
+)
+
 coll = COLLECT(
     cell_exe,
     cell_a.binaries,
@@ -149,7 +184,10 @@ coll = COLLECT(
     # finalization_a.datas,
     calibrate_dd_exe,
     calibrate_dd_a.binaries,
-    calibrate_dd_a.datas,    
+    calibrate_dd_a.datas,
+    generate_learning_set_exe,  # Add the new EXE object here
+    generate_learning_set_a.binaries,
+    generate_learning_set_a.datas,
     strip=False,
     upx=True,
     upx_exclude=[],

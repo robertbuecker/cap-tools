@@ -23,6 +23,7 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
         if not os.path.exists(exp_entry):
             raise FileNotFoundError(f'Input folder or CSV file {exp_entry} does not exist')
 
+        log(f'Scanning {exp_entry}...')
         if exp_entry.endswith('.csv'):
             with open(exp_entry) as fh:
                 for _ in range(7):
@@ -209,6 +210,17 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
         with ZipFile(os.path.join(out_dir, 'learning_set.zip'), 'w') as zip:
             for fn in (glob(os.path.join(out_dir, '*.tiff')) + [os.path.join(out_dir, 'info.csv')]):
                 zip.write(fn, os.path.basename(fn))
+                
+        log(f"\n\nIf you would like to contribute to the Machine Learning features in CrysAlisPro, "
+            f"please upload\n{os.path.join(out_dir, 'learning_set.zip')}\n"
+            f"to the web interface at \nsftp2.rigaku.com\nwith\nrobert.buecker@rigaku.com\nas recipient.\n\n"
+            f"IMPORTANT INFORMATION ---\n"
+            f"The shared data contains the grain images and zero-angle diffraction snapshots "
+            f"as shown in the results viewer with anonymized file names, and some processing/collection metadata. "
+            f"Those do not allow to infer the sample structure, type, elemental composition, name, "
+            f"unit cell, crystal symmetry, original file path, user name, instrument/lab the data was collected at, etc."
+            f"\n---\n\n"
+            f"Thank you for your collaboration and help with improving CrysAlisPro.")
     
 def gui():
     import tkinter as tk
@@ -224,7 +236,7 @@ def gui():
         base_path = os.path.abspath(".")
     # root.iconbitmap(os.path.join(base_path, "calibrate_dd_icon.ico"))
 
-    info = tk.Text(root, font='TkFixedFont', height=40, width=100)
+    info = tk.Text(root, font='TkFixedFont', height=40, width=100, wrap=tk.WORD)
     
     def info_write(*string, append=False):
         string = ' '.join(string)
@@ -241,11 +253,16 @@ def gui():
     output_folder = tk.StringVar()
     input_experiments = []
     
-    info_write('Please add data folder(s) or CSV files, and select output folder.')
+    info_write('Please first select output folder, then add data folder(s) (will be searched recursively) or CSV files (exported from Results Viewer).')
+    
+    proc_buttons = []
     
     def set_output_folder():
         fn = os.path.normpath(askdirectory(title=f'Select output folder for learning set'))
-        output_folder.set(fn)
+        if os.path.exists(fn):            
+            output_folder.set(fn)
+            for button in proc_buttons:
+                button.configure(state='normal')
         
     def add_folder():
         fn = os.path.normpath(askdirectory(title=f'Add experiment folder structure (will be searched recursively!)'))
@@ -266,7 +283,7 @@ def gui():
         def config_window(state):
             for w in root.winfo_children():
                 try:
-                    w.configure(state)
+                    w.configure(state)                    
                 except tk.TclError:
                     pass
         
@@ -280,6 +297,8 @@ def gui():
             output_folder.set('')
             input_experiments = []
             config_window('normal')
+            for button in proc_buttons:
+                button.configure(state='disabled')
             
         except Exception as e:
             config_window('normal')
@@ -289,9 +308,11 @@ def gui():
     ttk.Button(root, text='Set output folder', command=set_output_folder).grid(row=5, column=0, sticky=tk.W)
     ttk.Label(root, textvariable=output_folder).grid(row=5, column=1, sticky=tk.W)
     ttk.Separator(root, orient='horizontal').grid(row=9, columnspan=2, sticky=tk.EW)
-    ttk.Button(root, text='Add folder', command=add_folder).grid(row=10, column=0, sticky=tk.NW)
-    ttk.Button(root, text='Add CSV', command=add_csv).grid(row=11, column=0, sticky=tk.NW)
-    ttk.Button(root, text='Start processing', command=run_processing).grid(row=12, column=0, sticky=tk.NW, columnspan=2)
+    proc_buttons.append(ttk.Button(root, text='Add folder structure', command=add_folder, state='disabled'))
+    proc_buttons.append(ttk.Button(root, text='Add CSV from RV', command=add_csv, state='disabled'))
+    proc_buttons.append(ttk.Button(root, text='Start processing', command=run_processing, state='disabled'))
+    for ii, button in enumerate(proc_buttons):
+        button.grid(row=10+ii, column=0, sticky=tk.NW)
     
     info.grid(row=10, column=1, rowspan=50, sticky=tk.NSEW)
 

@@ -87,11 +87,18 @@ def calc_assignment(cif_correct_hand: str, cif_wrong_hand: str) -> tuple:
     
     comp = compare_reflections(R=correct, S=wrong)
     
+    # ref_comp = pd.DataFrame(comp).T
+    # corr = pd.DataFrame(correct).T
+    # wrg = pd.DataFrame(wrong).T
+    # reflections = wrg.join(corr, lsuffix='_wrong', rsuffix='_corr')
+    # all_Z_data = ref_comp.join(reflections)
+    # all_Z_data.to_csv('C:\\XcaliburData\\ClarithromycinZData.csv')
+    
     return(len(comp),
            sum([c.R_assign for c in comp.values()]), 
            sum([c.p_error for c in comp.values()]))
         
-def calc_z(N, k, w=None): 
+def calc_z(N, k, w=None):
     
     """Be N the
 number of reflections in the data set and be k the number of reflections for which |Icalc,1竏棚obs| <

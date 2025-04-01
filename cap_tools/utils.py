@@ -69,11 +69,11 @@ def get_version():
         except Exception:
             base_path = os.path.abspath(".")
             
-        if os.path.exists(os.path.join(base_path, 'version.txt')):
+        try:
             with open(os.path.join(base_path, 'version.txt'), 'r') as fh:
-                return fh.read()
+                return fh.read().strip()
             
-        else:
+        except Exception as e:
             return('Could not determine version')
 
 def err_str(value, error, errordigits=1, compact=True):

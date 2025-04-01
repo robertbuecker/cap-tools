@@ -56,7 +56,7 @@ generate_learning_set_a = Analysis(
     ['generate_learning_set.py'],  # The script to analyze
     pathex=[],  # Add any additional paths if required
     binaries=[],  # Optional: include an icon
-    datas=[=[('version.txt', '.')]],  # Add any additional data files if required
+    datas=[('version.txt', '.')],  # Add any additional data files if required
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

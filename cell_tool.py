@@ -13,7 +13,7 @@ from collections import defaultdict
 from typing import *
 import os
 from concurrent.futures import ThreadPoolExecutor
-from cap_tools.utils import ClusterOptions, TextRedirector
+from cap_tools.utils import ClusterOptions, TextRedirector, get_version
 from cap_tools.widgets import ClusterTableWidget
 from cap_tools.widgets import FinalizationWidget
 from cap_tools.widgets import CellHistogramWidget
@@ -55,7 +55,7 @@ class CellGUI:
         # initialize master GUI 
         self.root = tk.Tk()
         self.root.geometry('1300x900')
-        self.root.title("3D ED/MicroED cell tool")
+        self.root.title(f"3D ED/MicroED cell tool ({get_version()})")
         
         try:       
             base_path = sys._MEIPASS

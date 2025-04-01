@@ -11,6 +11,7 @@ from cap_tools.cap_control import CAPInstance, CAPListenModeError
 import csv
 from zipfile import ZipFile
 import configparser
+from cap_tools.utils import get_version
 
 
 def main(experiments: list, out_dir: str, include_path: bool = False, 
@@ -228,7 +229,7 @@ def gui():
     from tkinter.filedialog import askdirectory, askopenfilename
     
     root = tk.Tk()
-    root.title('Learning set generator')
+    root.title(f'Learning set generator ({get_version()})')
     
     try:       
         base_path = sys._MEIPASS

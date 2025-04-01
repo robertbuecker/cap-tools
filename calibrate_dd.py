@@ -12,6 +12,7 @@ import pandas as pd
 from time import sleep
 import warnings
 from cap_tools.cap_control import CAPControl, CAPInstance
+from cap_tools.utils import get_version
 
 # Calibrant data Aluminum        
 d_vec = np.array([2.338, 2.024, 1.431, 1.221, 1.169, 1.0124, 0.9289, 0.9055, 0.8266])
@@ -293,7 +294,7 @@ def gui():
     from tkinter.filedialog import askdirectory
     
     root = tk.Tk()
-    root.title('Detector distance calibration')
+    root.title(f'Detector distance calibration ({get_version()})')
     
     try:       
         base_path = sys._MEIPASS

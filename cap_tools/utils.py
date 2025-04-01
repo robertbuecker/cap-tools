@@ -6,6 +6,9 @@ from typing import *
 import numpy as np
 import tkinter as tk
 import tkinter.ttk as ttk
+import sys
+import subprocess
+import os
 
 
 class TextRedirector(object):
@@ -49,6 +52,29 @@ class DisableMixin(object):
         return not self.is_disabled()
     
 class myTreeView(DisableMixin, ttk.Treeview): pass
+
+def get_version():
+                
+        try:
+            result = subprocess.run(['git', 'describe'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if result.returncode == 0:
+                # we are inside a working git repository
+                return result.stdout.strip()                            
+        except Exception as e:
+            pass
+        
+        try:       
+            # we are inside a PyInstaller executable
+            base_path = sys._MEIPASS
+        except Exception:
+            base_path = os.path.abspath(".")
+            
+        if os.path.exists(os.path.join(base_path, 'version.txt')):
+            with open('version.txt') as fh:
+                return fh.read()
+            
+        else:
+            return('Could not determine version')
 
 def err_str(value, error, errordigits=1, compact=True):
     digits = max(0,-int(floor(log10(error)))) - 1 + errordigits    

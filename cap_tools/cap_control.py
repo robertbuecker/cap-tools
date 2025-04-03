@@ -55,9 +55,10 @@ class CAPInstance:
                     raise CAPListenModeError(f'CAP not reacting {timeout} seconds after launch. Please check if a CAP window is running and retry.')
         
     def stop_cap(self, allow_stopped: bool = False):
-        if (not self.running) and (not allow_stopped):
+
+        if (not self.running or (self.cap_proc is None)) and (not allow_stopped):
             raise CAPListenModeError('No CAP instance running.')
-        elif not self.running:
+        elif (not self.running or (self.cap_proc is None)):
             return
                 
         try:
@@ -69,7 +70,10 @@ class CAPInstance:
             self.cap_proc = None
             
     def __del__(self):
-        self.stop_cap(allow_stopped=True)
+        try:
+            self.stop_cap(allow_stopped=True)
+        except Exception as err:
+            pass
         
     def status(self):
         listen_fn = lambda ext: os.path.join(self.cmd_folder, f'command.{ext}')      

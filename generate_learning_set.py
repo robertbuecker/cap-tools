@@ -15,7 +15,9 @@ from cap_tools.utils import get_version
 
 
 def main(experiments: list, out_dir: str, include_path: bool = False, 
-         interactive: bool=False, log: callable = print, zip_result: bool = True):
+         cmdline: bool=False, log: callable = print, zip_result: bool = True,
+         grain_images: bool = True, diff_images: bool = True, rodhypix: bool = False):
+
 
     exp_list = []
     
@@ -65,7 +67,7 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
     for ii, exp in enumerate(sorted(exp_list)):
         info_fn = os.path.join(root_dir, os.path.dirname(exp), 'experiment_results.xmlinfo')
         if not os.path.exists(info_fn):
-            print('WARNING:', info_fn, 'is missing. Skipping this experiment.')
+            log('WARNING:', info_fn, 'is missing. Skipping this experiment.')
             continue
         
         info_str = open(info_fn).read()
@@ -94,11 +96,16 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
         m = hashlib.md5()
         hash_text = ';'.join([user, exp_time, exp_name])
         m.update(hash_text.encode()) # this line defines what gets hashed
-        basename = exp_info['digest'] = m.hexdigest()
+        exp_info['digest'] = m.hexdigest()
+        
+        if include_path: 
+            basename = exp_name + '-' + exp_info['digest']
+        else:
+            basename = exp_info['digest']
         
         if ii == 0:
             # first loop run
-            log('Generating anonymous experiment hashes from string of type:')
+            log('Generating anonymous experiment filenames from string of type:')
             log(hash_text)
             log('-->  ', basename)
         
@@ -132,42 +139,47 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
             OL_demag, visual_pxs = 100, 0.036
             exp_info['radius_px'] = float(config['MicroED'].get('Aperture SA info', None)) / OL_demag / visual_pxs
         except Exception as err:
-            print('Could not decode aperture size for', exp)
-            print(str(err))
+            log('Could not decode aperture size for', exp)
+            log(str(err))
         
-        fn_in = os.path.join(root_dir, exp) + '_middle_microed_diff_snapshot'
-        fn_out = os.path.join(out_dir, basename) + '_diff.tiff'
+        extension = '.rodhypix' if rodhypix else '.tiff'
         
-        exp_info['diff_img'] = basename + '_diff.tiff'
+        if diff_images:
+            
+            fn_in = os.path.join(root_dir, exp) + '_middle_microed_diff_snapshot'
+            fn_out = os.path.join(out_dir, basename) + '_diff' + extension
+            
+            exp_info['diff_img'] = basename + '_diff' + extension
+            
+            if os.path.exists(fn_out):
+                pass
+            elif os.path.exists(fn_in + extension):
+                shutil.copy(fn_in + extension, fn_out)
+            elif (not rodhypix) and os.path.exists(fn_in + '.rodhypix'):
+                cap_cmds.append(f'rd i "{fn_in}.rodhypix"')
+                cap_cmds.append(f'wd tiffopt {fn_out} 1 0 0 0')
+            else:
+                # print('No diffraction snapshot found for', exp)
+                continue
         
-        if os.path.exists(fn_out):
-            pass
-        elif os.path.exists(fn_in + '.tiff'):
-            shutil.copy(fn_in + '.tiff', fn_out)
-        elif os.path.exists(fn_in + '.rodhypix'):
-            cap_cmds.append(f'rd i "{fn_in}.rodhypix"')
-            cap_cmds.append(f'wd tiffopt {fn_out} 1 0 0 0')
-        else:
-            # print('No diffraction snapshot found for', exp)
-            continue
-        
-        fn_in = os.path.join(root_dir, exp) + '_microed_grain_snapshot'
-        fn_out = os.path.join(out_dir, basename) + '_grain.tiff'
-        
-        exp_info['grain_img'] = basename + '_grain.tiff'
+        if grain_images:
+            
+            fn_in = os.path.join(root_dir, exp) + '_microed_grain_snapshot'
+            fn_out = os.path.join(out_dir, basename) + '_grain' + extension
+            
+            exp_info['grain_img'] = basename + '_grain' + extension
 
-        if os.path.exists(fn_out):
-            pass              
-        elif os.path.exists(fn_in + '.tiff'):
-            shutil.copy(fn_in + '.tiff', fn_out)
-        elif os.path.exists(fn_in + '.rodhypix'):
-            cap_cmds.append(f'rd i {fn_in}.rodhypix')
-            cap_cmds.append(f'wd tiffopt {fn_out} 1 0 0 0')
-        else:
-            # print('No grain snapshot found for', exp)
-            continue
-                
-
+            if os.path.exists(fn_out):
+                pass              
+            elif os.path.exists(fn_in + extension):
+                shutil.copy(fn_in + extension, fn_out)
+            elif (not rodhypix) and os.path.exists(fn_in + '.rodhypix'):
+                cap_cmds.append(f'rd i {fn_in}.rodhypix')
+                cap_cmds.append(f'wd tiffopt {fn_out} 1 0 0 0')
+            else:
+                # print('No grain snapshot found for', exp)
+                continue
+                    
         info.append(exp_info)
         
     info = pd.DataFrame(info)
@@ -182,7 +194,7 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
                 listen.run_cmd(cap_cmds, use_mac=True)
                 break
             except CAPListenModeError as err:
-                if not interactive:
+                if not cmdline:
                     log(str(err))
                     raise err
                     
@@ -291,7 +303,7 @@ def gui():
         try:
             config_window('disabled')
             main(input_experiments, output_folder.get(), 
-                include_path=False, interactive=False, 
+                include_path=False, cmdline=False, 
                 log=lambda *msgs: info_write(*msgs, append=True))
             info_write(f'Processing successful. Results in {output_folder.get()}',
                        append=True)
@@ -335,8 +347,21 @@ if __name__ == '__main__':
         parser.add_argument('experiments', nargs='+', help='One or more (1) directories to recursively search for experiments, or (2) CSV experiment lists generated from the'
                             ' results viewer. Both can be combined arbitrarily.')
         parser.add_argument('--include-path', action='store_true', help='Include dataset path into output file. WARNING: your learning set will not be anonymous anymore.')
+        parser.add_argument('--no-grain-images', action='store_true', help='Do not include grain images in the learning set.')
+        parser.add_argument('--no-diff-images', action='store_true', help='Do not include diffraction images in the learning set.')
+        parser.add_argument('--no-zip', action='store_true', help='Do not zip the learning set.')
+        parser.add_argument('--screening', action='store_true', help='Use screening mode (no grain images, no zipping, keep filenames).')
+        parser.add_argument('--rodhypix', action='store_true', help='Use .rodhypix images instead of .tiff.')
         args = parser.parse_args()
 
-        main(experiments=args.experiments, out_dir=args.out_dir, include_path=args.include_path, interactive=True)
+        if args.screening:
+            args.no_grain_images = True            
+            args.no_zip = True
+            args.include_path = True
+
+        main(experiments=args.experiments, out_dir=args.out_dir, include_path=args.include_path, cmdline=True, 
+             zip_result=not args.no_zip, grain_images=not args.no_grain_images, diff_images=not args.no_diff_images, 
+             rodhypix=args.rodhypix)
+        
         
         

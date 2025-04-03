@@ -72,6 +72,17 @@
             "justMyCode": true
         },
         {
+            "name": "ML set generator (screening)",
+            "type": "python",
+            "request": "launch",
+            "program": "generate_learning_set.py",
+            "console": "integratedTerminal",
+            "args": ["C:\\Users\\robert.buecker\\temp\\screening", 
+            "C:\\XcaliburData\\Cement_Queue_2688\\rc-cement.csv",
+            "--screening", "--rodhypix"],
+            "justMyCode": true
+        },
+        {
             "name": "ML set generator (GUI)",
             "type": "python",
             "request": "launch",

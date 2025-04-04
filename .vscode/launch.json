@@ -79,7 +79,8 @@
             "console": "integratedTerminal",
             "args": ["C:\\Users\\robert.buecker\\temp\\screening", 
             "C:\\XcaliburData\\Cement_Queue_2688\\rc-cement.csv",
-            "--screening", "--rodhypix"],
+            "--screening", 
+            "--jpg"],
             "justMyCode": true
         },
         {

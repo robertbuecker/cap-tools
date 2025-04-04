@@ -16,7 +16,8 @@ from cap_tools.utils import get_version
 
 def main(experiments: list, out_dir: str, include_path: bool = False, 
          cmdline: bool=False, log: callable = print, zip_result: bool = True,
-         grain_images: bool = True, diff_images: bool = True, rodhypix: bool = False):
+         grain_images: bool = True, diff_images: bool = True, rodhypix: bool = False, 
+         jpg: bool = False):
 
 
     exp_list = []
@@ -142,7 +143,12 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
             log('Could not decode aperture size for', exp)
             log(str(err))
         
-        extension = '.rodhypix' if rodhypix else '.tiff'
+        if rodhypix:
+            extension = '.rodhypix'
+        elif jpg:
+            extension = '.jpg'
+        else:
+            extension = '.tiff'
         
         if diff_images:
             
@@ -223,18 +229,19 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
         with ZipFile(os.path.join(out_dir, 'learning_set.zip'), 'w') as zip:
             for fn in (glob(os.path.join(out_dir, '*.tiff')) + [os.path.join(out_dir, 'info.csv')]):
                 zip.write(fn, os.path.basename(fn))
-                
-        log(f"\n\nIf you would like to contribute to the Machine Learning features in CrysAlisPro, "
-            f"please upload\n{os.path.join(out_dir, 'learning_set.zip')}\n"
-            f"to the web interface at \nsftp2.rigaku.com\nwith\nrobert.buecker@rigaku.com\nas recipient.\n\n"
-            f"IMPORTANT INFORMATION ---\n"
-            f"The shared data contains the grain images and zero-angle diffraction snapshots "
-            f"as shown in the results viewer with anonymized file names, and some processing/collection metadata. "
-            f"Those do not allow to infer the sample structure, type, elemental composition, name, "
-            f"unit cell, crystal symmetry, original file path, user name, instrument/lab the data was collected at, etc."
-            f"\n---\n\n"
-            f"Thank you for your collaboration and help with improving CrysAlisPro.")
-    
+        
+        if not (jpg or rodhypix):            
+            log(f"\n\nIf you would like to contribute to the Machine Learning features in CrysAlisPro, "
+                f"please upload\n{os.path.join(out_dir, 'learning_set.zip')}\n"
+                f"to the web interface at \nsftp2.rigaku.com\nwith\nrobert.buecker@rigaku.com\nas recipient.\n\n"
+                f"IMPORTANT INFORMATION ---\n"
+                f"The shared data contains the grain images and zero-angle diffraction snapshots "
+                f"as shown in the results viewer with anonymized file names, and some processing/collection metadata. "
+                f"Those do not allow to infer the sample structure, type, elemental composition, name, "
+                f"unit cell, crystal symmetry, original file path, user name, instrument/lab the data was collected at, etc."
+                f"\n---\n\n"
+                f"Thank you for your collaboration and help with improving CrysAlisPro.")
+        
 def gui():
     import tkinter as tk
     import tkinter.ttk as ttk
@@ -352,16 +359,20 @@ if __name__ == '__main__':
         parser.add_argument('--no-zip', action='store_true', help='Do not zip the learning set.')
         parser.add_argument('--screening', action='store_true', help='Use screening mode (no grain images, no zipping, keep filenames).')
         parser.add_argument('--rodhypix', action='store_true', help='Use .rodhypix images instead of .tiff.')
+        parser.add_argument('--jpg', action='store_true', help='Use .jpg images instead of .tiff.')
         args = parser.parse_args()
 
         if args.screening:
             args.no_grain_images = True            
             args.no_zip = True
             args.include_path = True
-
+            
+        if args.jpg and args.rodhypix:
+            raise ValueError('Please specify either --jpg or --rodhypix, not both.')
+        
         main(experiments=args.experiments, out_dir=args.out_dir, include_path=args.include_path, cmdline=True, 
              zip_result=not args.no_zip, grain_images=not args.no_grain_images, diff_images=not args.no_diff_images, 
-             rodhypix=args.rodhypix)
+             rodhypix=args.rodhypix, jpg=args.jpg)
         
         
         

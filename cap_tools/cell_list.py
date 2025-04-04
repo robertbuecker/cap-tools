@@ -14,12 +14,14 @@ from collections import defaultdict
 
 class CellList:
 
-    def __init__(self, cells: np.ndarray, ds: Optional[dict] = None, weights: Optional[np.ndarray] = None, 
+    def __init__(self, cells: np.ndarray, ds: Optional[dict] = None, weights: Optional[np.ndarray] = None,
+                 centrings: Optional[np.ndarray] = None, 
                  merge_tree: Optional[Tuple] = None, linkage_z: Optional[np.ndarray] = None, 
                  cluster_pars: Optional[ClusterOptions] = None, cluster_distance: Optional[float] = None):
         
         self._cells = order_uc_pars(cells)
         self._weights = np.array([1]*cells.shape[0]) if weights is None else weights
+        self._centrings = np.array(['P']*cells.shape[0]) if centrings is None else centrings
         
         # clustering parameters
         self._cluster_pars = cluster_pars
@@ -45,6 +47,10 @@ class CellList:
     @property
     def cells(self):
         return self._cells
+    
+    @property
+    def centrings(self):
+        return self._centrings
 
     @property
     def weights(self):
@@ -104,13 +110,33 @@ class CellList:
 
     @classmethod
     def from_csv(cls, fn, use_raw_cell=True):
-        ds, cells, weights = parse_cap_csv(fn, use_raw_cell, filter_missing=True)
-        return cls(cells=cells, ds=ds)
+        ds, cells, weights, centrings = parse_cap_csv(fn, use_raw_cell, filter_missing=True)
+        return cls(cells=cells, ds=ds, centrings=centrings, weights=None)
     
     #TODO add a from_cluster_result option
 
     def to_csv(self, fn: str):
         write_cap_csv(fn, self.ds)
+
+    def get_reduced(self, method: str = 'niggli') -> 'CellList':
+        """Returns a new CellList with reduced cells. Currently Niggli and Gruber reduction methods are supported."""
+        import gemmi 
+               
+        cells_reduced = []
+        
+        for cell, centring in zip(self.cells, self.centrings):
+            uc = gemmi.UnitCell(*cell)
+            gv = gemmi.GruberVector(uc, centring=centring)
+            if method == 'niggli':
+                gv.niggli_reduce()
+            elif method == 'gruber':
+                gv.gruber_reduce()
+            else:
+                raise ValueError(f'Unknown reduction method {method}')
+            cells_reduced.append(gv.get_cell().parameters)
+            
+        return CellList(cells=np.array(cells_reduced), ds=self.ds, weights=self.weights,
+                        centrings=self.centrings)                        
 
     def cluster(self,
                  distance: Optional[float]=None,

@@ -87,6 +87,9 @@ class CellGUI:
         self.v_use_raw = tk.BooleanVar(cf, value=use_raw_cell)
         self.w_use_raw = ttk.Checkbutton(cf, text='Use raw cells', command=self.reload_cells, variable=self.v_use_raw)
         self.w_use_raw.grid(row=5, column=0)
+        self.v_reduced = tk.BooleanVar(cf, value=False)
+        self.w_reduced = ttk.Checkbutton(cf, text='Reduce cells', command=self.reload_cells, variable=self.v_reduced)
+        self.w_reduced.grid(row=6, column=0)
         self.w_all_fn = ttk.Label(cf, text='(nothing loaded)')
         self.w_all_fn.grid(row=10, column=0)
         
@@ -367,8 +370,10 @@ class CellGUI:
     def reload_cells(self):
         raw = self.v_use_raw.get()        
         print(f'Loading cells from {self.fn}')
-        self.all_cells = CellList.from_csv(self.fn, use_raw_cell=raw) #TODO change this to selection of raw cells           
-        self.w_all_fn.config(text=os.path.basename(self.fn) + (' (raw)' if raw else ''))       
+        self.all_cells = CellList.from_csv(self.fn, use_raw_cell=raw) #TODO change this to selection of raw cells
+        if self.v_reduced.get():
+            self.all_cells = self.all_cells.get_reduced()  
+        self.w_all_fn.config(text=os.path.basename(self.fn) + (' (raw)' if raw else '') + (' (reduced)' if self.v_reduced.get() else ''))
         self.run_clustering()
             
     def load_cells(self):

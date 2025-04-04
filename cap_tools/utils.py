@@ -9,6 +9,7 @@ import tkinter.ttk as ttk
 import sys
 import subprocess
 import os
+import warnings
 
 
 class TextRedirector(object):
@@ -132,18 +133,24 @@ def parse_cap_csv(fn: str, use_raw_cell: bool, filter_missing: bool = True) -> T
             _ = fh.readline()
         ds = list(csv.DictReader(fh))
         
-    for d in ds:
-        # apply fix for older CAP version bug
-        if 'Final SG unit cell ' in d:
-            d['Final SG unit cell'] = d['Final SG unit cell ']
-            del d['Final SG unit cell ']
-        
     key = 'Current unit cell' if use_raw_cell else 'Final SG unit cell'
     ds = [d for d in ds if d[key]] if filter_missing else ds # filter experiments with empty cell parameters (not indexed)
     cells = np.array([d[key].split() for d in ds]).astype(float)
     weights = np.array([1 for d in ds])
+    
+    def get_centring(d) -> str:
+        if use_raw_cell:
+            ctr = d['Current lattice'].strip()[-1]
+        else:
+            ctr = d['Space group RED'].strip()[0]
+        if ctr not in ['P', 'I', 'F', 'A', 'B', 'C', 'R', 'H']:
+            warnings.warn(RuntimeWarning(f'Unknown centring {ctr}. Assuming P'))
+            ctr = 'P'
+        return ctr
+    
+    centrings = np.array([get_centring(d) for d in ds])
 
-    return ds, cells, weights
+    return ds, cells, weights, centrings
 
 
 def order_uc_pars(cells: np.ndarray) -> np.ndarray:

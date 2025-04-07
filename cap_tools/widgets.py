@@ -117,9 +117,12 @@ class ClusterTableWidget(ttk.Frame):
 
             cpar_strs = []
             for avg, std, lo, hi in zip(stats.mean, stats.std, stats.min, stats.max):
-                digits = max(0,
+                if np.isfinite(avg):
+                    digits = max(0,
                              -int(math.floor(math.log10(std)))+1 if std != 0 else 0,
                              -int(math.floor(math.log10(hi-lo))) if std != 0 else 0)
+                else:
+                    digits = 0
                 cpar_strs.append('{0:.{4}f} ({1:.{4}f}) [{2:.{4}f}, {3:.{4}f}]'.format(avg, std, lo, hi, digits))
 
             self._entry_ids.append(self.cluster_view.insert('', tk.END, values=[c_id, len(cl)] + cpar_strs, tags=(str(c_id),)))

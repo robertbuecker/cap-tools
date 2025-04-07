@@ -23,22 +23,24 @@ import queue
 import sys
 from copy import copy, deepcopy
 
-cluster_presets = {'Direct': ClusterOptions(preproc='None', metric='Euclidean', method='Ward'),
-                   'Whitened': ClusterOptions(preproc='PCA', metric='SEuclidean', method='Average'),
-                   'LCV (relative)': ClusterOptions(preproc='None', metric='LCV', method='Ward'),
-                   'Diagonals (Å)': ClusterOptions(preproc='Diagonals', metric='Euclidean', method='Ward'),
-                   'Standardized': ClusterOptions(preproc='None', metric='SEuclidean', method='Average'),
-                   'LCV (Å)': ClusterOptions(preproc='None', metric='aLCV', method='Ward')}
+cluster_presets = {'Direct': ClusterOptions(preproc='None', metric='Euclidean', method='Ward', centring='Split'),
+                   'Whitened': ClusterOptions(preproc='PCA', metric='SEuclidean', method='Average', centring='Split'),
+                   'LCV (relative)': ClusterOptions(preproc='None', metric='LCV', method='Ward', centring='Split'),
+                   'Diagonals (Å)': ClusterOptions(preproc='Diagonals', metric='Euclidean', method='Ward', centring='Split'),
+                   'Standardized': ClusterOptions(preproc='None', metric='SEuclidean', method='Average', centring='Split'),
+                   'LCV (Å)': ClusterOptions(preproc='None', metric='aLCV', method='Ward', centring='Split')}
 
 class CellGUI:
     
     def __init__(self, filename: Optional[str] = None, 
                  distance: float = 2.0,
                  method: str = 'average',
-                 metric: str = 'euclidian',
+                 metric: str = 'euclidean',
                  preproc: str = 'none',
+                 centring: str = 'ignore',
                  use_raw_cell: bool = False,
                  debug: bool = False,
+                 preset: Optional[str] = None,
                  **kwargs):
         
         if kwargs:
@@ -88,7 +90,7 @@ class CellGUI:
         self.w_use_raw = ttk.Checkbutton(cf, text='Use raw cells', command=self.reload_cells, variable=self.v_use_raw)
         self.w_use_raw.grid(row=5, column=0)
         self.v_reduced = tk.BooleanVar(cf, value=False)
-        self.w_reduced = ttk.Checkbutton(cf, text='Reduce cells', command=self.reload_cells, variable=self.v_reduced)
+        self.w_reduced = ttk.Checkbutton(cf, text='Reduce cells (Niggli)', command=self.reload_cells, variable=self.v_reduced)
         self.w_reduced.grid(row=6, column=0)
         self.w_all_fn = ttk.Label(cf, text='(nothing loaded)')
         self.w_all_fn.grid(row=10, column=0)
@@ -99,13 +101,16 @@ class CellGUI:
         preset_list = list(cluster_presets.keys()) + ['(none)']
         metric_list = 'Euclidean LCV aLCV SEuclidean Volume'.split()
         method_list = 'Ward Average Single Complete Median Weighted Centroid'.split()        
-        preproc_list = 'None PCA Diagonals DiagonalsPCA G6 Standardized Radians Sine'.split()       
+        preproc_list = 'None PCA Diagonals DiagonalsPCA G6 Standardized Radians Sine'.split()    
+        centring_list = 'Ignore Split'.split()  
+         
         self.v_cluster_setting = {
             'distance': tk.DoubleVar(value=distance),
             'preset': tk.StringVar(value='(none)'),
             'preproc': tk.StringVar(value=[m for m in preproc_list if m.lower() == preproc.lower()][0]), # ugly capitalization workaround
             'metric': tk.StringVar(value=[m for m in metric_list if m.lower() == metric.lower()][0]),
-            'method': tk.StringVar(value=[m for m in method_list if m.lower() == method.lower()][0])
+            'method': tk.StringVar(value=[m for m in method_list if m.lower() == method.lower()][0]),
+            'centring': tk.StringVar(value=[m for m in centring_list if m.lower() == centring.lower()][0])
         }        
         self.w_cluster_setting = {
             'Distance': ttk.Entry(csf, textvariable=self.v_cluster_setting['distance']),
@@ -113,9 +118,10 @@ class CellGUI:
             'Preprocessing': ttk.OptionMenu(csf, self.v_cluster_setting['preproc'], self.v_cluster_setting['preproc'].get(), *preproc_list), #TODO: add init_clustering as callback?
             'Metric': ttk.OptionMenu(csf, self.v_cluster_setting['metric'], self.v_cluster_setting['metric'].get(), *metric_list),
             'Method': ttk.OptionMenu(csf, self.v_cluster_setting['method'], self.v_cluster_setting['method'].get(), *method_list),
-            'Refresh': ttk.Button(csf, text='Refresh', command=self.run_clustering)
+            'Centring': ttk.OptionMenu(csf, self.v_cluster_setting['centring'], self.v_cluster_setting['centring'].get(), *centring_list),
+            'Refresh': ttk.Button(csf, text='Refresh', command=self.run_clustering),
         }
-        for k in ['Preset', 'Preprocessing', 'Metric', 'Method']:
+        for k in ['Preset', 'Preprocessing', 'Metric', 'Method', 'Centring']:
             self.w_cluster_setting[k].config(w=15)
         for ii, (k, w) in enumerate(self.w_cluster_setting.items()):
             if not (isinstance(w, ttk.Button) or isinstance(w, ttk.Checkbutton)):
@@ -270,6 +276,17 @@ class CellGUI:
         self.tabs.grid(column=0, row=0, sticky=tk.NSEW, rowspan=3)
         self.cluster_table.grid(row=10, column=0, columnspan=2, sticky=tk.S)
         
+        if preset is not None:
+            # if a preset is provided on CLI, set it now
+            pr = [k for k in cluster_presets if k.lower() == preset]
+            if len(pr) != 1:
+                print(f'Preset {preset} not found.')
+                preset = 'Whitened'
+            else:
+                preset = pr[0]
+            self.v_cluster_setting['preset'].set(preset)
+            self.set_preset()
+        
         # if filename is provided on CLI, open it now
         if filename is not None:
             self.fn = filename            
@@ -294,6 +311,7 @@ class CellGUI:
         self.v_cluster_setting['preproc'].set(cluster_presets[preset].preproc)
         self.v_cluster_setting['metric'].set(cluster_presets[preset].metric)
         self.v_cluster_setting['method'].set(cluster_presets[preset].method)
+        self.v_cluster_setting['centring'].set(cluster_presets[preset].centring)
             
     @property
     def active_tab(self):
@@ -311,7 +329,8 @@ class CellGUI:
 
         cluster_pars = ClusterOptions(preproc=self.v_cluster_setting['preproc'].get(),
                                     metric=self.v_cluster_setting['metric'].get(),
-                                    method=self.v_cluster_setting['method'].get())
+                                    method=self.v_cluster_setting['method'].get(),
+                                    centring=self.v_cluster_setting['centring'].get())
         matching_preset = [k for k, v in cluster_presets.items() if v == cluster_pars]
         
         if len(matching_preset) == 1:
@@ -342,7 +361,7 @@ class CellGUI:
                                                                     'Reverting to old parameters:','---',
                                                                     _cluster_pars.preproc, _cluster_pars.metric, _cluster_pars.method,'---']))
             
-            for k in ['preproc', 'metric', 'method']: self.v_cluster_setting[k].set(getattr(_cluster_pars,k))
+            for k in ['preproc', 'metric', 'method', 'centring']: self.v_cluster_setting[k].set(getattr(_cluster_pars,k))
             self.v_cluster_setting['distance'].set(_distance)
             
             node_cids = self.all_cells.cluster(distance=None if _distance==0 else _distance, cluster_pars=_cluster_pars)
@@ -355,7 +374,7 @@ class CellGUI:
             
         if redraw:            
             try:
-                labels = [d['Experiment name'] for d in self.all_cells.ds]
+                labels = [f"{d['Experiment name']} ({ctr})" for d, ctr in zip(self.all_cells.ds, self.all_cells.centrings)]
             except KeyError as err:
                 print('Experiment names not found in CSV list. Consider including them.')
                 labels = None          
@@ -544,12 +563,15 @@ def parse_args():
                         action="store_true", dest="debug",
                         help="Debug mode - print errors and log messages to console instead of log window.")
 
+    parser.add_argument("--preset",
+                        action="store", type=str, dest="preset",
+                        choices=list(cluster_presets.keys()),
+                        help="Preset for clustering parameters.")
+    
     parser.set_defaults(filename=None,
                         distance=0.0,
-                        method="ward",
-                        metric="euclidean",
                         use_raw_cell=False,
-                        preproc='none')
+                        preset='whitened')
     
     options = parser.parse_args()
 
@@ -557,6 +579,6 @@ def parse_args():
 
 if __name__ == '__main__':
     cli_args = parse_args()    
-    window = CellGUI(**cli_args)
+    window = CellGUI(**{k: v for k, v in cli_args.items() if v is not None})
     window.root.mainloop()
     # main()

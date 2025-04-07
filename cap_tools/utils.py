@@ -193,8 +193,7 @@ def volume_difference(cell1: list, cell2: list):
     v2 = volume(cell2)
     return abs(v1-v2)
 
-ClusterOptions = namedtuple('ClusterOptions', ['preproc', 'metric', 'method'])
-
+ClusterOptions = namedtuple('ClusterOptions', ['preproc', 'metric', 'method', 'centring'])
 
 def node_id_from_link(Z):
     # get list of node IDs (i.e., positions of entries in the linkage matrix) ordered like the

@@ -1,3 +1,4 @@
+import warnings
 from .utils import parse_cap_csv, order_uc_pars, \
     unit_cell_lcv_distance, volume, volume_difference, write_cap_csv, ClusterOptions
 import numpy as np
@@ -63,11 +64,21 @@ class CellList:
     @property
     def stats(self):
         cdat = np.concatenate([self.cells, self.volumes.reshape(-1,1)], axis=1)
-        CellStats = namedtuple('CellStats', ['mean', 'std', 'min', 'max'])
-        return CellStats(np.mean(cdat, axis=0),
-                np.std(cdat, axis=0),
-                np.min(cdat, axis=0),
-                np.max(cdat, axis=0))
+        CellStats = namedtuple('CellStats', ['mean', 'std', 'min', 'max', 'centring'])
+        if len(ctrs := np.unique(self.centrings)) > 1:
+            warnings.warn(f'Warning: {len(ctrs)} different centrings found in the dataset ({", ".join(ctrs)}). Not computing statistics.')
+            dummy_value = np.nan*np.ones(cdat.shape[1])            
+            return CellStats(dummy_value,
+                             dummy_value,
+                             dummy_value,
+                             dummy_value,
+                             np.array('?'))
+        else:
+            return CellStats(np.mean(cdat, axis=0),
+                    np.std(cdat, axis=0),
+                    np.min(cdat, axis=0),
+                    np.max(cdat, axis=0),
+                    ctrs[0])
         
     @property
     def cells_standardized(self):
@@ -119,7 +130,7 @@ class CellList:
         write_cap_csv(fn, self.ds)
 
     def get_reduced(self, method: str = 'niggli') -> 'CellList':
-        """Returns a new CellList with reduced cells. Currently Niggli and Gruber reduction methods are supported."""
+        """Returns a new CellList with reduced cells. Currently Niggli and Burger reduction methods are supported."""
         import gemmi 
                
         cells_reduced = []
@@ -129,14 +140,14 @@ class CellList:
             gv = gemmi.GruberVector(uc, centring=centring)
             if method == 'niggli':
                 gv.niggli_reduce()
-            elif method == 'gruber':
-                gv.gruber_reduce()
+            elif method == 'burger':
+                gv.buerger_reduce()
             else:
                 raise ValueError(f'Unknown reduction method {method}')
             cells_reduced.append(gv.get_cell().parameters)
             
         return CellList(cells=np.array(cells_reduced), ds=self.ds, weights=self.weights,
-                        centrings=self.centrings)                        
+                        centrings=np.array(['P']*len(cells_reduced)))                        
 
     def cluster(self,
                  distance: Optional[float]=None,
@@ -146,11 +157,15 @@ class CellList:
                 method: lcv, volume, euclidean
                 distance: cutoff distance, if it is not given, pop up a dendrogram to
                     interactively choose a cutoff distance
+                centring: 'ignore' (default), 'split'
                 preproc: data preprocessing: none, standardized, pca, diagonals, diagonalspca, g6
                 z: linkage matrix. If provided, no recomputation is performed and method/metric/preproc are ignored
                 """
 
-                from scipy.spatial.distance import pdist
+                # if (centring != 'ignore') and cluster_pars.preproc.lower() != 'none':
+                #     raise NotImplementedError('Centring is not yet compatible with preprocessing.')                    
+                
+                from scipy.spatial.distance import pdist, squareform
                 
                 if (cluster_pars is None) and self._cluster_pars is None:
                     return ValueError('First clustering run; you need to supply parameters.')
@@ -160,6 +175,7 @@ class CellList:
                 else:
                     # pairwise distances and linkage matrix need to be recomputed
                     
+                    # TODO: prevent clustering of cells with different centring
                                     
                     # cell data conditioning
                     pp_methods = {'none': self.cells, 
@@ -174,23 +190,44 @@ class CellList:
                         raise ValueError(f'Unknown preprocessing method {cluster_pars.preproc}')
                     
                     meth = cluster_pars.method.lower()
+                    centring = cluster_pars.centring.lower()
 
+                    def pdist_centring(cells, *args, **kwargs):
+                        """Compute pairwise distances between cells, taking into account the centring"""
+                        
+                        if (meth != 'average') and (cluster_pars.metric.lower() not in ['euclidean', 'volume', 'lcv', 'alcv']):
+                            raise ValueError('For the selected metric, only `average` is supported as method.')                        
+                        
+                        dist = pdist(cells, *args, **kwargs)                        
+                        if centring == 'ignore':
+                            return dist
+                        
+                        centrings = self.centrings
+                        pd_square = squareform(dist)
+                        maxval = np.max(pd_square.ravel())*1.05
+                        for i in range(len(centrings)):
+                            for j in range(i+1, len(centrings)):
+                                if centrings[i] != centrings[j]:
+                                    pd_square[i,j] = pd_square[j,i] = maxval
+                        return squareform(pd_square)
+                    
                     try:
                         # compute distances and linkage
                         if cluster_pars.metric.lower() == "lcv":
-                            dist = pdist(_cells, metric=unit_cell_lcv_distance)
+                            dist = pdist_centring(_cells, metric=unit_cell_lcv_distance)
                             z = linkage(dist,  method=meth, optimal_ordering=True)
                             distance = round(0.5*max(z[:,2]), 4) if distance is None else distance
                         elif cluster_pars.metric.lower() == "alcv":
-                            dist = pdist(_cells, metric=lambda cell1, cell2: unit_cell_lcv_distance(cell1, cell2, True))
+                            dist = pdist_centring(_cells, metric=lambda cell1, cell2: unit_cell_lcv_distance(cell1, cell2, True))
                             z = linkage(dist,  method=meth, optimal_ordering=True)
                             distance = round(0.5*max(z[:,2]), 4) if distance is None else distance                    
                         elif cluster_pars.metric.lower() == "volume":
-                            dist = pdist(_cells, metric=volume_difference)
-                            z = linkage(dist,  method=meth, optimal_ordering=True)
+                            dist = pdist_centring(_cells, metric=volume_difference)
+                            z = linkage(dist, method=meth, optimal_ordering=True)
                             distance = 250.0 if distance is None else distance
                         else:
-                            z = linkage(_cells,  metric=cluster_pars.metric.lower(), method=meth, optimal_ordering=True)
+                            dist = pdist_centring(_cells, metric=cluster_pars.metric.lower())
+                            z = linkage(dist,  method=meth, optimal_ordering=True)
                             distance = 2.0 if distance is None else distance
                             
                         self._cluster_pars = cluster_pars
@@ -200,6 +237,7 @@ class CellList:
                         print(f"-> Preprocessing = {cluster_pars.preproc}")
                         print(f"-> Distance metric = {cluster_pars.metric}")
                         print(f"-> Linkage method = {cluster_pars.method}")
+                        print(f"-> Centring handling = {cluster_pars.centring}")
                         print(f'The error was:, {str(err)}')
                         raise err
 
@@ -209,6 +247,8 @@ class CellList:
                     print(f"-> Preprocessing = {cluster_pars.preproc}")
                     print(f"-> Distance metric = {cluster_pars.metric}")
                     print(f"-> Linkage method = {cluster_pars.method}")
+                    print(f"-> Centring handling = {cluster_pars.centring}")
+                    
 
                     self._z = z
                     
@@ -270,6 +310,7 @@ class CellList:
                     cluster_lists[cid] = CellList(cells = self.cells[idcs],
                                            ds=[d for ii, d in enumerate(self.ds) if ii in idcs],
                                            weights=self.weights[idcs],
+                                           centrings=self.centrings[idcs],
                                            merge_tree=[mt for ii, mt in zip(merge_tree_cids, self.merge_tree) if ii==cid],
                                            linkage_z=z[node_cids == cid, :],
                                            cluster_pars=self._cluster_pars,

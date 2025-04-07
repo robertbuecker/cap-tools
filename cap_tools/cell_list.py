@@ -130,7 +130,7 @@ class CellList:
         write_cap_csv(fn, self.ds)
 
     def get_reduced(self, method: str = 'niggli') -> 'CellList':
-        """Returns a new CellList with reduced cells. Currently Niggli and Burger reduction methods are supported."""
+        """Returns a new CellList with reduced cells. Currently Niggli and Buerger reduction methods are supported."""
         import gemmi 
                
         cells_reduced = []
@@ -140,7 +140,7 @@ class CellList:
             gv = gemmi.GruberVector(uc, centring=centring)
             if method == 'niggli':
                 gv.niggli_reduce()
-            elif method == 'burger':
+            elif method == 'buerger':
                 gv.buerger_reduce()
             else:
                 raise ValueError(f'Unknown reduction method {method}')

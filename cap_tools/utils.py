@@ -77,6 +77,84 @@ def get_version():
         except Exception as e:
             return('Could not determine version')
 
+
+def niggli_to_lattice(a, b, c, alpha, beta, gamma):
+    """
+    Convert Niggli cell parameters (a, b, c, alpha, beta, gamma) to a 3x3 lattice matrix.
+    """
+    # Convert angles from degrees to radians
+    alpha = np.radians(alpha)
+    beta = np.radians(beta)
+    gamma = np.radians(gamma)
+
+    # Calculate the lattice vectors
+    A = np.zeros((3, 3))
+
+    A[0, 0] = a
+    A[1, 0] = b * np.cos(gamma)
+    A[1, 1] = b * np.sin(gamma)
+    A[2, 0] = c * np.cos(beta)
+    A[2, 1] = c * (np.cos(alpha) - np.cos(beta) * np.cos(gamma)) / np.sin(gamma)
+    A[2, 2] = c * np.sqrt(1 - np.cos(beta)**2 - (np.cos(alpha) - np.cos(beta) * np.cos(gamma))**2 / np.sin(gamma)**2)
+
+    return A
+
+
+def spacegroup_to_bravais(number):
+    """
+    Map spacegroup number (1–230) to extended Bravais lattice type.
+    """
+    if number in range(1, 3):
+        return 'aP'  # Simple cubic (P)
+    elif number in range(3, 16):
+        return 'mP'  # Monoclinic (P)
+    elif number in range(16, 75):
+        return 'oP'  # Orthorhombic (P)
+    elif number in range(75, 89):
+        return 'tP'  # Tetragonal (P)
+    elif number in range(89, 143):
+        return 'tI'  # Tetragonal (I)
+    elif number in range(143, 149):
+        return 'hR'  # Hexagonal (R)
+    elif number in range(149, 168):
+        return 'hP'  # Hexagonal (P)
+    elif number in range(168, 195):
+        return 'oF/oI/oC'  # Some ambiguity (for cubic/face-centered/centered)
+    elif number in range(195, 207):
+        return 'cP'  # Cubic primitive
+    elif number in range(207, 225):
+        return 'cF'  # Cubic face-centered
+    elif number in range(225, 231):
+        return 'cI'  # Cubic body-centered
+    else:
+        return f'Unknown ({number})'  # Not a valid space group number
+
+def identify_bravais_lattice_from_niggli(a, b, c, alpha, beta, gamma, symprec=1e-4):
+    
+    # Convert Niggli parameters to lattice matrix
+    lattice = niggli_to_lattice(a, b, c, alpha, beta, gamma)
+    print(lattice)
+
+    positions = np.array([[0.0, 0.0, 0.0]])
+    numbers = [1]
+    cell = (lattice, positions, numbers)
+
+    dataset = spglib.get_symmetry_dataset(cell, symprec=symprec)
+    if dataset is None:
+        return {"error": "Symmetry could not be determined."}
+
+    # Map spacegroup number to Bravais lattice
+    bravais = spacegroup_to_bravais(dataset.number)
+
+    return bravais, \
+        {
+        "transformation_matrix": dataset.transformation_matrix,
+        "origin_shift": dataset.origin_shift,
+        "bravais_lattice": bravais,
+        "hall_symbol": dataset.hall,
+        "international_symbol": dataset.international,
+    }
+
 def err_str(value, error, errordigits=1, compact=True):
     digits = max(0,-int(floor(log10(error)))) - 1 + errordigits    
     if compact:

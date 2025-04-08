@@ -334,6 +334,7 @@ class CAPMergeFinalize(CAPControl):
                     }                           
             ini.write(open(ini_fn, 'w'))
                         
+            self.run(f"xx selectexpnogui {os.path.join(os.path.dirname(inp[0]), md['Merge code'].split(':', 1)[0])}.par")            
             self.run(f'XX PROFFITMERGE2FROMINI {ini_fn}')
             
         self.message(f'{len(self.merge_data)} merging runs finished')

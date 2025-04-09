@@ -16,13 +16,29 @@ from collections import defaultdict
 class CellList:
 
     def __init__(self, cells: np.ndarray, ds: Optional[dict] = None, weights: Optional[np.ndarray] = None,
-                 centrings: Optional[np.ndarray] = None, 
+                 centrings: Optional[np.ndarray] = None, reduce: bool = False,
                  merge_tree: Optional[Tuple] = None, linkage_z: Optional[np.ndarray] = None, 
                  cluster_pars: Optional[ClusterOptions] = None, cluster_distance: Optional[float] = None):
         
-        self._cells = order_uc_pars(cells)
+        if reduce:
+            # reduce cells to Niggli form
+            import gemmi 
+            cells_reduced = []
+
+            for cell, centring in zip(cells, centrings):
+                uc = gemmi.UnitCell(*cell)
+                gv = gemmi.GruberVector(uc, centring=centring)
+                gv.niggli_reduce()
+                cells_reduced.append(gv.get_cell().parameters)
+                
+            self._cells = np.array(cells_reduced)
+        else:
+            # no reduction: order the cell parameters according to axis lengths
+            # TODO this leads to wrong centrings for A, B, C centered cells!
+            self._cells = order_uc_pars(cells)
+                
         self._weights = np.array([1]*cells.shape[0]) if weights is None else weights
-        self._centrings = np.array(['P']*cells.shape[0]) if centrings is None else centrings
+        self._centrings = np.array(['P']*cells.shape[0]) if ((centrings is None) or reduce) else centrings
         
         # clustering parameters
         self._cluster_pars = cluster_pars
@@ -52,6 +68,13 @@ class CellList:
     @property
     def centrings(self):
         return self._centrings
+    
+    @property
+    def centring(self):
+        if len(ctrs := np.unique(self.centrings)) > 1:
+            return '?'
+        else:
+            return ctrs[0]
 
     @property
     def weights(self):
@@ -120,34 +143,14 @@ class CellList:
         return sh.getvalue()
 
     @classmethod
-    def from_csv(cls, fn, use_raw_cell=True):
+    def from_csv(cls, fn, use_raw_cell=True, reduce=False) -> 'CellList':
         ds, cells, weights, centrings = parse_cap_csv(fn, use_raw_cell, filter_missing=True)
-        return cls(cells=cells, ds=ds, centrings=centrings, weights=None)
+        return cls(cells=cells, ds=ds, centrings=centrings, weights=None, reduce=reduce)
     
     #TODO add a from_cluster_result option
 
     def to_csv(self, fn: str):
-        write_cap_csv(fn, self.ds)
-
-    def get_reduced(self, method: str = 'niggli') -> 'CellList':
-        """Returns a new CellList with reduced cells. Currently Niggli and Buerger reduction methods are supported."""
-        import gemmi 
-               
-        cells_reduced = []
-        
-        for cell, centring in zip(self.cells, self.centrings):
-            uc = gemmi.UnitCell(*cell)
-            gv = gemmi.GruberVector(uc, centring=centring)
-            if method == 'niggli':
-                gv.niggli_reduce()
-            elif method == 'buerger':
-                gv.buerger_reduce()
-            else:
-                raise ValueError(f'Unknown reduction method {method}')
-            cells_reduced.append(gv.get_cell().parameters)
-            
-        return CellList(cells=np.array(cells_reduced), ds=self.ds, weights=self.weights,
-                        centrings=np.array(['P']*len(cells_reduced)))                        
+        write_cap_csv(fn, self.ds)                   
 
     def cluster(self,
                  distance: Optional[float]=None,

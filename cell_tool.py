@@ -369,6 +369,25 @@ class CellGUI:
         self.cluster_widget.tree = tree
         self.cluster_table.update_table(clusters=self.clusters)
         
+        std_over_mean = []
+        for k, v in self.clusters.items():
+            avg, std, lo, hi, ctr = v.stats
+            if all(np.isfinite(avg)):
+                std_over_mean.append(std / avg)
+            else:
+                continue
+        if std_over_mean:
+            std_over_mean = np.array(std_over_mean)
+            med_dev_percent = np.median(std_over_mean, axis=0)*100
+            max_dev_percent = np.max(std_over_mean, axis=0)*100
+        else:
+            med_dev_percent = np.nan
+            max_dev_percent = np.nan
+            
+        self.set_status_message(f'Clustering into {len(self.clusters)} clusters.'
+                                f'\nMed. vol. deviation: {med_dev_percent[-1]:.1f} %'
+                                f'\nMax. vol. deviation: {max_dev_percent[-1]:.1f} %')
+        
         if self.active_tab == 1:
             self.cellhist_widget.update_histograms(clusters=self.clusters)
             
@@ -389,9 +408,7 @@ class CellGUI:
     def reload_cells(self):
         raw = self.v_use_raw.get()        
         print(f'Loading cells from {self.fn}')
-        self.all_cells = CellList.from_csv(self.fn, use_raw_cell=raw) #TODO change this to selection of raw cells
-        if self.v_reduced.get():
-            self.all_cells = self.all_cells.get_reduced()  
+        self.all_cells = CellList.from_csv(self.fn, use_raw_cell=raw, reduce=self.v_reduced.get())        
         self.w_all_fn.config(text=os.path.basename(self.fn) + (' (raw)' if raw else '') + (' (reduced)' if self.v_reduced.get() else ''))
         self.run_clustering()
             

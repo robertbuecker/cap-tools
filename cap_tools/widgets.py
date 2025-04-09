@@ -67,7 +67,7 @@ class ClusterTableWidget(ttk.Frame):
     def __init__(self, root: tk.BaseWidget, clusters: Dict[int, CellList]):
         super().__init__(root)
 
-        ct_columns = ['ID', 'obs', 'a', 'b', 'c', 'al', 'be', 'ga', 'V']
+        ct_columns = ['ID', 'obs', 'a', 'b', 'c', 'al', 'be', 'ga', 'V', 'ctr']
 
         cv = self.cluster_view = myTreeView(self, columns=ct_columns, show='headings', height=6)
         self._clusters = clusters
@@ -83,6 +83,7 @@ class ClusterTableWidget(ttk.Frame):
         cv.heading('be', text='beta')
         cv.heading('ga', text='gamma')
         cv.heading('V', text='volume')
+        cv.heading('ctr', text='ctr')
 
         cv.column('ID',  width=20)
         cv.column('obs', width=30)
@@ -93,6 +94,7 @@ class ClusterTableWidget(ttk.Frame):
         cv.column('be',  width=170)
         cv.column('ga',  width=170)
         cv.column('V',   width=170)
+        cv.column('ctr', width=20)
 
         cv.bind('<<TreeviewSelect>>', self.show_entry_info)
 
@@ -121,11 +123,12 @@ class ClusterTableWidget(ttk.Frame):
                     digits = max(0,
                              -int(math.floor(math.log10(std)))+1 if std != 0 else 0,
                              -int(math.floor(math.log10(hi-lo))) if std != 0 else 0)
+                    cpar_strs.append('{0:.{4}f} ({1:.{4}f}) [{2:.{4}f}, {3:.{4}f}]'.format(avg, std, lo, hi, digits))
                 else:
                     digits = 0
-                cpar_strs.append('{0:.{4}f} ({1:.{4}f}) [{2:.{4}f}, {3:.{4}f}]'.format(avg, std, lo, hi, digits))
+                    cpar_strs.append('Mixed Centring')
 
-            self._entry_ids.append(self.cluster_view.insert('', tk.END, values=[c_id, len(cl)] + cpar_strs, tags=(str(c_id),)))
+            self._entry_ids.append(self.cluster_view.insert('', tk.END, values=[c_id, len(cl)] + cpar_strs + [cl.centring], tags=(str(c_id),)))
             
             # self.apply_cluster_colors()
             

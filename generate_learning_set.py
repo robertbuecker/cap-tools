@@ -65,6 +65,9 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
     info = []
     cap_cmds = []
 
+    exp_list = [os.path.abspath(fn) for fn in exp_list]
+    out_dir = os.path.abspath(out_dir)
+
     for ii, exp in enumerate(sorted(exp_list)):
         info_fn = os.path.join(root_dir, os.path.dirname(exp), 'experiment_results.xmlinfo')
         if not os.path.exists(info_fn):
@@ -180,8 +183,8 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
             elif os.path.exists(fn_in + extension):
                 shutil.copy(fn_in + extension, fn_out)
             elif (not rodhypix) and os.path.exists(fn_in + '.rodhypix'):
-                cap_cmds.append(f'rd i {fn_in}.rodhypix')
-                cap_cmds.append(f'wd tiffopt {fn_out} 1 0 0 0')
+                cap_cmds.append(f'rd i "{fn_in}.rodhypix"')
+                cap_cmds.append(f'wd tiffopt "{fn_out}" 1 0 0 0')
             else:
                 # print('No grain snapshot found for', exp)
                 continue

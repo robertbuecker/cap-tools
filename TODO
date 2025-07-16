@@ -1,4 +1,5 @@
 * Automatic selection of finalization
 * Save/load of clustering parameters and/or linkage matrix
 * Check of proffitmerge2 outputs
-* Option to use primitive unit cells only [https://gemmi.readthedocs.io/en/latest/cell.html]
+* Auto-cutoff by stepping through node heights and observing knees in maximum/median volume deviation
+* Local cutoff for sub-dendrograms: set max. allowed volume deviation and traverse down

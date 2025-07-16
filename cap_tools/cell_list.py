@@ -171,7 +171,7 @@ class CellList:
                 from scipy.spatial.distance import pdist, squareform
                 
                 if (cluster_pars is None) and self._cluster_pars is None:
-                    return ValueError('First clustering run; you need to supply parameters.')
+                    raise ValueError('First clustering run; you need to supply parameters.')
                 elif (cluster_pars is None) or (cluster_pars == self._cluster_pars):
                     z = self._z
                     if distance is None: distance = self._distance
@@ -202,6 +202,10 @@ class CellList:
                             raise ValueError('For the selected metric, only `average` is supported as method.')                        
                         
                         dist = pdist(cells, *args, **kwargs)                        
+                        
+                        if not all(np.isfinite(dist)):
+                            raise ValueError('Pairwise distance computation returned NaN values. Check your data.')
+                        
                         if centring == 'ignore':
                             return dist
                         

@@ -354,11 +354,14 @@ class CellGUI:
         try:
             node_cids = self.all_cells.cluster(distance=None if distance==0 else distance, cluster_pars=cluster_pars)
         except Exception as err:
+            if _cluster_pars is None:
+                _cluster_pars = ClusterOptions(preproc='None', metric='Euclidean', method='Ward', centring='Split')
+                
             showwarning('Dendrogram computation failed', '\n'.join(['Dendrogram computation failed for parameters:','---', 
                                                                     cluster_pars.preproc, cluster_pars.metric, cluster_pars.method,
                                                                     '---', 'with the error:',
                                                                     str(err),'',
-                                                                    'Reverting to old parameters:','---',
+                                                                    'Reverting to parameters:','---',
                                                                     _cluster_pars.preproc, _cluster_pars.metric, _cluster_pars.method,'---']))
             
             for k in ['preproc', 'metric', 'method', 'centring']: self.v_cluster_setting[k].set(getattr(_cluster_pars,k))
@@ -369,25 +372,33 @@ class CellGUI:
         self.cluster_widget.tree = tree
         self.cluster_table.update_table(clusters=self.clusters)
         
-        std_over_mean = []
-        for k, v in self.clusters.items():
-            avg, std, lo, hi, ctr = v.stats
-            if all(np.isfinite(avg)):
-                std_over_mean.append(std / avg)
-            else:
-                continue
-        if std_over_mean:
-            std_over_mean = np.array(std_over_mean)
-            med_dev_percent = np.median(std_over_mean, axis=0)*100
-            max_dev_percent = np.max(std_over_mean, axis=0)*100
-        else:
-            med_dev_percent = np.nan
-            max_dev_percent = np.nan
-            
-        self.set_status_message(f'Clustering into {len(self.clusters)} clusters.'
-                                f'\nMed. vol. deviation: {med_dev_percent[-1]:.1f} %'
-                                f'\nMax. vol. deviation: {max_dev_percent[-1]:.1f} %')
+        std_over_mean, max_dev_percent, med_dev_percent = [], [], []
         
+        if not self.clusters:
+            self.set_status_message('No clusters. Please increase distance cutoff.')            
+            
+        else:      
+            cid = []      
+            for k, v in self.clusters.items():
+                avg, std, lo, hi, ctr = v.stats
+                if all(np.isfinite(avg)):
+                    std_over_mean.append(std / avg)
+                    cid.append(k)
+                else:
+                    continue
+            if std_over_mean:
+                std_over_mean = np.array(std_over_mean)
+                med_dev_percent = np.median(std_over_mean, axis=0)*100
+                max_dev_percent = np.max(std_over_mean, axis=0)*100
+            else:
+                med_dev_percent = np.nan * np.ones(max(1,len(self.clusters)))
+                max_dev_percent = np.nan * np.ones(max(1,len(self.clusters)))
+            
+            self.set_status_message(f'Clustering into {len(self.clusters)} clusters.'
+                                    f'\nMed. vol. deviation: {med_dev_percent[-1]:.1f} %'
+                                    f'\nMax. vol. deviation: {max_dev_percent[-1]:.1f} %'
+                                    f' (ID {int(cid[np.argmax(std_over_mean, axis=0)[-1]])})')
+            
         if self.active_tab == 1:
             self.cellhist_widget.update_histograms(clusters=self.clusters)
             

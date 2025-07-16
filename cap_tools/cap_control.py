@@ -9,9 +9,19 @@ import shutil
 from configparser import ConfigParser
 import csv
 import subprocess
+from glob import glob
+from datetime import datetime
+import io
 
 class CAPListenModeError(RuntimeError):
     pass
+
+class CAPCommandError(ValueError):
+    pass
+
+class CAPRuntimeError(RuntimeError):
+    pass
+
 class CAPInstance:
     # TODO this should be a context manager, if we'd want to be pythonic
     
@@ -23,9 +33,14 @@ class CAPInstance:
         self.cmd_folder = cmd_folder
         self.par_file = par_file
         self.cap_folder = cap_folder
-        self.cap_proc = None #TODO: start and handle CAP offline process here
+        self.cap_proc: Optional[subprocess.Popen] = None #TODO: start and handle CAP offline process here
         self.start_timeout = 3        
         self.last_command = ''
+        self.log_handle: Optional[io.TextIOWrapper] = None
+        # self.history = [] # TODO: implement command history
+        # self.log = [] # TODO: implement log window output per command
+        # self.raise_command_error = True # TODO: implement command error handling
+        # self.raise_runtime_error = True # TODO: implement runtime error handling
         os.makedirs(cmd_folder, exist_ok=True)
         
         try:
@@ -40,15 +55,39 @@ class CAPInstance:
         if not wait_complete:
             raise NotImplementedError('Non-blocking execution of CAP commands not implemented yet.')
         
-    def start_cap(self, timeout=10):    
+    def update_log_handle(self):
+        """Update the log handle to the latest log file. This is used to read the log file in a non-blocking way.
+        """        
+        # first, determine filename
+        import locale
+        saved = locale.setlocale(locale.LC_ALL)
+        try:
+            locale.setlocale(locale.LC_ALL, 'C')
+            red_log_fn = sorted(glob(
+                os.path.join(os.path.dirname(self.par_file), 'log', 'crysalispro_redLOG*.txt')), 
+                                reverse=True, key=os.path.getmtime)[0]
+            timestamp = datetime.strptime(os.path.basename(red_log_fn), f'crysalispro_redLOG%a-%b-%d-%H-%M-%S-%Y.txt')
+        except Exception as err:
+            raise CAPListenModeError(f'Cannot find log file for experiment {self.par_file}')
+        finally:
+            locale.setlocale(locale.LC_ALL, saved)
+            
+        if self.log_handle is None:
+            self.log_handle = open(red_log_fn, 'r')
+        elif self.log_handle.name != red_log_fn:
+            self.log_handle.close()
+            self.log_handle = open(red_log_fn, 'r')
+        
+    def start_cap(self, timeout=20):    
         if self.running:
             raise CAPListenModeError('CAP instance is already running; cannot start one.')
                 
-        self.cap_proc = subprocess.Popen(f'{os.path.join(self.cap_folder, "pro.exe")} {self.par_file} -listenmode {self.cmd_folder}')
+        self.cap_proc = subprocess.Popen(f'{os.path.join(self.cap_folder, "pro.exe")} "{self.par_file}" -listenmode "{self.cmd_folder}"')
         t0 = time.time()
         while True:
             try:
                 self.run_cmd('xx sleep 1', timeout=0.2)
+                self.update_log_handle()
                 break
             except CAPListenModeError as err:
                 if time.time() > (t0 + timeout):
@@ -68,6 +107,7 @@ class CAPInstance:
         finally:
             self.cap_proc.terminate()
             self.cap_proc = None
+            self.log_handle = None
             
     def __del__(self):
         try:
@@ -75,6 +115,7 @@ class CAPInstance:
         except Exception as err:
             pass
         
+    @property
     def status(self):
         listen_fn = lambda ext: os.path.join(self.cmd_folder, f'command.{ext}')      
         if os.path.exists(listen_fn('busy')):
@@ -87,6 +128,33 @@ class CAPInstance:
     @property
     def running(self):
         return (self.cap_proc is not None) and (self.cap_proc.poll() is None)
+    
+    def load_experiment(self, par_file: str):
+        """Load experiment in CAP instance. This is required for any command that requires a loaded experiment.
+
+        Args:
+            par_file (str): Name of the experiment to load.
+        """
+        
+        self.par_file = par_file
+        if not os.path.exists(self.par_file):
+            raise FileNotFoundError(f'Experiment {self.par_file} not found.')
+        if self.running:
+            self.run_cmd(f'xx selectexpnogui \"{self.par_file}\"') 
+            self.update_log_handle()
+            
+    def run_cmd_multi_exp(self, cmd: Union[str, List[str]], 
+                          par_files: Union[str, List[str]], use_mac: bool = True, 
+                          timeout: Optional[float] = None, auto_start: bool = True):
+        """Run a command on multiple experiments in the CAP instance."""
+        if isinstance(par_files, str):
+            par_files = [par_files] 
+        
+        for par_file in par_files:
+            if not os.path.exists(par_file):
+                raise FileNotFoundError(f'Experiment {par_file} not found.')
+            self.load_experiment(par_file)
+            self.run_cmd(cmd, use_mac=use_mac, timeout=timeout, auto_start=auto_start)
         
     def run_cmd(self, cmd: Union[str, List[str]], 
                 use_mac: bool = True, 
@@ -103,8 +171,12 @@ class CAPInstance:
         if self.status == 'Busy':
             raise CAPListenModeError('CAP Instance is busy. Cannot submit new command.')  
                 
-        for fn in glob.glob(listen_fn('*')): 
-            os.remove(fn)
+        for fn in glob(listen_fn('*')): 
+            try:
+                os.remove(fn)
+            except FileNotFoundError as err:
+                # file might not exist, e.g. if it was already removed by another CAP instance
+                pass
                
         if multi_cmd and use_mac:
             # replace calls by macro call (will be faster for many little calls)
@@ -121,14 +193,14 @@ class CAPInstance:
         self.last_command = cmd
             
         t0 = time.time()
-        while not os.path.exists(listen_fn('busy')):
+        while not self.status == 'Busy':
             if (time.time() - t0) < self.start_timeout:
                 time.sleep(0.01)
             else:
                 raise CAPListenModeError(f'CAP listen mode not reacting in {self.cmd_folder}. If listen mode is not active, start it by running "xx listenmode on" in the CrysAlisPro CMD window.')
             
         t0 = time.time()
-        while os.path.exists(listen_fn('busy')):
+        while self.status == 'Busy':
             if not timeout or ((time.time() - t0) < timeout):
                 time.sleep(0.01)
             else:
@@ -136,8 +208,8 @@ class CAPInstance:
                     pass
                 raise CAPListenModeError(f'CAP command {cmd} timed out after {time.time()-t0:.2f} seconds.')
         
-        while not (os.path.exists(listen_fn('done'))
-                   | os.path.exists(listen_fn('error'))):
+        while not self.status in ['Idle', 'Error']:
+            # wait for command to finish
             time.sleep(0.01)        
                     
         if os.path.exists(fn := listen_fn('error')):
@@ -148,16 +220,17 @@ class CAPInstance:
                 # expand error message to macro
                 with open(cmd_ret.split(maxsplit=1)[-1], 'r') as fh:
                     cmds_ret = fh.readlines()
-                raise CAPListenModeError(f'Failed CAP commands: {"\n".join(cmds_ret)}')
+                raise CAPCommandError(f'Failed CAP commands: \n{"".join(cmds_ret)}')
             else:
-                raise CAPListenModeError(f'Failed CAP command: {cmd_ret}')
+                raise CAPCommandError(f'Failed CAP command: \n{cmd_ret}')
                         
         elif os.path.exists(fn := listen_fn('done')):
             with open(fn, 'r') as fh:
                 cmd_ret = fh.read().strip()
             os.remove(fn)
             if cmd == cmd_ret:
-                print(f'Command:\n{cmd_ret}\nfinished successfully.')
+                # print(f'Command:\n{cmd_ret}\nfinished successfully.')
+                pass
             else:
                 raise CAPListenModeError(f'Returned command:\n{cmd_ret}\ndoes not match request:\n{cmd}')
             
@@ -186,6 +259,7 @@ class CAPControl:
             response_func (Optional[Union[Callable[[], Any], queue.Queue]], optional): Function/queue via which info responses are returned. 
             If None, reads from command line. Defaults to None.
         """
+        #TODO check if this class is actually still required, or if it can be replaced by CAPInstance directly
         
         self._cap = cap_instance
         self.work_folder = work_folder
@@ -227,21 +301,6 @@ class CAPControl:
             self.message(str(err))
             raise(err)
         
-    def write_macro(self, macro_name: str, macro: Union[List[str], str],
-                    append: bool = False):
-        # just writes a macro file into the work folder and returns the command to run it
-        
-        if not macro_name.endswith('.mac'): macro_name += '.mac'
-        if not os.path.split(macro_name)[0]:
-            macro_name = os.path.join(self.work_folder, macro_name)
-        
-        if isinstance(macro, list): macro = '\n'.join(macro)
-        
-        with open(macro_name, 'a' if append else 'w') as fh:
-            fh.write(macro)
-            
-        return f'script {macro_name}'     
-    
 class CAPMergeFinalize(CAPControl):
     
     def __init__(self, merge_file: str,

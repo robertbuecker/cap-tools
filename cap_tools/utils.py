@@ -1,7 +1,11 @@
 from collections import defaultdict, namedtuple
+import configparser
 import csv
+from glob import glob
+import hashlib
 from math import radians, cos, floor, log10
 from pathlib import Path
+from time import sleep
 from typing import *
 import numpy as np
 import tkinter as tk
@@ -10,6 +14,9 @@ import sys
 import subprocess
 import os
 import warnings
+import xml.etree.ElementTree as ET
+
+import pandas as pd
 
 
 class TextRedirector(object):
@@ -230,6 +237,151 @@ def parse_cap_csv(fn: str, use_raw_cell: bool, filter_missing: bool = True) -> T
 
     return ds, cells, weights, centrings
 
+def parse_cap_meta(experiments: Union[str, List[str]], 
+                   log_fun: Optional[Callable[[str], None]] = None,
+                   include_merged: bool = False,
+                   exclude: List[str] = ('tomo', 'DD_Calib', 'Preset', 'Cluster'),
+                   include: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    
+    if isinstance(experiments, str):
+        experiments = [experiments]
+    
+    log = print if log_fun is None else log_fun
+    
+    # Step 1: get full path names of all experiments in a robust and consistent way
+    exp_list = []
+    for exp_entry in experiments:
+
+        if not os.path.exists(exp_entry):
+            raise FileNotFoundError(f'Input folder or CSV file {exp_entry} does not exist')
+
+        log(f'Scanning {exp_entry}...')
+        if exp_entry.endswith('.csv'):
+            with open(exp_entry) as fh:
+                for _ in range(7):
+                    _ = fh.readline()
+                ds = list(csv.DictReader(fh))
+                new_exp = [os.path.join(d['Dataset path'], d['Experiment name']) for d in ds]
+                log(f'Found {len(new_exp)} experiments in {exp_entry}')
+
+        else:            
+            new_exp = [os.path.splitext(fn)[0] for fn in glob(os.path.join(exp_entry,'**\\*.par'), recursive=True) if ('_cracker' not in fn)]
+            log(f'Found {len(new_exp)} .par files in {exp_entry}')
+            
+        exp_list.extend(new_exp)
+        
+    N = len(exp_list)
+    exp_list = [fn for fn in exp_list if all([(expr not in fn) for expr in exclude])]
+    log(f'{N-len(exp_list)} experiments were excluded by the exclude list {exclude}')
+    
+    N = len(exp_list)
+    if include is not None:
+        exp_list = [fn for fn in exp_list if any([(expr in fn) for expr in include])]
+        log(f'{N-len(exp_list)} experiments were excluded by the include list {include}')
+
+    exp_list = sorted(list(set(exp_list)))
+    log(f'Found {len(exp_list)} experiments of correct type')
+    
+    # Step 2: iterate through all experiments and collate metadata from various files
+    info = []
+    
+    for ii, exp in enumerate(exp_list):
+        
+        # STEP 2.1: XML info file
+        info_fn = os.path.join(os.path.dirname(exp), 'experiment_results.xmlinfo')
+        if not os.path.exists(info_fn):
+            log(f'WARNING: {info_fn} is missing. Skipping this experiment.')
+            continue
+        
+        info_xml_str = open(info_fn).read()
+        tree = ET.fromstring('<root>\n' + info_xml_str + '\n</root>')
+        exp_info = {'path': exp}
+        
+        if (exp_type := tree.find('__EXPERIMENT_INFO__/__EXPERIMENT_TYPE__')) is not None:
+            if (float(exp_type.text) == 6.) and not include_merged:
+                log(f'Skipping merged experiment {exp} (type 6)')
+                continue
+        
+        # generate hash digest stable information (not changing with reprocessing or moving)
+        if (user := tree.find('__EXPERIMENT_INFO__/__USER__')) is not None:
+            user = user.text
+        else:
+            user = 'anonymous'
+            
+        if (exp_time := tree.find('__EXPERIMENT_INFO__/__START_TIME__')) is not None:
+            exp_time = exp_time.text
+        else:
+            exp_time = 'unknown time'
+            
+        if (exp_name := tree.find('__EXPERIMENT_INFO__/__EXPERIMENT_PAR_NAME_WOEXT__')) is not None:
+            exp_name = exp_name.text
+        else:
+            exp_name = os.path.basename(exp)
+        
+        exp_info['name'] = exp_name
+        
+        xml_entries = {
+            'scan_range': tree.find('__EXPERIMENT_INFO__/__SCAN_RANGE__'),
+            'detector_distance': tree.find('__EXPERIMENT_INFO__/__DETECTOR_DISTANCE__'),
+            'indexation': tree.find('__EXPERIMENT_RESULTS__/__INDEXATION__'),
+            'e1': tree.find('__EXPERIMENT_RESULTS__/__MOSAICITY__/__MOSAICITY_E1__'),
+            'e2': tree.find('__EXPERIMENT_RESULTS__/__MOSAICITY__/__MOSAICITY_E2__'),
+            'e3': tree.find('__EXPERIMENT_RESULTS__/__MOSAICITY__/__MOSAICITY_E3__'),
+            'diff_limit': tree.find('__EXPERIMENT_RESULTS__/__DIFFLIMIT__'),
+            'r_int': tree.find('__EXPERIMENT_RESULTS__/__RINT__'),
+            'stage_x': tree.find('__EXPERIMENT_INFO__/__STAGE_POSITION__/__STAGE_POSITION_X__'),
+            'stage_y': tree.find('__EXPERIMENT_INFO__/__STAGE_POSITION__/__STAGE_POSITION_Y__'),
+            'stage_z': tree.find('__EXPERIMENT_INFO__/__STAGE_POSITION__/__STAGE_POSITION_Z__')
+        }
+        
+        for k, v in xml_entries.items():
+            if v is not None:
+                exp_info[k] = float(v.text)
+        
+        m = hashlib.md5()
+        hash_text = ';'.join([user, exp_time, exp_name])
+        m.update(hash_text.encode()) # this line defines what gets hashed
+        exp_info['digest'] = m.hexdigest()
+                
+        # STEP 2.2: queue info file
+        xpos, ypos = 387.5, 192.5
+        if os.path.exists(qedfile := os.path.join(os.path.dirname(exp), 'metadataexpsettings.qed')):
+            with open(qedfile, 'r') as fh:
+                for ln in fh:
+                    if ln.startswith('s_experimentsettings_metadata.s_queue_singletask.ssampleinfo_template.srequestedposition.la_abspixelrequestedposition_xy2[0]'):
+                        xpos = int(ln.split('=')[1].strip())
+                    if ln.startswith('s_experimentsettings_metadata.s_queue_singletask.ssampleinfo_template.srequestedposition.la_abspixelrequestedposition_xy2[1]'):
+                        ypos = int(ln.split('=')[1].strip())
+
+        exp_info['grain_x_px'] = xpos
+        exp_info['grain_y_px'] = ypos
+        
+        # STEP 2.3: data collection ini file
+        try:
+            config = configparser.ConfigParser()
+            config.read(os.path.join(os.path.dirname(exp), 'expinfo', exp_name + '_datacoll.ini'))
+            OL_demag, visual_pxs = 47, 0.036
+            exp_info['aperture_px'] = float(config['MicroED'].get('Aperture SA info', None)) / OL_demag / visual_pxs
+        except Exception as err:
+            log('Could not decode aperture size for', exp)
+            
+        # STEP 2.4: check grain images and diffraction images
+        extensions = ['rodhypix', 'jpg', 'tiff']
+        kinds = {'diff': 'middle_microed_diff_snapshot',
+                 'grain': 'microed_grain_snapshot',
+                 'minimap': 'microed_minimap_snapshot',
+                 'post': 'microed_post_snapshot'}
+        
+        #TODO minimap JPG needs special treatment, as it has coordinates in filename
+        for kind, fn_label in kinds.items():
+            for ext in extensions:
+                fn = os.path.join(os.path.dirname(exp), exp_name + '_' + fn_label + '.' + ext)
+                if os.path.exists(fn):
+                    exp_info[kind + '-' + ext] = fn
+                    
+        info.append(exp_info)
+        
+    return info
 
 def order_uc_pars(cells: np.ndarray) -> np.ndarray:
     """Order cell parameters in order to eliminate difference in cell distance because of parameter order"""

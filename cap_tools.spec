@@ -13,30 +13,22 @@ cell_a = Analysis(
     noarchive=False,
 )
 
-zscore_a = Analysis(
-    ['compute_z.py'],
-    pathex=[],
-    binaries=[],
-    datas=[('version.txt', '.')],
-    hiddenimports=[],
-    hookspath=[],
-    hooksconfig={},
-    runtime_hooks=[],
-    excludes=[],
-    noarchive=False,
-)
-
-# finalization_a = Analysis(
-#     ['finalization_viewer.py'],
+# zscore_a = Analysis(
+#     ['compute_z.py'],
 #     pathex=[],
 #     binaries=[],
-#     datas=[],
+#     datas=[('version.txt', '.')],
 #     hiddenimports=[],
 #     hookspath=[],
 #     hooksconfig={},
 #     runtime_hooks=[],
 #     excludes=[],
 #     noarchive=False,
+# )
+
+# finalization_a = Analysis(
+#     ['finalization_viewer.py'],
+#     ...
 # )
 
 calibrate_dd_a = Analysis(
@@ -53,31 +45,31 @@ calibrate_dd_a = Analysis(
 )
 
 generate_learning_set_a = Analysis(
-    ['generate_learning_set.py'],  # The script to analyze
-    pathex=[],  # Add any additional paths if required
-    binaries=[],  # Optional: include an icon
-    datas=[('version.txt', '.')],  # Add any additional data files if required
+    ['generate_learning_set.py'],
+    pathex=[],
+    binaries=[],
+    datas=[('version.txt', '.')],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
     noarchive=False,
-    hiddenimports=[]  # Add any hidden imports if necessary
+    hiddenimports=[]
 )
 
 MERGE(
     (cell_a, 'cell_tool', 'cell_tool'),
-    (zscore_a, 'compute_z', 'compute_z'),
+    # (zscore_a, 'compute_z', 'compute_z'),
     (calibrate_dd_a, 'calibrate_dd', 'calibrate_dd'),
-    (generate_learning_set_a, 'generate_learning_set', 'generate_learning_set')  # Include the new Analysis
+    (generate_learning_set_a, 'generate_learning_set', 'generate_learning_set')
     # (finalization_a, 'finalization_viewer', 'finalization_viewer')
 )
 
 cell_pyz = PYZ(cell_a.pure)
-zscore_pyz = PYZ(zscore_a.pure)
+# zscore_pyz = PYZ(zscore_a.pure)
 # finalization_pyz = PYZ(finalization_a.pure)
 calibrate_dd_pyz = PYZ(calibrate_dd_a.pure)
-generate_learning_set_pyz = PYZ(generate_learning_set_a.pure)  # Add the PYZ for generate_learning_set
+generate_learning_set_pyz = PYZ(generate_learning_set_a.pure)
 
 cell_exe = EXE(
     cell_pyz,
@@ -98,35 +90,17 @@ cell_exe = EXE(
     icon=['cell_tool_icon.ico'],
 )
 
-zscore_exe = EXE(
-    zscore_pyz,
-    zscore_a.scripts,
-    [],
-    exclude_binaries=True,
-    name='compute_z',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
-    console=False,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-)
-
-# finalization_exe = EXE(
-#     finalization_pyz,
-#     finalization_a.scripts,
+# zscore_exe = EXE(
+#     zscore_pyz,
+#     zscore_a.scripts,
 #     [],
 #     exclude_binaries=True,
-#     name='finalization_viewer',
+#     name='compute_z',
 #     debug=False,
 #     bootloader_ignore_signals=False,
 #     strip=False,
 #     upx=True,
-#     console=True,
+#     console=False,
 #     disable_windowed_traceback=False,
 #     argv_emulation=False,
 #     target_arch=None,
@@ -153,7 +127,6 @@ calibrate_dd_exe = EXE(
     icon=['calibrate_dd_icon.ico']
 )
 
-# Add the EXE for generate_learning_set
 generate_learning_set_exe = EXE(
     generate_learning_set_pyz,
     generate_learning_set_a.scripts,
@@ -169,23 +142,23 @@ generate_learning_set_exe = EXE(
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
-    entitlements_file=None  # Optional: specify an icon
+    entitlements_file=None
 )
 
 coll = COLLECT(
     cell_exe,
     cell_a.binaries,
     cell_a.datas,
-    zscore_exe,
-    zscore_a.binaries,
-    zscore_a.datas,
+    # zscore_exe,
+    # zscore_a.binaries,
+    # zscore_a.datas,
     # finalization_exe,
     # finalization_a.binaries,
     # finalization_a.datas,
     calibrate_dd_exe,
     calibrate_dd_a.binaries,
     calibrate_dd_a.datas,
-    generate_learning_set_exe,  # Add the new EXE object here
+    generate_learning_set_exe,
     generate_learning_set_a.binaries,
     generate_learning_set_a.datas,
     strip=False,

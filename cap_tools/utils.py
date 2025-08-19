@@ -361,7 +361,10 @@ def parse_cap_meta(experiments: Union[str, List[str]],
             config = configparser.ConfigParser()
             config.read(os.path.join(os.path.dirname(exp), 'expinfo', exp_name + '_datacoll.ini'))
             OL_demag, visual_pxs = 47, 0.036
-            exp_info['aperture_px'] = float(config['MicroED'].get('Aperture SA info', None)) / OL_demag / visual_pxs
+            try:
+                exp_info['aperture_px'] = float(config['MicroED'].get('Aperture SA info', None)) / OL_demag / visual_pxs
+            except (KeyError, ValueError):
+                exp_info['aperture_px'] = -1  # -1 means aperture size could not be decoded
         except Exception as err:
             log('Could not decode aperture size for', exp)
             

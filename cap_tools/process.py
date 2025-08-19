@@ -7,11 +7,12 @@ import pandas as pd
 import os
 from time import sleep
 from typing import *
+from glob import glob
 
 
 def get_diff_info(path, cap: Optional[CAPInstance] = None,
                   keep_peak_file: bool = False, keep_powder_file: bool = False,
-                  wavelength: float = 0.0251, pow_dmin: float = 0.3, pow_dmax: float = 20,
+                  redo_peak_hunt: bool = True, wavelength: float = 0.0251, pow_dmin: float = 0.3, pow_dmax: float = 20,
                   log: Optional[Callable] = None) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, str]:
 
     if log is None:
@@ -33,10 +34,26 @@ def get_diff_info(path, cap: Optional[CAPInstance] = None,
     peak_fn = path + '.tab'
     if not os.path.exists(peak_fn) or not keep_peak_file:
         if os.path.exists(peak_fn): os.remove(peak_fn)
-        cmds.append('ph snogui_pars 1000 20 1 0 2 2 10 10 1 0 0 0 0.0 1000.0 0 1 1 1')
+        if redo_peak_hunt:
+            cmds.append('ph snogui_pars 1000 20 1 0 2 2 10 10 1 0 0 0 0.0 1000.0 0 1 1 1')
         cmds.append('wd oldasciit ' + '\"' + path + '\"')
 
     diff_img_fn = path + '_diff_screen.png'
+    try:
+        frame_list = glob(os.path.join(os.path.dirname(path), 'frames', '*.rodhypix'))
+        
+        if len(frame_list) == 1:
+            log(f"Only one frame found, using it directly.")            
+                        
+        else:            
+            frame_list.sort(key=lambda fn: int(os.path.splitext(fn)[0].rsplit('_')[-1]))      
+            middle_frame = frame_list[len(frame_list) // 2]        
+            log(f"Using middle frame for diff image: {os.path.split(middle_frame)[-1]}")
+            cmds.append(f'rd i "{middle_frame}"')
+        
+    except Exception as e:
+        log(f"Error finding middle frame for {os.path.basename(path)}: {e}")
+        
     cmds.append(f'wd pnggiftiff "{diff_img_fn}"')
 
     log(f"Running commands for {path}: \n{'\n'.join(cmds)}")
@@ -48,7 +65,7 @@ def get_diff_info(path, cap: Optional[CAPInstance] = None,
             sleep(0.1)
             ii += 1
             if ii > 20:
-                raise FileNotFoundError(f"Peak hunt result file {powder_fn} not found after 10 seconds.")        
+                raise FileNotFoundError(f"Powder result file {powder_fn} not found after 10 seconds.")        
         powder = pd.read_csv(powder_fn, skiprows=1, sep='\\s+')
         powder['1/d'] = 1/powder['d-value']
         d_min, d_max = powder['d-value'].min(), powder['d-value'].max()

@@ -29,13 +29,15 @@ class CAPInstance:
                  par_file: str = 'C:\\Xcalibur\\CrysAlisPro171.44\\help\\ideal_microed\\MicroED.par', 
                  cap_folder: str = 'C:\\Xcalibur\\CrysAlisPro171.44',
                  wait_complete: bool = True, start_now: bool = False):
+        
+        #TODO add mechanism for minimum/maximum CAP version
 
         self.cmd_folder = cmd_folder
         self.par_file = par_file
-        self.cap_folder = cap_folder
+        self.cap_folder = cap_folder 
         self.cap_proc: Optional[subprocess.Popen] = None #TODO: start and handle CAP offline process here
-        self.start_timeout = 3        
-        self.last_command = ''
+        self.start_timeout = 3 # seconds to wait for CAP to start
+        self.last_command = '' 
         self.log_handle: Optional[io.TextIOWrapper] = None
         # self.history = [] # TODO: implement command history
         # self.log = [] # TODO: implement log window output per command

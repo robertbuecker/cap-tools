@@ -62,10 +62,11 @@ class App(tk.Tk):
         first = self.exp_table.get_children()
         if first:
             self.exp_table.selection_set(first[0])
-            
+         
+        cap_version = 45   
         
-        self.cap = CAPInstance(start_now=False, cap_folder='C:\\Xcalibur\\CrysAlisPro171.45',
-                               par_file='C:\\Xcalibur\\CrysAlisPro171.45\\help\\ideal_microed\\MicroED.par')
+        self.cap = CAPInstance(start_now=False, cap_folder=f'C:\\Xcalibur\\CrysAlisPro171.{cap_version}',
+                               par_file=f'C:\\Xcalibur\\CrysAlisPro171.{cap_version}\\help\\ideal_microed\\MicroED.par')
         
         self.output_folder = ''
 
@@ -120,7 +121,7 @@ class App(tk.Tk):
 
     # --- Experiments table ---
     def _create_experiments_frame(self):
-        self.exp_frame = ttk.LabelFrame(self, text="Experiments")
+        self.exp_frame = ttk.LabelFrame(self, text="Experiments (double-click to open in CAP)")
         self.exp_frame.grid(row=2, column=0, sticky="nsew", padx=5, pady=5)
 
         self.exp_table = ttk.Treeview(self.exp_frame, show="headings")
@@ -131,6 +132,7 @@ class App(tk.Tk):
         vsb.pack(side="right", fill="y")
         self.exp_table.pack(side="left", fill="both", expand=True)
         self.exp_table.bind("<<TreeviewSelect>>", self.on_experiment_select)
+        self.exp_table.bind("<Double-1>", self.open_selected_experiment)
 
     def update_experiments_table(self):
         """Populate the experiments table with subset columns."""
@@ -145,6 +147,19 @@ class App(tk.Tk):
         for idx, row in self.experiments.iterrows():
             vals = [idx] + [(row[c] if c in row else '') for c in self.exp_table_columns]
             self.exp_table.insert("", "end", iid=idx, values=vals)
+            
+    def open_selected_experiment(self, event):
+        """Open the selected experiment folder in file explorer."""
+        sel = self.exp_table.selection()
+        if not sel:
+            return
+        key = sel[0]
+        exp_path = self.experiments.at[key, 'path'] + '.par'
+        if os.path.exists(exp_path):
+            os.startfile(exp_path)
+            self.log(f"Opened experiment: {exp_path}")
+        else:
+            self.log(f"Experiment path does not exist: {exp_path}")
 
     def on_experiment_select(self, event):
         """Single handler: update details (and optionally figure)."""
@@ -188,6 +203,9 @@ class App(tk.Tk):
         self.set_output_folder_btn.pack(pady=(0,10))
         self.process_btn = ttk.Button(self.ctrl_frame, text="Run Computation", command=self.process)
         self.process_btn.pack()
+        self.redo_peaks_var = tk.BooleanVar(value=True)
+        self.redo_peaks_btn = ttk.Checkbutton(self.ctrl_frame, text="Redo Peak Hunt", variable=self.redo_peaks_var)
+        self.redo_peaks_btn.pack(pady=(0,10))
         self.overall_plot_btn = ttk.Button(self.ctrl_frame, text="Summary Plot", command=self.overall_plot)
         self.overall_plot_btn.pack()
 
@@ -253,6 +271,7 @@ class App(tk.Tk):
             try:
                 the_shelldata, the_peak_table, the_powder, the_diff_img = get_diff_info(exp_info['path'], cap=self.cap, 
                                                                                         keep_peak_file=False, keep_powder_file=False,
+                                                                                        redo_peak_hunt=self.redo_peaks_var.get(),
                                                                                         log=self.log)
             except Exception as e:
                 self.log(f"Skipping {name} due to error: {e}")
@@ -285,6 +304,8 @@ class App(tk.Tk):
             pw.append(the_powder)
             
             self.log(f"Found {len(the_peak_table)} diffraction peaks for {name}")
+            
+        self.cap.stop_cap(allow_stopped=True)
             
         info = pd.DataFrame(info)
         info.set_index('experiment', inplace=True)

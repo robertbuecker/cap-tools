@@ -16,8 +16,9 @@ from cap_tools.utils import get_version
 
 def main(experiments: list, out_dir: str, include_path: bool = False, 
          cmdline: bool=False, log: callable = print, zip_result: bool = True,
-         grain_images: bool = True, diff_images: bool = True, rodhypix: bool = False, 
-         jpg: bool = False):
+         grain_images: bool = True, diff_images: bool = True, grid_hash: bool = False,
+         meta_data: bool = True,
+         rodhypix: bool = False, jpg: bool = False):
 
 
     exp_list = []
@@ -102,10 +103,11 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
         m.update(hash_text.encode()) # this line defines what gets hashed
         exp_info['digest'] = m.hexdigest()
         
-        if include_path: 
-            basename = exp_name + '-' + exp_info['digest']
-        else:
-            basename = exp_info['digest']
+        m = hashlib.md5()
+        m.update(os.path.split(os.path.split(os.path.dirname(exp))[0])[-1].encode())
+        grid_digest = m.hexdigest()[:6] if grid_hash else ''
+        
+        basename = '-'.join([exp_name if include_path else '', grid_digest if grid_hash else '', exp_info['digest']]).strip('-')
         
         if ii == 0:
             # first loop run
@@ -222,15 +224,16 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
         log(f'Found existing learning set {fn} with {len(existing)} entries. Extending set, dropping duplicates.')
         info = pd.concat([existing, info]).drop_duplicates(subset='digest')
     
-    log(f'Writing set with {len(info)} entries into', os.path.join(out_dir, 'info.csv'))
-    info.to_csv(os.path.join(out_dir, 'info.csv'), index=False)
+    if meta_data:
+        log(f'Writing set with {len(info)} entries into', os.path.join(out_dir, 'info.csv'))
+        info.to_csv(os.path.join(out_dir, 'info.csv'), index=False)
 
     log('Finished writing training data to:', out_dir)
     
     if zip_result:
         log('Zipping data set to', os.path.join(out_dir, 'learning_set.zip'))
         with ZipFile(os.path.join(out_dir, 'learning_set.zip'), 'w') as zip:
-            for fn in (glob(os.path.join(out_dir, '*.tiff')) + [os.path.join(out_dir, 'info.csv')]):
+            for fn in (glob(os.path.join(out_dir, '*.tiff')) + ([os.path.join(out_dir, 'info.csv')] if meta_data else [])):
                 zip.write(fn, os.path.basename(fn))
         
         if not (jpg or rodhypix):            
@@ -275,6 +278,13 @@ def gui():
                 
     output_folder = tk.StringVar()
     input_experiments = []
+    options = {
+        'include_path': tk.BooleanVar(value=False),
+        'no_grain_images': tk.BooleanVar(value=False),
+        'no_diff_images': tk.BooleanVar(value=False),
+        'grid_hash': tk.BooleanVar(value=False),
+        'no_meta_data': tk.BooleanVar(value=False),
+    }
     
     info_write('Please first select output folder, then add data folder(s) (will be searched recursively) or CSV files (exported from Results Viewer).')
     
@@ -313,7 +323,13 @@ def gui():
         try:
             config_window('disabled')
             main(input_experiments, output_folder.get(), 
-                include_path=False, cmdline=False, 
+                include_path=options['include_path'].get(), 
+                grain_images=not options['no_grain_images'].get(),
+                diff_images=not options['no_diff_images'].get(),
+                grid_hash=options['grid_hash'].get(),
+                meta_data=not options['no_meta_data'].get(),
+                zip_result=True,
+                cmdline=False, 
                 log=lambda *msgs: info_write(*msgs, append=True))
             info_write(f'Processing successful. Results in {output_folder.get()}',
                        append=True)
@@ -333,6 +349,11 @@ def gui():
     ttk.Separator(root, orient='horizontal').grid(row=9, columnspan=2, sticky=tk.EW)
     proc_buttons.append(ttk.Button(root, text='Add folder structure', command=add_folder, state='disabled'))
     proc_buttons.append(ttk.Button(root, text='Add CSV from RV', command=add_csv, state='disabled'))
+    proc_buttons.append(ttk.Checkbutton(root, text='Include dataset path in output (not anonymous)', state='disabled', variable=options['include_path']))
+    proc_buttons.append(ttk.Checkbutton(root, text='Do not include grain images', state='disabled', variable=options['no_grain_images']))
+    proc_buttons.append(ttk.Checkbutton(root, text='Do not include diffraction images', state='disabled', variable=options['no_diff_images']))
+    proc_buttons.append(ttk.Checkbutton(root, text='Do not include metadata', state='disabled', variable=options['no_meta_data']))
+    proc_buttons.append(ttk.Checkbutton(root, text='Extra hash for grid name', state='disabled', variable=options['grid_hash']))
     proc_buttons.append(ttk.Button(root, text='Start processing', command=run_processing, state='disabled'))
     for ii, button in enumerate(proc_buttons):
         button.grid(row=10+ii, column=0, sticky=tk.NW)

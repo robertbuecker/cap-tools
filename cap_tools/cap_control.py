@@ -12,6 +12,7 @@ import subprocess
 from glob import glob
 from datetime import datetime
 import io
+from warnings import warn
 
 class CAPListenModeError(RuntimeError):
     pass
@@ -23,18 +24,67 @@ class CAPRuntimeError(RuntimeError):
     pass
 
 class CAPInstance:
-    # TODO this should be a context manager, if we'd want to be pythonic
+    # TODO this should be a context manager, if we'd want to be pythonic (we don't want to be pythonic here, though)
     
-    def __init__(self, cmd_folder: str = 'C:\\Xcalibur\\tmp\\listen_mode_offline', 
-                 par_file: str = 'C:\\Xcalibur\\CrysAlisPro171.44\\help\\ideal_microed\\MicroED.par', 
-                 cap_folder: str = 'C:\\Xcalibur\\CrysAlisPro171.44',
+    def __init__(self, 
+                 max_cap_version: Union[int, tuple, str] = 100,
+                 min_cap_version: Union[int, tuple, str] = 44,
+                 cmd_folder: str = 'C:\\Xcalibur\\tmp\\listen_mode_offline', 
+                 par_file: Optional[str] = None, 
+                 cap_folder: Optional[str] = None,
                  wait_complete: bool = True, start_now: bool = False):
         
-        #TODO add mechanism for minimum/maximum CAP version
+        if cap_folder is not None:
+            warn('cap_folder is deprecated and will be removed in a future version. Use max_cap_version and min_cap_version instead.', DeprecationWarning)
+            ver = os.path.split(cap_folder)[-1].split('.')
+            if len(ver) == 2:
+                ver = (int(ver[-1]), 1000)  # assume 1000 as minor version if not specified
+            elif len(ver) == 3:
+                ver = (int(ver[-2]), int(ver[-1]))
+            else:
+                raise ValueError(f'Invalid CAP folder name {cap_folder}. Expected format CrysAlisPro171.x or CrysAlisPro171.x.y')
+            
+        else:                
+            cap_base_path = 'C:\\Xcalibur\\CrysAlisPro171'
+
+            if isinstance(max_cap_version, str):
+                max_cap_version = tuple(int(n) for n in max_cap_version.strip('a').split('.'))
+                
+            if isinstance(min_cap_version, str):
+                min_cap_version = tuple(int(n) for n in min_cap_version.strip('a').split('.'))
+
+            if max_cap_version is None:
+                max_cap_version = (1000, 1000)  # effectively no maximum
+            elif isinstance(max_cap_version, int):
+                max_cap_version = (max_cap_version, 1000)
+
+            if min_cap_version is None:
+                min_cap_version = (0, 0)  # effectively no minimum
+            elif isinstance(min_cap_version, int):
+                min_cap_version = (min_cap_version, 0)
+
+            cap_versions = [tuple(int(n.strip('a')) for n in os.path.split(fn)[0].split('.')[-2:]) 
+                            for fn in glob(cap_base_path + f'.*.*\\pro.exe')]
+
+            for ver in sorted(cap_versions, reverse=True):
+                if ver >= min_cap_version and ver <= max_cap_version:
+                    print(f'Found suitable CAP version {ver[0]}.{ver[1]}')
+                    break
+            else:
+                print(f'No suitable CAP version found in range {min_cap_version} - {max_cap_version}')
+                raise RuntimeError('No suitable CAP version found')
+
+            for suffix in ['', 't', 'a', 'aa']:
+                if os.path.exists(fn := os.path.join(cap_base_path + f'.{ver[0]}.{ver[1]}{suffix}', 'pro.exe')):
+                    cap_folder = cap_base_path + f'.{ver[0]}.{ver[1]}{suffix}'
+                    break
+            else:
+                raise FileNotFoundError(f'No CAP folder found for {f".{ver[0]}.{ver[1]}"}. This is an internal error.')
 
         self.cmd_folder = cmd_folder
-        self.par_file = par_file
-        self.cap_folder = cap_folder 
+        self.cap_folder = cap_folder  
+        self.cap_version = ver       
+        self.par_file = os.path.join(cap_folder, 'help', 'ideal_microed', 'MicroED.par') if par_file is None else par_file
         self.cap_proc: Optional[subprocess.Popen] = None #TODO: start and handle CAP offline process here
         self.start_timeout = 3 # seconds to wait for CAP to start
         self.last_command = '' 

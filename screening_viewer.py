@@ -11,14 +11,18 @@ import numpy as np
 import pandas as pd
 from cap_tools.cap_control import CAPInstance, CAPListenModeError
 from cap_tools.utils import get_version, parse_cap_csv, parse_cap_meta
-from cap_tools.process import get_diff_info, create_report_figure_no_table, create_overall_figure
+from cap_tools.process import get_diff_info, create_report_figure_no_table, create_overall_figure, create_report_figure
+from matplotlib.backends.backend_pdf import PdfPages
+
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("MicroED Screening Viewer")
         self.geometry("1280x1024")
-
+        
+        self.cap = CAPInstance(start_now=False, min_cap_version='44.100')
+        
         # Example experiments DataFrame; replace with your real data
         cols = ['N_peaks', 'I_peak', 'I_tot', 'peak_ratio']
         self.experiments = pd.DataFrame(
@@ -62,12 +66,15 @@ class App(tk.Tk):
         first = self.exp_table.get_children()
         if first:
             self.exp_table.selection_set(first[0])
-         
-        cap_version = 45   
+                  
         
-        self.cap = CAPInstance(start_now=False, cap_folder=f'C:\\Xcalibur\\CrysAlisPro171.{cap_version}',
-                               par_file=f'C:\\Xcalibur\\CrysAlisPro171.{cap_version}\\help\\ideal_microed\\MicroED.par')
-        
+        self.log(f"Using CAP version {self.cap.cap_version[0]}.{self.cap.cap_version[1]}")
+        if self.cap.cap_version[0] < 45:
+            self.recenter_var.set(False)
+            self.recenter_btn.config(state='disabled')
+            self.redo_peaks_var.set(False)
+            self.redo_peaks_btn.config(state='disabled')
+            
         self.output_folder = ''
 
     # --- Figure + toolbar ---
@@ -199,14 +206,25 @@ class App(tk.Tk):
         
         self.output_folder_label = ttk.Label(self.ctrl_frame, text="No output folder set", width=30, wraplength=220, anchor="w")
         self.output_folder_label.pack()
-        self.set_output_folder_btn = ttk.Button(self.ctrl_frame, text="Change Output Folder", command=self.set_output_folder)
-        self.set_output_folder_btn.pack(pady=(0,10))
-        self.process_btn = ttk.Button(self.ctrl_frame, text="Run Computation", command=self.process)
+        self.set_output_folder_btn = ttk.Button(self.ctrl_frame, text="Change output folder", command=self.set_output_folder)
+        self.set_output_folder_btn.pack()
+        self.write_report_now_btn = ttk.Button(self.ctrl_frame, text="Write report", command=lambda: self.write_report(write_png=False, write_pdf=True))
+        self.write_report_now_btn.pack(pady=(0,10))
+        self.process_btn = ttk.Button(self.ctrl_frame, text="Run analysis", command=self.process)
         self.process_btn.pack()
+        self.keep_existing_var = tk.BooleanVar(value=True)
+        self.keep_existing_btn = ttk.Checkbutton(self.ctrl_frame, text="Keep existing results", variable=self.keep_existing_var)
+        self.keep_existing_btn.pack()        
+        self.recenter_var = tk.BooleanVar(value=True)
+        self.recenter_btn = ttk.Checkbutton(self.ctrl_frame, text="Recenter pattern (45)", variable=self.recenter_var)
+        self.recenter_btn.pack()        
         self.redo_peaks_var = tk.BooleanVar(value=True)
-        self.redo_peaks_btn = ttk.Checkbutton(self.ctrl_frame, text="Redo Peak Hunt", variable=self.redo_peaks_var)
-        self.redo_peaks_btn.pack(pady=(0,10))
-        self.overall_plot_btn = ttk.Button(self.ctrl_frame, text="Summary Plot", command=self.overall_plot)
+        self.redo_peaks_btn = ttk.Checkbutton(self.ctrl_frame, text="Redo peak hunt (45)", variable=self.redo_peaks_var)
+        self.redo_peaks_btn.pack()
+        self.write_report_var = tk.BooleanVar(value=True)
+        self.write_report_btn = ttk.Checkbutton(self.ctrl_frame, text="Write report when done", variable=self.write_report_var)        
+        self.write_report_btn.pack(pady=(0,10))
+        self.overall_plot_btn = ttk.Button(self.ctrl_frame, text="Summary plot", command=self.overall_plot)
         self.overall_plot_btn.pack()
 
     def _on_run(self):
@@ -270,7 +288,9 @@ class App(tk.Tk):
                         
             try:
                 the_shelldata, the_peak_table, the_powder, the_diff_img = get_diff_info(exp_info['path'], cap=self.cap, 
-                                                                                        keep_peak_file=False, keep_powder_file=False,
+                                                                                        keep_peak_file=self.keep_existing_var.get(), 
+                                                                                        keep_powder_file=self.keep_existing_var.get(),
+                                                                                        recenter_pattern=self.recenter_var.get(),
                                                                                         redo_peak_hunt=self.redo_peaks_var.get(),
                                                                                         log=self.log)
             except Exception as e:
@@ -329,9 +349,41 @@ class App(tk.Tk):
         self.update_experiments_table()
         
         self.log(f"Computed {len(self.peak_table)} peaks and {len(self.powder)} powder points from {len(self.experiments)} experiments.")
-        
         self.overall_plot()
         
+        if self.write_report_var.get():
+            os.makedirs(self.output_folder, exist_ok=True)
+            self.write_report(write_png=False, write_pdf=True)
+            
+    def write_report(self, write_png: bool = False, write_pdf: bool = True):
+            
+        if write_png:
+            os.makedirs(os.path.join(self.output_folder, 'report_figs'), exist_ok=True)
+
+        with PdfPages(os.path.join(self.output_folder,'report.pdf'), keep_empty=False) as pdf:
+            
+            self.log(f"Writing report to {self.output_folder}")            
+            
+            for name, exp_info in self.experiments.to_dict('index').items():
+                
+                exp_info = dict(exp_info)
+                exp_info['name'] = name
+                
+                fig = create_report_figure(exp_info, peak_table=self.peak_table.loc[self.peak_table.experiment == name,:],
+                                            shelldata=self.shelldata.loc[self.shelldata.experiment == name,:])
+                if write_png:
+                    fig.savefig(os.path.join(self.output_folder, 'report_figs', f'{name}.png'), dpi=300, bbox_inches='tight')
+                    plt.close(fig)
+                    
+                if write_pdf:
+                    pdf.savefig(fig, bbox_inches='tight')
+                    plt.close(fig)
+                    
+                if (not write_png) and (not write_pdf):
+                    plt.show(fig) 
+                    
+        self.log(f"Report written to {self.output_folder}")
+            
     def overall_plot(self):
         create_overall_figure(self.shelldata, self.fig)      
         self.canvas.draw()      

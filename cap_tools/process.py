@@ -13,6 +13,7 @@ from glob import glob
 def get_diff_info(path, cap: Optional[CAPInstance] = None,
                   keep_peak_file: bool = False, keep_powder_file: bool = False,
                   redo_peak_hunt: bool = True, wavelength: float = 0.0251, pow_dmin: float = 0.3, pow_dmax: float = 20,
+                  recenter_pattern: bool = True,
                   log: Optional[Callable] = None) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, str]:
 
     if log is None:
@@ -23,19 +24,38 @@ def get_diff_info(path, cap: Optional[CAPInstance] = None,
     else:
         cap.load_experiment(path + '.par')
 
-    cmds = ['dc microedadjustcenter']
+    need_center = False
+    cmds = []
 
     # Powder data extraction
     powder_fn = os.path.join(os.path.dirname(path), 'radial.dat')
-    if not os.path.exists(powder_fn) or not keep_powder_file:
-        if os.path.exists(powder_fn): os.remove(powder_fn)
+    
+    if (have_file := os.path.exists(powder_fn)) and keep_powder_file:        
+        log(f"Keeping existing powder file: {powder_fn}")        
+            
+    else:
+        if have_file:
+            log(f"Removing existing powder file: {powder_fn}")
+            os.remove(powder_fn)
         cmds.append(f'powder radial 128 {wavelength/pow_dmax*180/np.pi} {wavelength/pow_dmin*180/np.pi} 0 360 radial')
+        need_center = True
 
     peak_fn = path + '.tab'
-    if not os.path.exists(peak_fn) or not keep_peak_file:
-        if os.path.exists(peak_fn): os.remove(peak_fn)
+    
+    if (have_file := os.path.exists(peak_fn)) and keep_peak_file:
+        log(f"Keeping existing peak file: {peak_fn}")
+            
+    else:
+        if have_file:
+            log(f"Removing existing peak file: {peak_fn}")
+            os.remove(peak_fn)
         if redo_peak_hunt:
-            cmds.append('ph snogui_pars 1000 20 1 0 2 2 10 10 1 0 0 0 0.0 1000.0 0 1 1 1')
+            log(f"Will re-run peak hunt and write result into: {peak_fn}")
+            cmds.append(f'ph snogui_pars 1000 20 1 0 2 2 10 10 1 0 0 0 0.0 1000.0 0 1 1 1')
+            need_center = True
+        else:
+            log(f"Will write existing peaks into: {peak_fn}")
+            
         cmds.append('wd oldasciit ' + '\"' + path + '\"')
 
     diff_img_fn = path + '_diff_screen.png'
@@ -56,7 +76,10 @@ def get_diff_info(path, cap: Optional[CAPInstance] = None,
         
     cmds.append(f'wd pnggiftiff "{diff_img_fn}"')
 
-    log(f"Running commands for {path}: \n{'\n'.join(cmds)}")
+    if need_center and recenter_pattern:
+        cmds = ['dc microedadjustcenter'] + cmds
+
+    log(f"Running commands for {path}: \n-----\n{'\n'.join(cmds)}\n-----")
     cap.run_cmd(cmds, use_mac=True)
 
     try:
@@ -119,7 +142,8 @@ def get_diff_info(path, cap: Optional[CAPInstance] = None,
     return shelldata, peak_table, powder, diff_img_fn
 
 
-def create_report_figure(exp_info: dict, shelldata: pd.DataFrame, peak_table: pd.DataFrame, fig: Optional[plt.Figure] = None) -> plt.Figure: # type: ignore
+def create_report_figure(exp_info: dict, shelldata: pd.DataFrame, peak_table: pd.DataFrame, 
+                         fig: Optional[plt.Figure] = None, use_png: Optional[bool] = True) -> plt.Figure: # type: ignore
 
     # --- Style inside function using context manager to avoid global changes ---
     # Or, rely on global settings if plt.style.use and rcParams are set outside.
@@ -135,20 +159,31 @@ def create_report_figure(exp_info: dict, shelldata: pd.DataFrame, peak_table: pd
         # peak_table = exp_info['peak_table']
         shells = pd.concat([shelldata.d_min, shelldata.d_max]).unique()
 
-        info_table = [['Name', exp_info['name']],
-            ['Stage position', f'{exp_info["stage_x"]:.2f} {exp_info["stage_y"]:.2f} {exp_info["stage_z"]:.2f}'],
-            ['Peak count', len(peak_table)],
-            ['Total peak intensity',
-            f'{peak_table[peak_table["I"] < peak_table.I.mean() + 5 * peak_table.I.std()]['I'].sum()}'],
-            ['Shells [Å]', ' - '.join([f'{1/s:.2f}' for s in shells])],
-            ['Dark field intensity', ' | '.join([f'{f:.0f}' for f in list(shelldata['I_tot'])])],
-            ['Shell peaks', ' | '.join([f'{f:.0f}' for f in list(shelldata['N_peaks'])])],
-            ['Shell peak int', ' | '.join([f'{f:.0f}' for f in list(shelldata['I_peak'])])],
-            ['Shell peak ratio', ' | '.join([f'{f:.3f}' for f in list(shelldata['peak_ratio'])])]
-            ]
+        try:
+            info_table = [['Name', exp_info['name']],
+                ['Stage position', f'{exp_info["stage_x"]:.2f} {exp_info["stage_y"]:.2f} {exp_info["stage_z"]:.2f}'],
+                ['Peak count', len(peak_table)],
+                ['Total peak intensity',
+                f'{peak_table[peak_table["I"] < peak_table.I.mean() + 5 * peak_table.I.std()]['I'].sum()}'],
+                ['Shells [Å]', ' - '.join([f'{1/s:.2f}' for s in shells])],
+                ['Dark field intensity', ' | '.join([f'{f:.0f}' for f in list(shelldata['I_tot'])])],
+                ['Shell peaks', ' | '.join([f'{f:.0f}' for f in list(shelldata['N_peaks'])])],
+                ['Shell peak int', ' | '.join([f'{f:.0f}' for f in list(shelldata['I_peak'])])],
+                ['Shell peak ratio', ' | '.join([f'{f:.3f}' for f in list(shelldata['peak_ratio'])])]
+                ]
+        except KeyError as e:
+            print(f"KeyError in creating info table for {exp_info['name']}: {e}")
+            info_table = [['Name', exp_info['name']],
+                          ['Stage position', f'{exp_info["stage_x"]:.2f} {exp_info["stage_y"]:.2f} {exp_info["stage_z"]:.2f}'],
+                          ['Peak count', 'N/A'],
+                          ['Total peak intensity', 'N/A'],
+                          ['Shells [Å]', 'N/A'],
+                          ['Dark field intensity', 'N/A'],
+                          ['Shell peaks', 'N/A'],
+                          ['Shell peak int', 'N/A'],
+                          ['Shell peak ratio', 'N/A']]
 
-
-        diff_jpg = plt.imread(exp_info['diff-jpg'])
+        diff_jpg = plt.imread(exp_info['diff-png'] if (('diff-png' in exp_info) and use_png) else exp_info['diff-jpg'])
         grain_jpg = plt.imread(exp_info['grain-jpg'])
 
         scale = diff_jpg.shape[1] / 775
@@ -245,8 +280,6 @@ def create_report_figure_no_table(exp_info: dict, shelldata: Optional[pd.DataFra
                                   peak_table: Optional[pd.DataFrame] = None, use_png: bool = True,
                                   fig: Optional[plt.Figure] = None) -> plt.Figure: # type: ignore
 
-    # --- Style inside function using context manager to avoid global changes ---
-    # Or, rely on global settings if plt.style.use and rcParams are set outside.
     if fig is None:
         # Create a new figure if not provided
         fig = plt.figure(figsize=(12, 9))
@@ -274,8 +307,8 @@ def create_report_figure_no_table(exp_info: dict, shelldata: Optional[pd.DataFra
     # Define the size and position for ax_sq (upper left corner of ax_rect)
     rect_pos = ax_diff.get_position()
     inset_edge = rect_pos.height * 0.3
-    ax_grain = fig.add_axes([rect_pos.x0, rect_pos.y0 + rect_pos.height - inset_edge, 
-                             inset_edge, inset_edge], aspect='equal', anchor='NW')
+    ax_grain = fig.add_axes((rect_pos.x0, rect_pos.y0 + rect_pos.height - inset_edge, 
+                             inset_edge, inset_edge), aspect='equal', anchor='NW')
 
     # --- Plot Grain Image ---
     cmap_sq = 'viridis' if grain_jpg.ndim == 2 else None

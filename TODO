@@ -2,3 +2,4 @@
 * Save/load of clustering parameters and/or linkage matrix
 * Check of proffitmerge2 outputs
 * Indicate ring width in DD calib tool
+* Change DD tool to reading rodhypix directly

@@ -1,9 +1,14 @@
 """
 Minimal Python module for reading Rigaku Oxford Diffraction image files.
 
-This module extracts the core functionality from dxtbx's FormatROD class
-to provide a lightweight reader that returns NumPy arrays without requiring
-the full dxtbx infrastructure or diffraction experiment models.
+This module extracts the core functionality from dxtbx's FormatROD class which can be
+found at:
+https://github.com/cctbx/dxtbx
+
+Original copyright and license information from dxtbx is retained below.
+Authors: David Waterman, Takanori Nakane
+Copyright: 2018-2023 United Kingdom Research and Innovation & 2022-2023 Takanori Nakane
+License: BSD 3-clause
 """
 
 import os
@@ -12,9 +17,9 @@ import struct
 import numpy as np
 from typing import Dict, Tuple, Union, Optional
 
-# Try to import the C++ decompression function if available
+# Try to import the C++ decompression function from dxtbx if available
 try:
-    from dxtbx.ext import uncompress_rod_TY6
+    from dxtbx.ext import uncompress_rod_TY6 # pyright: ignore[reportMissingImports]
     HAS_CPP_DECOMPRESSION = True
 except ImportError:
     HAS_CPP_DECOMPRESSION = False
@@ -29,7 +34,7 @@ except ImportError:
 
 # Numba-accelerated TY6 decompression functions
 if HAS_NUMBA:
-    @jit(nopython=True, cache=True)
+    @jit(nopython=True, cache=True) # pyright: ignore[reportPossiblyUnboundVariable]
     def _decode_ty6_oneline_numba(linedata: np.ndarray, w: int) -> np.ndarray:
         """
         Numba JIT-compiled version of TY6 line decompression.
@@ -175,7 +180,7 @@ if HAS_NUMBA:
 
         return ret
 
-    @jit(nopython=True, cache=True)
+    @jit(nopython=True, cache=True) # pyright: ignore[reportPossiblyUnboundVariable]
     def _decode_ty6_image_numba(linedata: np.ndarray, offsets: np.ndarray, 
                                ny: int, nx: int) -> np.ndarray:
         """
@@ -455,7 +460,7 @@ class RODImageReader:
             offsets = f.read(4 * ny)
 
             # Import flex here to avoid issues if not available
-            from scitbx.array_family import flex
+            from scitbx.array_family import flex # pyright: ignore[reportMissingImports]
             flex_result = uncompress_rod_TY6(linedata, offsets, ny, nx)  # type: ignore
             return flex_result.as_numpy_array()
     

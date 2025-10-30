@@ -7,9 +7,8 @@ from tkinter.messagebox import showinfo, showwarning
 from matplotlib.backend_bases import key_press_handler
 from cap_tools.cell_list import CellList
 from cap_tools.interact_figures import distance_from_dendrogram
-from cap_tools.finalization import FinalizationCollection, Finalization
+from cap_tools.finalization import CAPMergeFinalize, FinalizationCollection
 import numpy as np
-from collections import defaultdict
 from typing import *
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -18,7 +17,7 @@ from cap_tools.widgets import ClusterTableWidget
 from cap_tools.widgets import FinalizationWidget
 from cap_tools.widgets import CellHistogramWidget
 from cap_tools.widgets import ClusterWidget
-from cap_tools.cap_control import CAPMergeFinalize, CAPInstance, CAPListenModeError
+from cap_tools.cap_control import CAPInstance
 import queue
 import sys
 from copy import copy, deepcopy

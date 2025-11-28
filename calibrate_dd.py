@@ -19,9 +19,6 @@ def process_pattern(pattern):
     # Pre-process pattern. Sato filtering works very well.
     return sato(pattern, black_ridges=False, sigmas=[1])
 
-class PetsFilesNotFoundError(RuntimeError):
-    pass
-
 def find_center(pattern, show_fig = True, use_log = True, upsample = 100, suppress_radius = None, scale_radius = False):
     # Find pattern center by cross-correlating with its own flipped version
     # optionally, use a logarithm and/or suppress a central region around the direct beam
@@ -317,12 +314,8 @@ def gui():
         
         info_write('Computing. Please wait...')
         # sleep(0.1)
-        
-        try:
-            report = main(basedir.get(), print_fn=info_write)
-        except PetsFilesNotFoundError as err:
-            info_write(str(err) + ' - stopping!')
-            raise err
+                
+        report = main(basedir.get(), print_fn=info_write)
             
         report_fn = os.path.join(basedir.get(), 'detector_distance.csv')
         report = pd.DataFrame(report)    
@@ -350,11 +343,8 @@ if __name__ == '__main__':
     if len(sys.argv) == 1:
         gui()    
     
-    else:
-        try:
-            report = main(sys.argv[1])
-        except PetsFilesNotFoundError as err:            
-            raise err            
+    else:        
+        report = main(sys.argv[1])       
             
         report = pd.DataFrame(report)    
         report_fn = os.path.join(sys.argv[1], 'detector_distance.csv')

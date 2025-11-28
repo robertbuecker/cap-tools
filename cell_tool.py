@@ -3,8 +3,6 @@ import tkinter.ttk as ttk
 import numpy as np
 from tkinter.filedialog import askopenfilename, askdirectory, asksaveasfilename, askopenfilenames
 from tkinter.messagebox import showinfo, showwarning
-# Implement the default Matplotlib key bindings.
-from matplotlib.backend_bases import key_press_handler
 from cap_tools.cell_list import CellList
 from cap_tools.interact_figures import distance_from_dendrogram
 from cap_tools.finalization import CAPMergeFinalize, FinalizationCollection
@@ -77,7 +75,7 @@ class CellGUI:
         check_queues()
         
         self.exec = ThreadPoolExecutor()
-        self.cap_instance = CAPInstance()            
+        self.cap_instance = CAPInstance(max_cap_version='44.999')       # in 45, merge from INI is broken at the moment   
         
         ## CONTROL FRAME --
         cf = self.cells_frame = ttk.LabelFrame(self.root, text='Cell Lists')
@@ -138,33 +136,15 @@ class CellGUI:
         self._mff = mff
         self.v_merge_fin_setting = {
             'resolution': tk.DoubleVar(mff, value=0.8),
-            'top_only': tk.BooleanVar(mff, value=False),
+            'top_only': tk.BooleanVar(mff, value=True),
             'top_gral': tk.BooleanVar(mff, value=False),
             'top_ac': tk.BooleanVar(mff, value=False),
             'reintegrate': tk.BooleanVar(mff, value=False)
         }
-        self.w_merge_fin_setting = {
-            'Resolution': ttk.Entry(mff, textvariable=self.v_merge_fin_setting['resolution']),
-            'Top nodes only': ttk.Checkbutton(mff, text='Top nodes only', variable=self.v_merge_fin_setting['top_only']),
-            'GRAL on top nodes': ttk.Checkbutton(mff, text='GRAL on top nodes', variable=self.v_merge_fin_setting['top_gral']),
-            'AutoChem on top nodes': ttk.Checkbutton(mff, text='AutoChem on top nodes', variable=self.v_merge_fin_setting['top_ac']),
-            # 'Reintegrate (proffit)': ttk.Checkbutton(mff, text='Reintegrate (proffit)', variable=self.v_merge_fin_setting['reintegrate']),
-        }
-        for k in ['Resolution']:#, 'Top nodes only']:
-            self.w_merge_fin_setting[k].config(w=15)
-        for ii, (k, w) in enumerate(self.w_merge_fin_setting.items()):
-            if not (isinstance(w, ttk.Button) or isinstance(w, ttk.Checkbutton)):
-                ttk.Label(mff, text=k).grid(row=ii, column=0)
-                w.grid(row=ii, column=1)
-            else:
-                w.grid(row=ii, column=0, columnspan=2)
                 
-        ttk.Button(mff, text='Merge only', command=lambda *args: self.merge_finalize(
-            finalize=False)).grid(
+        ttk.Button(mff, text='Merge', command=self.merge).grid(
             row=5, column=0, columnspan=2)
-        ttk.Button(mff, text='Merge/Finalize', command=lambda *args: self.merge_finalize(
-            finalize=True)).grid(
-            row=10, column=0, columnspan=2)
+            
         ttk.Button(mff, text='Reset', command=lambda *args: self.reset_clusters()).grid(row=15, column=0, columnspan=2)
         mff.grid_columnconfigure(0, weight=1)
         mff.grid(row=30, column=0)
@@ -462,7 +442,7 @@ class CellGUI:
         self.root.clipboard_clear()
         self.root.clipboard_append(msg)        
         
-    def merge_finalize(self, finalize: bool = True):
+    def merge(self):
         
         if not self.cluster_table.selected_cluster_ids:
             showinfo('No cluster selected', 'Please first select one or more cluster(s).')
@@ -485,58 +465,26 @@ class CellGUI:
                                      out_dir=results_folder,
                                      list_fn=self.fn + (' (raw)' if self.v_use_raw.get() else ''),
                                      selection=self.cluster_table.selected_cluster_ids,
-                                     top_only=self.v_merge_fin_setting['top_only'].get())
+                                     top_only=True)
 
         cap_control = CAPMergeFinalize(merge_file=merge_fn,
                                        cap_instance=self.cap_instance,
                                        message_func=self.status_q)
-      
-        if not finalize:        
-            
-            merge_future = self.exec.submit(cap_control.merge,
-                                            reintegrate=self.v_merge_fin_setting['reintegrate'].get())
-            
-            def check_proc_running():
-                if merge_future.done():
-                    if e := merge_future.exception():
-                        raise e
-                    self.status_q.put(f'Merging completed into {results_folder}')
-                else:
-                    self.root.after(100, check_proc_running)
-                    
-            self.root.after(100, check_proc_running)
-            
-            # cap_control.merge(reintegrate=self.v_merge_fin_setting['reintegrate'].get())                       
-                
-        else:
-            self._set_clustering_active(False)
-            # TODO why is the following required?
-            for child in self._mff.winfo_children():
-                child.config(state='normal')      
-            
-            fin_future = self.exec.submit(cap_control.finalize, 
-                                          res_limit=self.v_merge_fin_setting['resolution'].get(),
-                                          top_gral=self.v_merge_fin_setting['top_gral'].get(),
-                                          top_ac=self.v_merge_fin_setting['top_ac'].get(),
-                                          reintegrate=self.v_merge_fin_setting['reintegrate'].get())            
-                
-            def check_fin_running():
-                if fin_future.done():
-                    if e := fin_future.exception():
-                        raise e                    
-                    self.fc = fin_future.result()
-                    print('OVERALL RESULTS TABLE')
-                    print('---------------------')
-                    print(self.fc.overall_highest)  
-                    self.status_q.put(f'Finalization completed into {results_folder}')                        
-                    for child in self._mff.winfo_children():
-                        child.config(state='normal')     
-                    self.mergefin_widget.update_fc(self.fc)
-                else: 
-                    self.root.after(100, check_fin_running)              
-                
-            self.root.after(100, check_fin_running)
+              
+        merge_future = self.exec.submit(cap_control.merge)
         
+        def check_proc_running():
+            if merge_future.done():
+                if e := merge_future.exception():
+                    raise e
+                self.status_q.put(f'Merging completed into {results_folder}')
+            else:
+                self.root.after(100, check_proc_running)
+                
+        self.root.after(100, check_proc_running)
+        
+        # cap_control.merge(reintegrate=self.v_merge_fin_setting['reintegrate'].get())                       
+    
     def reset_clusters(self):
         self._set_clustering_active(True)
         self.mergefin_widget.clear()

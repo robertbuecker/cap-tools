@@ -19,9 +19,6 @@ def process_pattern(pattern):
     # Pre-process pattern. Sato filtering works very well.
     return sato(pattern, black_ridges=False, sigmas=[1])
 
-class PetsFilesNotFoundError(RuntimeError):
-    pass
-
 def find_center(pattern, show_fig = True, use_log = True, upsample = 100, suppress_radius = None, scale_radius = False):
     # Find pattern center by cross-correlating with its own flipped version
     # optionally, use a logarithm and/or suppress a central region around the direct beam
@@ -111,23 +108,6 @@ def main(basedir: str, print_fn = None):
     if not cap_files:
         print_fn(f'No CAP experiments found under {basedir}. Please check correct folder')
         raise FileNotFoundError(f'No CAP experiments found under {basedir}')
-    
-    # # now iterate through pets files to get metadata
-    # for fn in pets_files:
-    #     folder = os.path.dirname(fn)
-    #     label =  os.path.basename(fn).rsplit('.',1)[0]                  
-    #     with open(fn) as fh:
-    #         for l in fh:
-    #             if l.startswith('lambda'):
-    #                 lmbd = float(l.strip().split()[-1])
-    #             elif l.startswith('aperpixel'):
-    #                 apix = float(l.strip().split()[-1])
-    #             elif '.tif' in l:
-    #                 imgs[label] = \
-    #                     imread(os.path.join(folder, l.split()[0]))
-    #         dd = 0.1/(lmbd*apix)
-    #         dd0[label] = dd
-    #         print_fn(f'Processing set {label} with current DD = {dd:.1f}...')
     
     dd0 = {}
     imgs = {}
@@ -318,12 +298,8 @@ def gui():
         info_write('Computing. Please wait...')
         # sleep(0.1)
         
-        try:
-            report = main(basedir.get(), print_fn=info_write)
-        except PetsFilesNotFoundError as err:
-            info_write(str(err) + ' - stopping!')
-            raise err
-            
+        report = main(basedir.get(), print_fn=info_write)
+              
         report_fn = os.path.join(basedir.get(), 'detector_distance.csv')
         report = pd.DataFrame(report)    
         report.to_csv(report_fn, float_format='%.2f')
@@ -351,11 +327,7 @@ if __name__ == '__main__':
         gui()    
     
     else:
-        try:
-            report = main(sys.argv[1])
-        except PetsFilesNotFoundError as err:            
-            raise err            
-            
+        report = main(sys.argv[1])                  
         report = pd.DataFrame(report)    
         report_fn = os.path.join(sys.argv[1], 'detector_distance.csv')
         report.to_csv(report_fn, float_format='%.2f')

@@ -77,7 +77,7 @@ class CellGUI:
         check_queues()
         
         self.exec = ThreadPoolExecutor()
-        self.cap_instance = CAPInstance()            
+        self.cap_instance = CAPInstance(max_cap_version='44.999') # CAP 45 not yet supported in cell tool            
         
         ## CONTROL FRAME --
         cf = self.cells_frame = ttk.LabelFrame(self.root, text='Cell Lists')
@@ -138,7 +138,7 @@ class CellGUI:
         self._mff = mff
         self.v_merge_fin_setting = {
             'resolution': tk.DoubleVar(mff, value=0.8),
-            'top_only': tk.BooleanVar(mff, value=False),
+            'top_only': tk.BooleanVar(mff, value=True),
             'top_gral': tk.BooleanVar(mff, value=False),
             'top_ac': tk.BooleanVar(mff, value=False),
             'reintegrate': tk.BooleanVar(mff, value=False)

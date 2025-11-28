@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from skimage.io import imread
 from skimage.registration import phase_cross_correlation
 from skimage.filters import sato
 from glob import glob
@@ -9,10 +8,9 @@ from scipy.optimize import minimize, curve_fit
 import sys
 from matplotlib.patches import Ellipse
 import pandas as pd
-from time import sleep
 import warnings
-from cap_tools.cap_control import CAPControl, CAPInstance
 from cap_tools.utils import get_version
+from cap_tools.rod_image_reader import read_rod_image, get_rod_info
 
 # Calibrant data Aluminum        
 d_vec = np.array([2.338, 2.024, 1.431, 1.221, 1.169, 1.0124, 0.9289, 0.9055, 0.8266])
@@ -106,7 +104,7 @@ def main(basedir: str, print_fn = None):
     if print_fn is None:
         print_fn = print
 
-    # step 1: make CAP script to create PETS files and TIF frames, if they are not there yet    
+    # step 1: read frames from folder
     cap_files = glob(os.path.join(basedir, '**\\*.par'), recursive=True)
     cap_files = [cf for cf in cap_files if not cf.endswith('_cracker.par')]
     
@@ -114,53 +112,50 @@ def main(basedir: str, print_fn = None):
         print_fn(f'No CAP experiments found under {basedir}. Please check correct folder')
         raise FileNotFoundError(f'No CAP experiments found under {basedir}')
     
-    pets_files = []
-    cap_instance = CAPInstance(cmd_folder='C:\\Xcalibur\\tmp\\listen_mode_dd-calib', start_now=False)
-    cap = CAPControl(basedir, cap_instance=cap_instance, message_func=print_fn)
+    # # now iterate through pets files to get metadata
+    # for fn in pets_files:
+    #     folder = os.path.dirname(fn)
+    #     label =  os.path.basename(fn).rsplit('.',1)[0]                  
+    #     with open(fn) as fh:
+    #         for l in fh:
+    #             if l.startswith('lambda'):
+    #                 lmbd = float(l.strip().split()[-1])
+    #             elif l.startswith('aperpixel'):
+    #                 apix = float(l.strip().split()[-1])
+    #             elif '.tif' in l:
+    #                 imgs[label] = \
+    #                     imread(os.path.join(folder, l.split()[0]))
+    #         dd = 0.1/(lmbd*apix)
+    #         dd0[label] = dd
+    #         print_fn(f'Processing set {label} with current DD = {dd:.1f}...')
     
-    try: 
-        for cf in cap_files:
-            dir, lbl = os.path.dirname(cf), os.path.basename(cf).rsplit('.',1)[0]
-            pets_file = glob(os.path.join(dir, '**\\*.pts2'), recursive=True)
-            
-            if not pets_file:
-                print_fn(f'No PTS2 file found for {cf}. Starting export in CAP.')
-                cmds = [f'xx selectexpnogui_ignoreerror "{cf}"',
-                        f'DC IMGTOPETS "{dir}\\frames\\PETS_{lbl}\\frames" 0 1 0 1 0 0']
-                cap.run(cmds, use_mac=False)
-                pets_file = glob(os.path.join(dir, '**\\*.pts2'), recursive=True)       
-                if not pets_file:                    
-                    raise PetsFilesNotFoundError(f'PTS2 file creation in CAP did not work for {cf}')     
-                        
-            pets_files.extend(pets_file)
-            
-    except Exception as err:
-        raise err
-            
-    finally:
-        cap_instance.stop_cap(allow_stopped=True)
-        
     dd0 = {}
     imgs = {}
+    for cf in cap_files:
+        label = os.path.basename(cf).rsplit('.',1)[0]        
+        img_acc = None
+        dd = None
+        img_fns = glob(os.path.join(os.path.dirname(cf), 'frames', '*.rodhypix'))
+        
+        for img_fn in img_fns:            
+            img = read_rod_image(img_fn)
+            meta = get_rod_info(img_fn)
+            dd = float(meta['distance_mm'])
+            if label not in dd0:
+                dd0[label] = dd
+            else:
+                if abs(dd - dd0[label]) > 0.1:
+                    print_fn(f'Warning: inconsistent detector distance in {label} images!')
+            if img_acc is None:
+                img_acc = img.astype(np.float32)
+            else:
+                img_acc += img.astype(np.float32)
+
+            imgs[label] = img_acc / len(img_fns)        
+            
+        print_fn(f'Successfully read set {label} with current DD = {dd:.1f}...')
 
     report = []
-
-    # now iterate through pets files to get metadata
-    for fn in pets_files:
-        folder = os.path.dirname(fn)
-        label =  os.path.basename(fn).rsplit('.',1)[0]                  
-        with open(fn) as fh:
-            for l in fh:
-                if l.startswith('lambda'):
-                    lmbd = float(l.strip().split()[-1])
-                elif l.startswith('aperpixel'):
-                    apix = float(l.strip().split()[-1])
-                elif '.tif' in l:
-                    imgs[label] = \
-                        imread(os.path.join(folder, l.split()[0]))
-            dd = 0.1/(lmbd*apix)
-            dd0[label] = dd
-            print_fn(f'Processing set {label} with current DD = {dd:.1f}...')
 
     # and get to the real action
     for (k, img) in imgs.items():        
@@ -196,8 +191,7 @@ def main(basedir: str, print_fn = None):
                            f'Average segment DD is {res[2]:.1f} mm with ellipticity {res[1]/res[2]*100:.2f}%, long axis at {res[0]:.1f} deg.']))
 
         pdf_fn = os.path.join(basedir, k + '.pdf')
-
-        
+ 
         report.append(
             {'Label': k,
              'Old DD (mm)': dd_init,

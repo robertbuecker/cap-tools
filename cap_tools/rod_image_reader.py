@@ -619,16 +619,19 @@ class RODImageReader:
         """
         assert self._txt_header is not None
         assert self._bin_header is not None
-        return {
-            "version": self._txt_header["version"],
-            "compression": self._txt_header["compression"],
-            "image_shape": self.get_image_shape(),
-            "pixel_size_mm": self.get_pixel_size(),
-            "exposure_time_sec": self.get_exposure_time(),
-            "gain": self._bin_header["gain"],
-            "overflow_threshold": self._bin_header["overflow_threshold"],
-            "timestamp": self._txt_header["time"],
-        }
+        # return {
+        #     "version": self._txt_header["version"],
+        #     "compression": self._txt_header["compression"],
+        #     "image_shape": self.get_image_shape(),
+        #     "pixel_size_mm": self.get_pixel_size(),
+        #     "exposure_time_sec": self.get_exposure_time(),
+        #     "gain": self._bin_header["gain"],
+        #     "overflow_threshold": self._bin_header["overflow_threshold"],
+        #     "timestamp": self._txt_header["time"],
+        # }
+        all_meta = {**self._txt_header, **self._bin_header}
+
+        return all_meta
 
 
 # Convenience functions

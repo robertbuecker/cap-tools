@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cap-tools"
+version = "0.0.0"
+description = "Auxiliary electron diffraction tools for CrysAlisPro workflows"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "BSD-3-Clause"}
+authors = [
+    {name = "Robert Buecker", email = "robert.buecker@rigaku.com"},
+]
+dependencies = [
+    "cap-auto",
+    "peakfinder8",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "scipy",
+    "scikit-image",
+    "scikit-learn",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+ui = ["ttkwidgets"]
+
+[project.scripts]
+cap-tools-calibrate-dd = "cap_tools.calibrate_dd:main_cli"
+cap-tools-finalization-viewer = "cap_tools.finalization_viewer:main_cli"
+cap-tools-screening-viewer = "cap_tools.screening_viewer:main_cli"
+cap-tools-learning-set = "cap_tools.learning_set:main_cli"
+
+[tool.setuptools]
+packages = ["cap_tools"]
+
+[tool.setuptools.package-data]
+cap_tools = ["*.ico"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

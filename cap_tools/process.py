@@ -1,13 +1,20 @@
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib import patches
-from cap_tools.cap_control import CAPInstance
+from cap_auto.cap_control import CAPInstance
 import numpy as np
 import pandas as pd
 import os
 from time import sleep
 from typing import *
 from glob import glob
+
+
+def _execute_cap_commands(cap: CAPInstance, commands: List[str]) -> None:
+    if len(commands) == 1:
+        cap.execute(commands[0])
+    else:
+        cap.execute_macro(commands)
 
 
 def get_diff_info(path, cap: Optional[CAPInstance] = None,
@@ -80,7 +87,7 @@ def get_diff_info(path, cap: Optional[CAPInstance] = None,
         cmds = ['dc microedadjustcenter'] + cmds
 
     log(f"Running commands for {path}: \n-----\n{'\n'.join(cmds)}\n-----")
-    cap.run_cmd(cmds, use_mac=True)
+    _execute_cap_commands(cap, cmds)
 
     try:
         ii = 0

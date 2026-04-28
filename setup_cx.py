@@ -184,7 +184,7 @@ build_exe_options = {
     ],
     "include_files": include_files,
     "includes": includes,
-    "packages": ["cap_tools"],
+    "packages": ["cap_tools", "cap_auto", "peakfinder8"],
     "excludes": excludes,
     "include_msvcr": True,
     "optimize": 1,
@@ -232,9 +232,9 @@ class BuildExe(build_exe):
 
 executables = [
     Executable(
-        "cell_tool.py",
+        "finalization_viewer.py",
         base="Win32GUI",
-        target_name="cell_tool.exe",
+        target_name="finalization_viewer.exe",
         icon="cell_tool_icon.ico",
     ),
     Executable(
@@ -242,6 +242,11 @@ executables = [
         base="Win32GUI",
         target_name="calibrate_dd.exe",
         icon="calibrate_dd_icon.ico",
+    ),
+    Executable(
+        "screening_viewer.py",
+        base="Win32GUI",
+        target_name="screening_viewer.exe",
     ),
     Executable(
         "generate_learning_set.py",

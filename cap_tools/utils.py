@@ -26,7 +26,14 @@ def get_resource_path(filename: str) -> str:
         or getattr(sys, 'frozen_dir', None)
         or os.path.abspath('.')
     )
-    return os.path.join(base_path, filename)
+    candidates = [
+        os.path.join(base_path, filename),
+        os.path.join(os.path.dirname(__file__), filename),
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return candidates[0]
 
 
 class TextRedirector(object):

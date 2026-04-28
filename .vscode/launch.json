@@ -8,7 +8,7 @@
             "name": "DD Tool (cmd)",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
+            "program": "calibrate_dd.py",
             "console": "integratedTerminal",
             "args": [
                 "C:\\XcaliburData\\DD\\RESE\\Tue-Jul-02-13-19-14-2024"
@@ -18,7 +18,7 @@
             "name": "DD Tool (single DD)",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
+            "program": "calibrate_dd.py",
             "console": "integratedTerminal",
             "args": [
                 "C:\\XcaliburData\\DD\\RESE\\Tue-Jul-02-13-19-14-2024\\Preset01_650 mm Standard"
@@ -29,7 +29,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "calibrate_dd.py",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal"          
         },
         {
             "name": "Cell GUI",
@@ -56,7 +56,7 @@
             "program": "generate_learning_set.py",
             "console": "integratedTerminal",
             "args": ["C:\\Users\\robert.buecker\\temp\\learning", 
-            "C:\\XcaliburData",            
+            "C:\\XcaliburData\\Kikuchi_amino_acids\\Kikuchi_amino_acids",            
             "--include-path"],
             "justMyCode": true
         },

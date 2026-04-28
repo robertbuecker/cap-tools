@@ -6,6 +6,9 @@ import pandas as pd
 import pytest
 
 
+DD_LAUNCH_DATASET = Path(r"C:\XcaliburData\DD\RESE\Tue-Jul-02-13-19-14-2024")
+
+
 def _fixture_root(env_var: str) -> Path:
     value = os.environ.get(env_var)
     if not value:
@@ -39,6 +42,28 @@ def test_dd_fixture_smoke(tmp_path):
         "Report file",
     ]).issubset(report.columns)
     assert list(report_dir.glob("*.pdf"))
+
+
+def test_dd_launch_config_dataset(tmp_path):
+    from cap_tools.calibrate_dd import run_cli
+
+    if not DD_LAUNCH_DATASET.exists():
+        pytest.skip(f"DD launch dataset does not exist: {DD_LAUNCH_DATASET}")
+
+    output_csv = tmp_path / "detector_distance.csv"
+    report_dir = tmp_path / "reports"
+    report = run_cli(
+        str(DD_LAUNCH_DATASET),
+        output_csv=str(output_csv),
+        report_dir=str(report_dir),
+        quiet=True,
+    )
+
+    assert len(report) > 0
+    assert output_csv.exists()
+    assert list(report_dir.glob("*.pdf"))
+    assert report["DD segmented fit (mm)"].notna().all()
+    assert report["Report file"].map(lambda value: str(report_dir) in value).all()
 
 
 def test_learning_set_fixture_manifest(tmp_path):

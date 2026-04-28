@@ -29,6 +29,8 @@ class CAPInstance:
                  cap_folder: Optional[str] = None,
                  wait_complete: bool = True, start_now: bool = False):
         
+        warn('cap_control.CAPInstance is deprecated and will be removed in a future version. Use cap_auto.CAPInstance instead.', DeprecationWarning)
+        
         if cap_folder is not None:
             warn('cap_folder is deprecated and will be removed in a future version. Use max_cap_version and min_cap_version instead.', DeprecationWarning)
             ver = os.path.split(cap_folder)[-1].split('.')

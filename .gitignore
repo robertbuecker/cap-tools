@@ -17,3 +17,4 @@ minimal_test.*
 *.pdf
 st_play.py
 *.ini
+dist-*

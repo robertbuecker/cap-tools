@@ -12,7 +12,7 @@ import numpy as np
 from typing import *
 import os
 from concurrent.futures import ThreadPoolExecutor
-from cap_tools.utils import ClusterOptions, TextRedirector, get_version
+from cap_tools.utils import ClusterOptions, TextRedirector, get_resource_path, get_version
 from cap_tools.widgets import ClusterTableWidget
 from cap_tools.widgets import FinalizationWidget
 from cap_tools.widgets import CellHistogramWidget
@@ -58,12 +58,7 @@ class CellGUI:
         self.root.geometry('1300x900')
         self.root.title(f"3D ED/MicroED cell tool ({get_version()})")
         
-        try:       
-            base_path = sys._MEIPASS
-        except Exception:
-            base_path = os.path.abspath(".")
-
-        self.root.iconbitmap(os.path.join(base_path, "cell_tool_icon.ico"))
+        self.root.iconbitmap(get_resource_path("cell_tool_icon.ico"))
         
         # tools for multithreading (for long-running tasks) and CAP control        
         self.status_q = queue.Queue()

@@ -9,7 +9,7 @@ import sys
 from matplotlib.patches import Ellipse
 import pandas as pd
 import warnings
-from cap_tools.utils import get_version
+from cap_tools.utils import get_resource_path, get_version
 from cap_tools.rod_image_reader import read_rod_image, get_rod_info
 
 # Calibrant data Aluminum        
@@ -270,11 +270,7 @@ def gui():
     root = tk.Tk()
     root.title(f'Detector distance calibration ({get_version()})')
     
-    try:       
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-    root.iconbitmap(os.path.join(base_path, "calibrate_dd_icon.ico"))
+    root.iconbitmap(get_resource_path("calibrate_dd_icon.ico"))
 
     info = tk.Text(root, font='TkFixedFont', height=20, width=100, wrap='word')
     

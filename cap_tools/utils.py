@@ -19,6 +19,16 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 
 
+def get_resource_path(filename: str) -> str:
+    """Return a bundled resource path for source, PyInstaller, or cx_Freeze."""
+    base_path = (
+        getattr(sys, '_MEIPASS', None)
+        or getattr(sys, 'frozen_dir', None)
+        or os.path.abspath('.')
+    )
+    return os.path.join(base_path, filename)
+
+
 class TextRedirector(object):
     # from:
     # https://stackoverflow.com/questions/12351786/how-to-redirect-print-statements-to-tkinter-text-widget
@@ -71,14 +81,8 @@ def get_version():
         except Exception as e:
             pass
         
-        try:       
-            # we are inside a PyInstaller executable
-            base_path = sys._MEIPASS
-        except Exception:
-            base_path = os.path.abspath(".")
-            
         try:
-            with open(os.path.join(base_path, 'version.txt'), 'r') as fh:
+            with open(get_resource_path('version.txt'), 'r') as fh:
                 return fh.read().strip()
             
         except Exception as e:

@@ -7,19 +7,32 @@ import hashlib
 from sys import argv
 import sys
 from argparse import ArgumentParser
-from cap_auto.cap_control import CAPInstance, CAPListenModeError
 import csv
 from zipfile import ZipFile
 import configparser
 from cap_tools.utils import get_version
 from typing import List, Optional
+from rodhypix import read_rod_image
+from tifffile import imwrite
 
 
-def _run_cap_commands(cap: CAPInstance, commands: List[str]) -> None:
-    if len(commands) == 1:
-        cap.execute(commands[0])
-    else:
-        cap.execute_macro(commands)
+def _materialize_snapshot(source_base: str, output: str, extension: str, log: callable) -> bool:
+    """Copy an existing snapshot or export a ROD image as an integer TIFF."""
+    if os.path.exists(output):
+        return True
+
+    source = source_base + extension
+    if os.path.exists(source):
+        shutil.copy(source, output)
+        return True
+
+    rod_source = source_base + '.rodhypix'
+    if extension == '.tiff' and os.path.exists(rod_source):
+        imwrite(output, read_rod_image(rod_source), photometric='minisblack', metadata=None)
+        log(f'Exported TIFF snapshot from {rod_source}')
+        return True
+
+    return False
 
 
 def main(experiments: list, out_dir: str, include_path: bool = False, 
@@ -71,8 +84,6 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
     os.makedirs(out_dir, exist_ok=True)
 
     info = []
-    cap_cmds = []
-
     exp_list = [os.path.abspath(fn) for fn in exp_list]
     out_dir = os.path.abspath(out_dir)
 
@@ -168,14 +179,7 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
             
             exp_info['diff_img'] = basename + '_diff' + extension
             
-            if os.path.exists(fn_out):
-                pass
-            elif os.path.exists(fn_in + extension):
-                shutil.copy(fn_in + extension, fn_out)
-            elif (not rodhypix) and os.path.exists(fn_in + '.rodhypix'):
-                cap_cmds.append(f'rd i "{fn_in}.rodhypix"')
-                cap_cmds.append(f'wd tiffopt {fn_out} 1 0 0 0')
-            else:
+            if not _materialize_snapshot(fn_in, fn_out, extension, log):
                 # print('No diffraction snapshot found for', exp)
                 continue
         
@@ -186,14 +190,7 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
             
             exp_info['grain_img'] = basename + '_grain' + extension
 
-            if os.path.exists(fn_out):
-                pass              
-            elif os.path.exists(fn_in + extension):
-                shutil.copy(fn_in + extension, fn_out)
-            elif (not rodhypix) and os.path.exists(fn_in + '.rodhypix'):
-                cap_cmds.append(f'rd i "{fn_in}.rodhypix"')
-                cap_cmds.append(f'wd tiffopt "{fn_out}" 1 0 0 0')
-            else:
+            if not _materialize_snapshot(fn_in, fn_out, extension, log):
                 # print('No grain snapshot found for', exp)
                 continue
                     
@@ -202,28 +199,6 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
     info = pd.DataFrame(info)
 
     log(f'Found {len(info)} new experiments with sufficient metadata')
-    
-    if cap_cmds:
-        log(f'Running image conversions in CAP')
-        listen = CAPInstance()
-        while True:
-            try:
-                _run_cap_commands(listen, cap_cmds)
-                break
-            except CAPListenModeError as err:
-                if not cmdline:
-                    log(str(err))
-                    raise err
-                    
-                else:
-                    log('-----')
-                    log(str(err))
-                    log('Press Return to Retry or Ctrl-C to quit.')
-                    try:
-                        input()
-                    except KeyboardInterrupt:
-                        log('Exiting.')
-                        exit()
     
     if os.path.exists(fn := os.path.join(out_dir, 'info.csv')):
         existing = pd.read_csv(fn)

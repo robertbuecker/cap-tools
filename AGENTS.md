@@ -9,7 +9,7 @@
 - screening viewer
 - learning set generator
 
-CAP automation and native `.rodhypix` file access live in the sibling `cap-auto` repository and are consumed as dependencies.
+CAP automation lives in the sibling `cap-auto` repository. Native `.rodhypix` file access lives in the sibling `rodhypix` repository. Both are consumed as dependencies.
 
 ## Running Commands
 

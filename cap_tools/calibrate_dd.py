@@ -11,7 +11,7 @@ import pandas as pd
 import warnings
 from typing import List, Optional
 from cap_tools.utils import get_resource_path, get_version
-from cap_auto.rod_image_reader import read_rod_image, get_rod_info
+from rodhypix import get_rod_info, read_rod_image
 
 # Calibrant data Aluminum        
 d_vec = np.array([2.338, 2.024, 1.431, 1.221, 1.169, 1.0124, 0.9289, 0.9055, 0.8266])

@@ -184,7 +184,7 @@ build_exe_options = {
     ],
     "include_files": include_files,
     "includes": includes,
-    "packages": ["cap_tools", "cap_auto", "peakfinder8"],
+    "packages": ["cap_tools", "cap_auto", "peakfinder8", "rodhypix", "tifffile"],
     "excludes": excludes,
     "include_msvcr": True,
     "optimize": 1,

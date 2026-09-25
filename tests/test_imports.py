@@ -27,6 +27,12 @@ def test_cap_control_removed_from_active_code():
     assert offenders == []
 
 
+def test_learning_set_does_not_depend_on_cap_auto():
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "cap_tools" / "learning_set.py").read_text(encoding="utf-8")
+    assert "cap_auto" not in text
+
+
 def test_compatibility_launchers_are_thin():
     root = Path(__file__).resolve().parents[1]
     for script in [

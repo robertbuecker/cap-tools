@@ -9,4 +9,4 @@ This major branch is being refactored toward four maintained applications:
 - screening viewer
 - learning set generator
 
-CAP automation and native `.rodhypix` file access are delegated to `cap-auto`.
+CAP automation is delegated to `cap-auto`; native `.rodhypix` file access is delegated to `rodhypix`.

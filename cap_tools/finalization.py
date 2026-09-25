@@ -29,64 +29,9 @@ _FOM_DICT = {'Rint': 1,
             'Rsym': 11,
             'RshelX': 12}
 
-
-# def write_fin_xml(template: str, name: str, folder: str, 
-#                   gral: Optional[bool] = None, autochem: Optional[bool] = None,
-#                   laue: Optional[Union[int]] = None, z: Optional[float] = None,
-#                   chem: Optional[str] = None, res_limit: Optional[float] = None,
-#                   fom: Union[list, tuple] = ('Rint', 'Rurim', 'Rpim', 'CC 1/2', 'deltaCC', 'Sigma', 'SigmaA', 'SigmaB', 'CC*'),
-#                   pars: Optional[Dict[str, str]] = None):
-
-#     tree = ET.parse(template)
-#     root = tree.getroot()
-#     root.find('__FINALIZER_SAMPLE__/__Input_file__').text = name
-#     root.find('__FINALIZER_SAMPLE__/__Input_file_path__').text = folder
-#     root.find('__FINALIZER_OUTPUT__/__Output_file__').text = name
-#     root.find('__FINALIZER_OUTPUT__/__Output_file_path__').text = os.path.join(folder, name)
-
-#     pars = {} if pars is None else pars
-    
-#     if gral is not None:
-#         pars['__FINALIZER_SPACE_GROUP_AND_AUTOCHEM__/__Is_GRAL_on__'] = '1' if gral else '0'
-#     if autochem is not None:
-#         pars['__FINALIZER_SPACE_GROUP_AND_AUTOCHEM__/__Is_AutoChem_active__'] = '1' if autochem else '0'
-#     if autochem is not None:
-#         pars['__FINALIZER_SPACE_GROUP_AND_AUTOCHEM__/__Is_AutoChem_active__'] = '1' if autochem else '0'
-#     if laue is not None:
-#         if isinstance(laue, str):
-#             lcls = root.find('__FINALIZER_SAMPLE__/__Type_of_Laue__indexinfo__').text.split(';')
-#             laue = {v.strip(): int(k) for k, v in (lcl.split('-', 1) for lcl in lcls)}[laue]
-#         pars['__FINALIZER_SAMPLE__/__Type_of_Laue__'] = str(laue)
-#     if res_limit is not None:
-#         pars['__FINALIZER_FILTERS_AND_LIMITS__/__Automated__'] = '0'
-#         pars['__FINALIZER_FILTERS_AND_LIMITS__/__Apply_resolution_limits__'] = '1'
-#         pars['__FINALIZER_FILTERS_AND_LIMITS__/__Resolution_limits_-_high_limit__'] = str(res_limit)
-#         pars['__FINALIZER_FILTERS_AND_LIMITS__/__Dmin_for_completness__'] = str(res_limit)
-#     if z is not None:
-#         pars['__FINALIZER_SAMPLE__/__Z__'] = str(z)
-#     if chem is not None:
-#         pars['__FINALIZER_SAMPLE__/__Chemical_formula__'] = str(chem)
-        
-#     pars['__FINALIZER_FILTERS_AND_LIMITS__/__Apply_printout_options__'] = '1'
-    
-#     for ii, the_fom in enumerate(fom):
-#         # print(the_fom)
-#         pars[f'__FINALIZER_FILTERS_AND_LIMITS__/__Printout_options_-_Output_order_-_{ii}__'] = str(_FOM_DICT.get(the_fom, 0))
-    
-#     # global settings
-#     for k, v in pars.items():
-#         try:
-#             root.find(k).text = v
-#         except AttributeError:
-#             print('Entry',k, 'not found in XML template.')
-        
-#     xml_name = os.path.join(folder, name) + '_rrp.xml'
-#     tree.write(xml_name)
-    
-#     return xml_name
-   
-   
 class FinalizationXML:
+    # TODO Change this to a pure _parser_ without write functionality. It should only extract a few key parameters from the finalization XML.
+    # TODO For now, it's fairly useless.
     
     @classmethod
     def from_template(cls, template_file: str, path: str, filename: str):
@@ -147,6 +92,7 @@ class FinalizationXML:
                     N_shells: int = 10,
                     pars: Optional[Dict[str, str]] = None):
         #TODO why is there another template mechanism here?
+        #TODO why does the _parser_ need a function to overwrite the template? Isn't that covered by `cap-auto` now?
         
         if template is not None:
             if os.path.exists(template):
@@ -215,22 +161,25 @@ class Finalization:
 
     HEADLINE = 'Statistics vs resolution (taking redundancy into account)'
 
-    def __init__(self, path: str, verbose: bool = True, 
+    def __init__(self, path: str, verbose: bool = True, merged: bool = False,
                  meta: Optional[Dict] = None, sub_paths: Union[List[str], Tuple[str]] = (), 
                  allow_missing: bool = False, parse: bool = True):
+        # TODO: document this properly. OMG.
 
         self.path: str = path
         self.verbose: bool = verbose
         self.shells: pd.DataFrame = pd.DataFrame([])
         self.overall: pd.DataFrame = pd.DataFrame([])
+        self.merged: bool = merged
         self.sub_paths: List[str] = list(sub_paths)
         self.meta = meta if meta is not None else {}
         if (meta is not None) and ('Merge code' in meta):
             self.meta['Nexp'] = len(meta['Merge code'].split(':'))
         
-        self.pars_xml = FinalizationXML(filename=self.pars_xml_path, 
-                                        path=self.path, allow_missing=True, 
-                                        parse=parse)
+        # skipping the XML parsing. It's not mandatory as the code does not actually run the finalizations anymore.
+        # self.pars_xml = FinalizationXML(filename=self.pars_xml_path, 
+        #                                path=self.path, allow_missing=True, 
+        #                                parse=parse)
         
         if parse:
             
@@ -264,7 +213,7 @@ class Finalization:
     
     @property
     def pars_xml_path(self):
-        return self.path + '_finalizer.xml'
+        return self.path + ('_finalizer.xml' if not self.merged else '_finalizer_default_merged.xml') 
     
     @property
     def have_proffit(self):
@@ -272,7 +221,9 @@ class Finalization:
     
     @property
     def have_pars_xml(self):
-        return self.pars_xml.tree is not None
+        return False
+        # XML parsing is temporarily disabled. The XML file is not required for the finalization viewer, and the parsing is currently broken.
+        # return self.pars_xml.tree is not None
 
     def parse_finalization_results(self, check_current: bool = False, timeout: float = 0):
 
@@ -281,12 +232,13 @@ class Finalization:
         if not os.path.exists(fn):
             raise FileNotFoundError(f'Result summary file {fn} not found.')            
         
-        if os.path.exists(self.pars_xml_path) and (os.path.getmtime(self.pars_xml_path) > (os.path.getmtime(fn) + 5)):
-            msg = f'Result summary {os.path.basename(fn)} is older than parameter file {os.path.basename(self.pars_xml_path)}'
-            if check_current:
-                raise RuntimeError(msg)
-            else:
-                warnings.warn(msg, RuntimeWarning)
+        # We don't check the timestamp of the XML file anymore, as it is not required for the finalization viewer. The XML parsing is currently disabled.
+        # if os.path.exists(self.pars_xml_path) and (os.path.getmtime(self.pars_xml_path) > (os.path.getmtime(fn) + 5)):
+        #     msg = f'Result summary {os.path.basename(fn)} is older than parameter file {os.path.basename(self.pars_xml_path)}'
+        #     if check_current:
+        #         raise RuntimeError(msg)
+        #     else:
+        #         warnings.warn(msg, RuntimeWarning)
 
         if self.verbose:
             print(f'Parsing result summary file {fn}')            

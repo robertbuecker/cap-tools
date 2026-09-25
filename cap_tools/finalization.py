@@ -274,7 +274,7 @@ class Finalization:
     def have_pars_xml(self):
         return self.pars_xml.tree is not None
 
-    def parse_finalization_results(self, check_current: bool = True, timeout: float = 0):
+    def parse_finalization_results(self, check_current: bool = False, timeout: float = 0):
 
         fn = self.path + '_red.sum'
 
@@ -395,7 +395,7 @@ class FinalizationCollection(MutableMapping[str, Finalization]):
     @classmethod
     def from_csv(cls, filename: str,
                 ignore_parse_errors: bool = False, 
-                label_column: str = 'Name', 
+                label_column: str = 'Experiment_name', 
                 meta_cols: Union[List[str], Tuple[str]] = ('Cluster', 'Data sets', 'Merge code'),
                 **kwargs):
 
@@ -408,11 +408,11 @@ class FinalizationCollection(MutableMapping[str, Finalization]):
             
         for _, ds in merge_sets.iterrows():
             try:
-                fc[ds[label_column]] = Finalization(ds['File path'], meta={k: ds[k] for k in meta_cols if k in ds}, 
+                fc[ds[label_column]] = Finalization(os.path.join(ds['Experiment_path'], ds['Finalization_output_file']), meta={k: ds[k] for k in meta_cols if k in ds}, 
                                                     **kwargs)
             except (RuntimeError, FileNotFoundError) as err:
                 if ignore_parse_errors:
-                    print(f'{ds["File path"]} not found or could not be parsed, skipping.')
+                    print(f'{ds["Experiment_path"]} not found or could not be parsed, skipping.')
                 else:
                     raise err
 

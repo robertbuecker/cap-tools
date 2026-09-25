@@ -1,4 +1,3 @@
-from time import time
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 
@@ -10,11 +9,8 @@ from typing import *
 import numpy as np
 import pandas as pd
 
-from cap_tools.cell_list import CellList
 from cap_tools.finalization import FinalizationCollection
 from cap_tools.interact_figures import fom_radar_plot
-from cap_tools.utils import myTreeView
-import math
 import os
 
 
@@ -51,108 +47,6 @@ class PlotWidget(ttk.Frame):
     #     self.controls = ttk.Frame(self)
 
 
-class ClusterWidget(PlotWidget):
-
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.tree: Optional[Dict[str, Any]] = None
-
-    # def init_figure_controls(self):
-    #     super().init_figure_controls()
-    #     ttk.Label(self.controls, text='Nothing here').grid(row=0, column=1)
-    #     ttk.Button(self.controls, text='Don\'t click!', command=lambda *args: print('nothing')).grid(row=0, column=2)
-
-class ClusterTableWidget(ttk.Frame):
-
-    def __init__(self, root: tk.BaseWidget, clusters: Dict[int, CellList]):
-        super().__init__(root)
-
-        ct_columns = ['ID', 'obs', 'a', 'b', 'c', 'al', 'be', 'ga', 'V', 'ctr']
-
-        cv = self.cluster_view = myTreeView(self, columns=ct_columns, show='headings', height=6)
-        self._clusters = clusters
-        self._selected_cluster = None
-        self._entry_ids = []
-
-        cv.heading('ID', text='ID')
-        cv.heading('obs', text='# Cryst')
-        cv.heading('a', text='a')
-        cv.heading('b', text='b')
-        cv.heading('c', text='c')
-        cv.heading('al', text='alpha')
-        cv.heading('be', text='beta')
-        cv.heading('ga', text='gamma')
-        cv.heading('V', text='volume')
-        cv.heading('ctr', text='ctr')
-
-        cv.column('ID',  width=20)
-        cv.column('obs', width=30)
-        cv.column('a',   width=170)
-        cv.column('b',   width=170)
-        cv.column('c',   width=170)
-        cv.column('al',  width=170)
-        cv.column('be',  width=170)
-        cv.column('ga',  width=170)
-        cv.column('V',   width=170)
-        cv.column('ctr', width=20)
-
-        cv.bind('<<TreeviewSelect>>', self.show_entry_info)
-
-        cv.grid(row=0, column=0, sticky=tk.NSEW)
-
-        scrollbar = ttk.Scrollbar(self, orient=tk.VERTICAL, command=cv.yview)
-        cv.configure(yscroll=scrollbar.set)
-        scrollbar.grid(row=0, column=1, sticky=tk.NS)
-
-    def update_table(self, clusters: Optional[Dict[int, CellList]] = None):
-
-        if clusters is not None:
-            self._clusters = clusters
-
-        for the_id in self._entry_ids:
-            self.cluster_view.delete(the_id)
-
-        self._entry_ids = []
-
-        for c_id, cl in sorted(self._clusters.items()):
-            stats = cl.stats
-
-            cpar_strs = []
-            for avg, std, lo, hi in zip(stats.mean, stats.std, stats.min, stats.max):
-                if np.isfinite(avg):
-                    digits = max(0,
-                             -int(math.floor(math.log10(std)))+1 if std != 0 else 0,
-                             -int(math.floor(math.log10(hi-lo))) if std != 0 else 0)
-                    cpar_strs.append('{0:.{4}f} ({1:.{4}f}) [{2:.{4}f}, {3:.{4}f}]'.format(avg, std, lo, hi, digits))
-                else:
-                    digits = 0
-                    cpar_strs.append('Mixed Centring')
-
-            self._entry_ids.append(self.cluster_view.insert('', tk.END, values=[c_id, len(cl)] + cpar_strs + [cl.centring], tags=(str(c_id),)))
-            
-            # self.apply_cluster_colors()
-            
-    def apply_cluster_colors(self, cluster_colors: Dict[int, str] = None):
-        
-        for c_id in self._clusters.keys():
-            self.cluster_view.tag_configure(str(c_id), foreground=cluster_colors.get(int(c_id), 'white'))
-        
-
-    def show_entry_info(self, event):
-        for cluster_id in self.selected_cluster_ids:
-            print(f'--- CLUSTER {cluster_id} ---')
-            print(self._clusters[cluster_id].table)
-
-    @property
-    def selected_cluster_ids(self) -> List[int]:
-        return [self.cluster_view.item(selected)['values'][0]
-                for selected in self.cluster_view.selection()]
-        
-    @property
-    def selected_clusters(self) -> Dict[int, CellList]:
-        return {cid: cl for cid, cl in self._clusters.items() if cid in self.selected_cluster_ids}
-
-
 class FOMWidget2(PlotWidget):
     def __init__(self, parent, change_callback: callable, fom_list: Optional[List[str]] = None, initial: Optional[Tuple[str, str]] = ('CC1/2', 'complete'), **kwargs):
         super().__init__(parent, fig_row=20, **kwargs)
@@ -177,14 +71,14 @@ class FOMWidget2(PlotWidget):
 
 class FinalizationWidget(ttk.Frame):
 
-    def __init__(self, root: tk.BaseWidget, cluster_widget: Optional[ClusterWidget] = None):
+    def __init__(self, root: tk.BaseWidget):
         super().__init__(root)
         self.fc = FinalizationCollection()
         self.overall_text = tk.Text(self)
         # self.overall_text.grid(row=0, column=0, sticky='NSEW')
-        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=0)
+        self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
-        self.cluster_widget = cluster_widget # to be used for highlighting the selected cluster in the cluster widget
 
         # columns for overall view
         self.ft_columns = {'name': ('', 90),
@@ -203,6 +97,8 @@ class FinalizationWidget(ttk.Frame):
         self.sv_columns.update({'deltaCC': ('dCC', 70)})
 
         tbl_frame = ttk.Frame(self, borderwidth=0, relief='flat')
+        tbl_frame.columnconfigure(0, weight=1)
+        tbl_frame.rowconfigure(0, weight=1)
 
         # OVERVIEW OF FINALIZATIONS
         fv = self.fin_view = ttk.Treeview(tbl_frame, columns=list(self.ft_columns.keys()), show='headings', height=6)
@@ -246,12 +142,11 @@ class FinalizationWidget(ttk.Frame):
 
         self.fom_plot = FOMWidget2(plot_frame, figsize=(4,3), change_callback=self.update_shell_plot,
                                    fom_list=[k for k in self.sv_columns.keys() if k not in ['dmin', 'dmax']])
-        self.fom_plot.grid(row=0, column=1, sticky='NSEW')
-        plot_frame.columnconfigure(1, weight=100)
-        plot_frame.rowconfigure(0, weight=100)
+        self.fom_plot.grid(row=0, column=0, sticky='NSEW')
+        plot_frame.columnconfigure(0, weight=1)
+        plot_frame.rowconfigure(0, weight=1)
 
         plot_frame.grid(row=0, column=1, sticky='NSEW')
-        self.rowconfigure(0, weight=100)
         
     def clear(self):
         self.update_fc(fc = FinalizationCollection())
@@ -373,44 +268,6 @@ class FinalizationWidget(ttk.Frame):
     def selected_fin_ids(self) -> List[str]:
         return [self.fin_view.item(selected)['values'][0]
                 for selected in self.fin_view.selection()]
-
-
-class CellHistogramWidget(PlotWidget):
-
-    def __init__(self, parent):
-        super().__init__(parent)
-
-        axs = self.fig.subplots(2, 4)
-        axs[-1,-1].remove()
-        self.axs = {'a': axs[0,0], 'b': axs[0,1], 'c': axs[0,2],
-                    'al': axs[1,0], 'be': axs[1,1], 'ga': axs[1,2],
-                    'V': axs[0,3]}
-        self.fig.subplots_adjust(hspace=0.5)
-
-    def init_figure_controls(self):
-        super().init_figure_controls()
-        ttk.Label(self.controls, text='Nothing here').grid(row=0, column=1)
-        ttk.Button(self.controls, text='Don\'t click!', command=lambda *args: print('nothing')).grid(row=0, column=2)
-
-    def update_histograms(self, clusters: Dict[int, CellList]):
-
-        print('Updating cell parameter histograms...')
-        t0 = time()
-        cluster_cells = {c_id: np.concatenate([cluster.cells, cluster.volumes.reshape(-1,1)], axis=1)
-                         for c_id, cluster in sorted(clusters.items())}
-
-        for ii, (lbl, ax) in enumerate(self.axs.items()):
-            ax.cla()
-            ax.hist([cl[:, ii] for cl in cluster_cells.values()],
-                    histtype='bar', label=list(cluster_cells.keys()))
-            ax.set_title(lbl)
-            # ax.set_yticks([])
-            if lbl=='V':
-                ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.5))
-
-        self.fig.canvas.draw()
-
-        print(f'Updating histograms took {1000*(time()-t0):.0f} ms')
 
 
 class FOMWidget(PlotWidget):

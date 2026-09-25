@@ -10,7 +10,7 @@ from matplotlib.figure import Figure
 import numpy as np
 import pandas as pd
 from cap_auto.cap_control import CAPInstance, CAPListenModeError
-from cap_tools.utils import get_version, parse_cap_csv
+from cap_tools.utils import get_version
 from cap_tools.process import create_report_figure_no_table, create_overall_figure, create_report_figure
 from cap_tools.screening import analyze_experiment_with_cap, load_experiment_metadata
 from matplotlib.backends.backend_pdf import PdfPages

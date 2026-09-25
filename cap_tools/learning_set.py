@@ -41,7 +41,7 @@ def main(experiments: list, out_dir: str, include_path: bool = False,
                 for _ in range(7):
                     _ = fh.readline()
                 ds = list(csv.DictReader(fh))
-                new_exp = [os.path.join(d['Dataset path'], d['Experiment name']) for d in ds]
+                new_exp = [os.path.join(d['Dataset path' if 'Dataset path' in d else 'Experiment_path'], d['Experiment name' if 'Experiment name' in d else 'Experiment_name']) for d in ds]
                 log(f'Found {len(new_exp)} experiments in {exp_entry}')
 
         else:            

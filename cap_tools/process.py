@@ -2,19 +2,11 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib import patches
 from cap_auto.cap_control import CAPInstance
+from cap_auto.cap_files import get_diff_info as _cap_auto_get_diff_info
 import numpy as np
 import pandas as pd
 import os
-from time import sleep
 from typing import *
-from glob import glob
-
-
-def _execute_cap_commands(cap: CAPInstance, commands: List[str]) -> None:
-    if len(commands) == 1:
-        cap.execute(commands[0])
-    else:
-        cap.execute_macro(commands)
 
 
 def get_diff_info(path, cap: Optional[CAPInstance] = None,
@@ -22,129 +14,44 @@ def get_diff_info(path, cap: Optional[CAPInstance] = None,
                   redo_peak_hunt: bool = True, wavelength: float = 0.0251, pow_dmin: float = 0.3, pow_dmax: float = 20,
                   recenter_pattern: bool = True,
                   log: Optional[Callable] = None) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, str]:
+    """Return diffraction analysis as pandas frames using cap-auto parsers.
 
+    `cap_auto.cap_files.get_diff_info` is the canonical parser/generator. This
+    wrapper preserves cap-tools' historical DataFrame-shaped return values for
+    the screening viewer and report helpers.
+    """
     if log is None:
         log = print
 
-    if cap is None:
-        cap = CAPInstance(par_file=path + '.par', cap_folder='C:\\Xcalibur\\CrysAlisPro171.45')
-    else:
+    if cap is not None:
         cap.load_experiment(path + '.par')
 
-    need_center = False
-    cmds = []
+    shell_stats, reflections, powder_data, diff_img_fn = _cap_auto_get_diff_info(
+        path,
+        cap=cap,
+        keep_peak_file=keep_peak_file,
+        keep_powder_file=keep_powder_file,
+        redo_peak_hunt=redo_peak_hunt,
+        wavelength=wavelength,
+        pow_dmin=pow_dmin,
+        pow_dmax=pow_dmax,
+        recenter_pattern=recenter_pattern,
+        log=log,
+    )
 
-    # Powder data extraction
-    powder_fn = os.path.join(os.path.dirname(path), 'radial.dat')
-    
-    if (have_file := os.path.exists(powder_fn)) and keep_powder_file:        
-        log(f"Keeping existing powder file: {powder_fn}")        
-            
-    else:
-        if have_file:
-            log(f"Removing existing powder file: {powder_fn}")
-            os.remove(powder_fn)
-        cmds.append(f'powder radial 128 {wavelength/pow_dmax*180/np.pi} {wavelength/pow_dmin*180/np.pi} 0 360 radial')
-        need_center = True
+    shelldata = pd.DataFrame(shell_stats)
 
-    peak_fn = path + '.tab'
-    
-    if (have_file := os.path.exists(peak_fn)) and keep_peak_file:
-        log(f"Keeping existing peak file: {peak_fn}")
-            
-    else:
-        if have_file:
-            log(f"Removing existing peak file: {peak_fn}")
-            os.remove(peak_fn)
-        if redo_peak_hunt:
-            log(f"Will re-run peak hunt and write result into: {peak_fn}")
-            cmds.append(f'ph snogui_pars 1000 20 1 0 2 2 10 10 1 0 0 0 0.0 1000.0 0 1 1 1')
-            need_center = True
-        else:
-            log(f"Will write existing peaks into: {peak_fn}")
-            
-        cmds.append('wd oldasciit ' + '\"' + path + '\"')
+    peak_table = pd.DataFrame(reflections)
+    if 'inv_d' in peak_table:
+        peak_table['1/d'] = peak_table['inv_d']
 
-    diff_img_fn = path + '_diff_screen.png'
-    try:
-        frame_list = glob(os.path.join(os.path.dirname(path), 'frames', '*.rodhypix'))
-        
-        if len(frame_list) == 1:
-            log(f"Only one frame found, using it directly.")            
-                        
-        else:            
-            frame_list.sort(key=lambda fn: int(os.path.splitext(fn)[0].rsplit('_')[-1]))      
-            middle_frame = frame_list[len(frame_list) // 2]        
-            log(f"Using middle frame for diff image: {os.path.split(middle_frame)[-1]}")
-            cmds.append(f'rd i "{middle_frame}"')
-        
-    except Exception as e:
-        log(f"Error finding middle frame for {os.path.basename(path)}: {e}")
-        
-    cmds.append(f'wd pnggiftiff "{diff_img_fn}"')
-
-    if need_center and recenter_pattern:
-        cmds = ['dc microedadjustcenter'] + cmds
-
-    log(f"Running commands for {path}: \n-----\n{'\n'.join(cmds)}\n-----")
-    _execute_cap_commands(cap, cmds)
-
-    try:
-        ii = 0
-        while not os.path.exists(powder_fn):
-            sleep(0.1)
-            ii += 1
-            if ii > 20:
-                raise FileNotFoundError(f"Powder result file {powder_fn} not found after 10 seconds.")        
-        powder = pd.read_csv(powder_fn, skiprows=1, sep='\\s+')
-        powder['1/d'] = 1/powder['d-value']
-        d_min, d_max = powder['d-value'].min(), powder['d-value'].max()
-        shells = [1/d_max, 1/10, 1/1.2, 1/0.8, 1/(d_min*1.5), 1/d_min]
-        powder['shell'] = np.digitize(powder['1/d'], shells, right=False) - 1
-
-    except Exception as e:
-        log(f"Error parsing powder data for {path}: {e}")
-        raise e
-
-    try:
-        ii = 0
-        while not os.path.exists(peak_fn):
-            sleep(0.1)
-            ii += 1
-            if ii > 20:
-                raise FileNotFoundError(f"Peak hunt result file {peak_fn} not found after 10 seconds.")
-
-        pk_cols=['x', 'y', 'z', 'R', 'I', 'f', 's', 'm', 'st',
-            'centroidx', 'centroidy', 'os', 'ts', 'ks', 'ps', 'op',
-            'tp', 'calcstatus', 'runframenumber']
-        peak_table = pd.read_csv(peak_fn, sep='\\s+', skiprows=1, header=None).iloc[:,:len(pk_cols)]
-        peak_table.columns = pk_cols
-        peak_table.dropna(inplace=True)
-        peak_table.drop(['os', 'ts', 'f', 's', 'm', 'ks', 'ps', 'op', 'tp', 'st'], axis=1, inplace=True)
-
-        peak_table['1/d'] = peak_table['R']/wavelength
-        peak_table['d'] = 1/peak_table['1/d']
-        peak_table['shell'] = np.digitize(peak_table['1/d'], shells, right=False) - 1
-
-    except Exception as e:
-        log(f"Error processing peak data for {path}: {e}")
-        raise e
-
-    # get per-shell data from powder data and peak table
-    shelldata = []
-    for ii, d_inv in enumerate(shells[:-1]):
-        shelldata.append({
-            'd_max': 1/d_inv,
-            'd_min': 1/shells[ii+1],
-            'I_tot': powder[powder['shell'] == ii]['intx'].sum(),
-            'I_peak': peak_table[peak_table['shell'] == ii]['I'].sum(),
-            'N_peaks': len(peak_table[peak_table['shell'] == ii]),
-            'peak_ratio': (peak_table[peak_table['shell'] == ii]['I'].sum() /
-                        powder[powder['shell'] == ii]['intx'].sum()
-                        if powder[powder['shell'] == ii]['intx'].sum() > 0 else np.nan)
-        })
-
-    shelldata = pd.DataFrame(shelldata)
+    powder = pd.DataFrame(powder_data)
+    if 'd_value' in powder:
+        powder['d-value'] = powder['d_value']
+    if 'intensity' in powder:
+        powder['intx'] = powder['intensity']
+    if 'inv_d' in powder:
+        powder['1/d'] = powder['inv_d']
 
     return shelldata, peak_table, powder, diff_img_fn
 

@@ -5,7 +5,7 @@ if (-not $args -or $args.Count -eq 0) {
     exit 2
 }
 
-$repoRoot = Split-Path -Parent $PSScriptRoot
+$repoRoot = $PSScriptRoot
 $condaExe = "C:\ProgramData\miniforge3\Scripts\conda.exe"
 
 if (-not (Test-Path $condaExe)) {
@@ -41,6 +41,18 @@ $commandName = $args[0]
 $commandArgs = @()
 if ($args.Count -gt 1) {
     $commandArgs = $args[1..($args.Count - 1)]
+}
+
+$isPytest = $commandName -eq "pytest" -or (
+    $commandName -eq "python" -and
+    $commandArgs.Count -ge 2 -and
+    $commandArgs[0] -eq "-m" -and
+    $commandArgs[1] -eq "pytest"
+)
+
+if ($isPytest) {
+    $env:MPLBACKEND = "Agg"
+    $env:PYTEST_ADDOPTS = (($env:PYTEST_ADDOPTS, "--basetemp=.tmp/pytest-$PID", "-p", "no:cacheprovider") -join " ").Trim()
 }
 
 & $commandName @commandArgs

@@ -1,6 +1,10 @@
 *.csv
 *.ipynb
 __pycache__
+.pytest_cache
+pytest-cache-files-*
+.tmp
+.numba_cache
 build
 dist
 *.xml

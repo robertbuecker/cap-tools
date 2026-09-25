@@ -70,7 +70,7 @@ class FinalizationViewer:
     def add_csv(self) -> None:
         filename = askopenfilename(filetypes=[("CSV result list", "*.csv"), ("All files", "*.*")])
         if filename:
-            self.add_collection(FinalizationCollection.from_csv(filename, ignore_parse_errors=True))
+            self.add_collection(FinalizationCollection.from_csv(filename, ignore_parse_errors=False))
 
     def add_folder(self) -> None:
         folder = askdirectory(title="Folder containing *_red.sum files")

@@ -13,24 +13,6 @@ cell_a = Analysis(
     noarchive=False,
 )
 
-# zscore_a = Analysis(
-#     ['compute_z.py'],
-#     pathex=[],
-#     binaries=[],
-#     datas=[('version.txt', '.')],
-#     hiddenimports=[],
-#     hookspath=[],
-#     hooksconfig={},
-#     runtime_hooks=[],
-#     excludes=[],
-#     noarchive=False,
-# )
-
-# finalization_a = Analysis(
-#     ['finalization_viewer.py'],
-#     ...
-# )
-
 calibrate_dd_a = Analysis(
     ['calibrate_dd.py'],
     pathex=[],
@@ -59,10 +41,8 @@ generate_learning_set_a = Analysis(
 
 MERGE(
     (cell_a, 'cell_tool', 'cell_tool'),
-    # (zscore_a, 'compute_z', 'compute_z'),
     (calibrate_dd_a, 'calibrate_dd', 'calibrate_dd'),
     (generate_learning_set_a, 'generate_learning_set', 'generate_learning_set')
-    # (finalization_a, 'finalization_viewer', 'finalization_viewer')
 )
 
 cell_pyz = PYZ(cell_a.pure)
@@ -89,24 +69,6 @@ cell_exe = EXE(
     entitlements_file=None,
     icon=['cell_tool_icon.ico'],
 )
-
-# zscore_exe = EXE(
-#     zscore_pyz,
-#     zscore_a.scripts,
-#     [],
-#     exclude_binaries=True,
-#     name='compute_z',
-#     debug=False,
-#     bootloader_ignore_signals=False,
-#     strip=False,
-#     upx=True,
-#     console=False,
-#     disable_windowed_traceback=False,
-#     argv_emulation=False,
-#     target_arch=None,
-#     codesign_identity=None,
-#     entitlements_file=None,
-# )
 
 calibrate_dd_exe = EXE(
     calibrate_dd_pyz,

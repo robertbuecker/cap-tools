@@ -1,4 +1,6 @@
 from pathlib import Path
+from importlib.util import find_spec
+import os
 import re
 import shutil
 import subprocess
@@ -85,7 +87,27 @@ def _write_version_file(version_tag: str) -> None:
     (ROOT / "version.txt").write_text(f"{version_tag}\n", encoding="ascii")
 
 
+def _add_package_source_roots(package_names: tuple[str, ...]) -> None:
+    """Make editable-install source trees visible to cx_Freeze's finder."""
+    for package_name in package_names:
+        spec = find_spec(package_name)
+        if spec is None or not spec.submodule_search_locations:
+            raise ImportError(f"Could not locate required package {package_name!r}")
+        source_root = str(Path(next(iter(spec.submodule_search_locations))).parent)
+        if source_root not in sys.path:
+            sys.path.insert(0, source_root)
+
+
 _assert_expected_env()
+_add_package_source_roots(("cap_auto", "peakfinder8", "rodhypix"))
+TCL_LIBRARY = Path(sys.prefix) / "Library" / "lib" / "tcl8.6"
+TK_LIBRARY = Path(sys.prefix) / "Library" / "lib" / "tk8.6"
+if not (TCL_LIBRARY / "init.tcl").exists():
+    raise FileNotFoundError(TCL_LIBRARY / "init.tcl")
+if not (TK_LIBRARY / "tk.tcl").exists():
+    raise FileNotFoundError(TK_LIBRARY / "tk.tcl")
+os.environ["TCL_LIBRARY"] = str(TCL_LIBRARY)
+os.environ["TK_LIBRARY"] = str(TK_LIBRARY)
 PROGRAM_VERSION_TAG = _version_tag_from_git_describe()
 PROGRAM_SETUP_VERSION = _setup_version(PROGRAM_VERSION_TAG)
 
@@ -99,6 +121,8 @@ include_files = [
     ("calibrate_dd_icon.ico", "calibrate_dd_icon.ico"),
     _conda_library_bin("tcl86t.dll"),
     _conda_library_bin("tk86t.dll"),
+    (str(TCL_LIBRARY), "lib/tcl8.6"),
+    (str(TK_LIBRARY), "lib/tk8.6"),
 ]
 
 includes = [

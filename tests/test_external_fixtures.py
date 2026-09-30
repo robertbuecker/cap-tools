@@ -10,6 +10,7 @@ import pytest
 
 
 DD_LAUNCH_DATASET = Path(r"C:\XcaliburData\DD\RESE\Tue-Jul-02-13-19-14-2024")
+FINALIZATION_ACCEPTANCE_DATASET = Path(r"C:\XcaliburData\20260911_120kVmicroED")
 
 
 def _test_output_dir(name: str) -> Path:
@@ -144,3 +145,45 @@ def test_finalization_fixture_parses():
     assert not collection.overall.empty
     assert not collection.highest_shell.empty
     assert not collection.overall_highest.empty
+
+
+def test_finalization_acceptance_dataset_metadata():
+    from cap_tools.finalization import Finalization, FinalizationCollection, FinalizationLoadMode, FinalizationLoadOptions
+
+    if not FINALIZATION_ACCEPTANCE_DATASET.exists():
+        pytest.skip(f"Finalization acceptance dataset does not exist: {FINALIZATION_ACCEPTANCE_DATASET}")
+
+    exp_4780 = FINALIZATION_ACCEPTANCE_DATASET / "120kV" / "exp_4780"
+    refined = Finalization(str(exp_4780 / "exp_4780_autored"), parse=False)
+    assert refined.refinement.r1_gt == pytest.approx(0.1328)
+    assert refined.refinement.wr_ref == pytest.approx(0.3360)
+    assert refined.refinement.goof == pytest.approx(1.237)
+
+    merged_root = FINALIZATION_ACCEPTANCE_DATASET / "120kV" / "m_120kV"
+    merged = Finalization(str(merged_root / "m_120kV"), parse=False)
+    assert merged.merge_membership.total_count == 12
+    assert merged.merge_membership.used_count == 12
+    assert "exp_4780" in merged.merge_membership.used_names
+
+    current = FinalizationCollection.from_folder(str(exp_4780), ignore_parse_errors=True, verbose=False)
+    assert list(current) == ["reproc_exp_4780_dyn"]
+
+    all_results = FinalizationCollection.from_folder(
+        str(exp_4780),
+        ignore_parse_errors=True,
+        verbose=False,
+        load_options=FinalizationLoadOptions(FinalizationLoadMode.ALL),
+    )
+    assert {"exp_4780_autored", "reproc_exp_4780", "reproc_exp_4780_dyn"}.issubset(all_results)
+
+    pattern_results = FinalizationCollection.from_folder(
+        str(exp_4780),
+        ignore_parse_errors=True,
+        verbose=False,
+        load_options=FinalizationLoadOptions(
+            FinalizationLoadMode.PATTERNS,
+            include_patterns=("*dyn*",),
+            exclude_patterns=("*reproc*",),
+        ),
+    )
+    assert list(pattern_results) == ["reproc_exp_4780_dyn"]

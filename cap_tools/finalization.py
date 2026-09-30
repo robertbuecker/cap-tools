@@ -1,4 +1,10 @@
 from collections.abc import MutableMapping
+from configparser import ConfigParser, Error as ConfigParserError
+from dataclasses import dataclass, field
+from enum import Enum
+from fnmatch import fnmatchcase
+from pathlib import Path
+import re
 from typing import Any, Callable
 import pandas as pd
 import os
@@ -28,6 +34,192 @@ _FOM_DICT = {'Rint': 1,
             'deltaCC': 9,
             'Rsym': 11,
             'RshelX': 12}
+
+
+class FinalizationLoadMode(str, Enum):
+    CURRENT = "current"
+    ALL = "all"
+    PATTERNS = "patterns"
+
+
+@dataclass(frozen=True)
+class FinalizationLoadOptions:
+    mode: FinalizationLoadMode = FinalizationLoadMode.CURRENT
+    include_patterns: Tuple[str, ...] = ()
+    exclude_patterns: Tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "mode", FinalizationLoadMode(self.mode))
+        object.__setattr__(self, "include_patterns", tuple(p for p in self.include_patterns if p))
+        object.__setattr__(self, "exclude_patterns", tuple(p for p in self.exclude_patterns if p))
+
+    def matches(self, name: str) -> bool:
+        """Return whether a finalization basename passes pattern-mode rules."""
+        lowered = name.casefold()
+        included = any(fnmatchcase(lowered, pattern.casefold()) for pattern in self.include_patterns)
+        excluded = any(fnmatchcase(lowered, pattern.casefold()) for pattern in self.exclude_patterns)
+        if included:
+            return True
+        if self.include_patterns:
+            return False
+        return not excluded
+
+
+@dataclass(frozen=True)
+class Olex2Refinement:
+    source: Optional[str] = None
+    r1_gt: Optional[float] = None
+    wr_ref: Optional[float] = None
+    goof: Optional[float] = None
+
+    @property
+    def status(self) -> str:
+        if self.source is None:
+            return "not found"
+        if all(value is not None for value in (self.r1_gt, self.wr_ref, self.goof)):
+            return "complete"
+        if any(value is not None for value in (self.r1_gt, self.wr_ref, self.goof)):
+            return "partial"
+        return "unrefined"
+
+    def as_dict(self) -> Dict[str, Optional[float]]:
+        return {"R1_gt": self.r1_gt, "wR_ref": self.wr_ref, "GOOF": self.goof}
+
+
+@dataclass(frozen=True)
+class MergedExperiment:
+    index: int
+    name: str
+    folder: Optional[str] = None
+    rrpprof_name: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class MergeMembership:
+    inputs: Tuple[MergedExperiment, ...] = ()
+    selected_indices: Optional[frozenset[int]] = None
+    warnings: Tuple[str, ...] = ()
+
+    @property
+    def total_count(self) -> int:
+        return len(self.inputs) if self.inputs else 1
+
+    @property
+    def used_count(self) -> Optional[int]:
+        if not self.inputs:
+            return 1
+        if self.selected_indices is None:
+            return None
+        return sum(exp.index in self.selected_indices for exp in self.inputs)
+
+    @property
+    def used_names(self) -> Tuple[str, ...]:
+        if not self.inputs or self.selected_indices is None:
+            return ()
+        return tuple(exp.name for exp in self.inputs if exp.index in self.selected_indices)
+
+    @property
+    def excluded_names(self) -> Tuple[str, ...]:
+        if not self.inputs or self.selected_indices is None:
+            return ()
+        return tuple(exp.name for exp in self.inputs if exp.index not in self.selected_indices)
+
+
+_FLOAT_RE = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][-+]?\d+)?"
+
+
+def parse_olex2_refinement(finalization_path: str) -> Olex2Refinement:
+    """Parse refinement metrics from the exact root-level Olex2 result file."""
+    base = Path(finalization_path)
+    source = base.parent / "struct" / f"olex2_{base.name}" / f"{base.name}.res"
+    if not source.is_file():
+        return Olex2Refinement()
+    try:
+        text = source.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return Olex2Refinement(source=str(source))
+
+    values: Dict[str, Optional[float]] = {"R1_gt": None, "wR_ref": None, "GOOF": None}
+    for key in values:
+        matches = re.findall(rf"^\s*REM\s+{re.escape(key)}\s*=\s*({_FLOAT_RE})\s*$", text, re.MULTILINE)
+        if matches:
+            try:
+                values[key] = float(matches[-1])
+            except ValueError:
+                pass
+    return Olex2Refinement(str(source), values["R1_gt"], values["wR_ref"], values["GOOF"])
+
+
+def parse_merge_membership(finalization_path: str) -> MergeMembership:
+    """Read merged experiment membership from the finalization's expinfo folder."""
+    expinfo = Path(finalization_path).parent / "expinfo"
+    merged_path = expinfo / "merged.ini"
+    if not merged_path.is_file():
+        return MergeMembership()
+
+    parser = ConfigParser(interpolation=None)
+    warnings_found: List[str] = []
+    try:
+        parser.read(merged_path, encoding="utf-8")
+    except (OSError, UnicodeError, ConfigParserError) as err:
+        return MergeMembership(warnings=(f"Could not parse merged.ini: {err}",))
+    inputs: List[MergedExperiment] = []
+    for section in parser.sections():
+        match = re.fullmatch(r"Merged experiment\s+(\d+)", section, re.IGNORECASE)
+        if not match:
+            continue
+        index = int(match.group(1))
+        values = parser[section]
+        name = values.get("experiment name", "").strip().strip('"')
+        if not name:
+            warnings_found.append(f"Missing experiment name for merged batch {index}")
+            name = f"batch {index}"
+        inputs.append(MergedExperiment(
+            index=index,
+            name=name,
+            folder=values.get("experiment folder path", fallback=None),
+            rrpprof_name=values.get("rrpprof name", fallback=None),
+        ))
+    inputs.sort(key=lambda value: value.index)
+
+    try:
+        declared = parser.getint(
+            "Number of merged experiments", "number of merged experiments", fallback=len(inputs)
+        )
+    except ValueError:
+        declared = len(inputs)
+        warnings_found.append("Invalid input count in merged.ini")
+    if declared != len(inputs):
+        warnings_found.append(f"merged.ini declares {declared} inputs but lists {len(inputs)}")
+
+    clustering_path = expinfo / "clustering.ini"
+    if not clustering_path.is_file():
+        return MergeMembership(tuple(inputs), None, tuple(warnings_found))
+
+    clustering = ConfigParser(interpolation=None)
+    try:
+        clustering.read(clustering_path, encoding="utf-8")
+    except (OSError, UnicodeError, ConfigParserError) as err:
+        warnings_found.append(f"Could not parse clustering.ini: {err}")
+        return MergeMembership(tuple(inputs), None, tuple(warnings_found))
+    selected: set[int] = set()
+    seen: set[int] = set()
+    if clustering.has_section("Selected batches"):
+        for key, value in clustering.items("Selected batches"):
+            match = re.fullmatch(r"is\s+(\d+)\s+batch\s+selected", key, re.IGNORECASE)
+            if not match:
+                continue
+            index = int(match.group(1))
+            seen.add(index)
+            if value.strip() == "1":
+                selected.add(index)
+            elif value.strip() != "0":
+                warnings_found.append(f"Invalid selection flag for merged batch {index}: {value}")
+    expected = {exp.index for exp in inputs}
+    if seen != expected:
+        warnings_found.append("clustering.ini selection indices do not match merged.ini")
+        return MergeMembership(tuple(inputs), None, tuple(warnings_found))
+    return MergeMembership(tuple(inputs), frozenset(selected), tuple(warnings_found))
 
 class FinalizationXML:
     # TODO Change this to a pure _parser_ without write functionality. It should only extract a few key parameters from the finalization XML.
@@ -175,6 +367,8 @@ class Finalization:
         self.meta = meta if meta is not None else {}
         if (meta is not None) and ('Merge code' in meta):
             self.meta['Nexp'] = len(meta['Merge code'].split(':'))
+        self.refinement = parse_olex2_refinement(path)
+        self.merge_membership = parse_merge_membership(path)
         
         # skipping the XML parsing. It's not mandatory as the code does not actually run the finalizations anymore.
         # self.pars_xml = FinalizationXML(filename=self.pars_xml_path, 
@@ -218,6 +412,25 @@ class Finalization:
     @property
     def have_proffit(self):
         return os.path.exists(self.path + '.rrpprof') 
+
+    @property
+    def olex2_res_path(self) -> Optional[str]:
+        return self.refinement.source
+
+    @property
+    def olex2_metrics(self) -> Dict[str, Optional[float]]:
+        return self.refinement.as_dict()
+
+    @property
+    def merged_metadata(self) -> Dict[str, Any]:
+        membership = self.merge_membership
+        return {
+            'N inputs': membership.total_count,
+            'N used': membership.used_count,
+            'Input experiments': membership.inputs and ', '.join(exp.name for exp in membership.inputs) or '',
+            'Used experiments': ', '.join(membership.used_names),
+            'Excluded experiments': ', '.join(membership.excluded_names),
+        }
     
     @property
     def have_pars_xml(self):
@@ -319,29 +532,55 @@ class FinalizationCollection(MutableMapping[str, Finalization]):
 
     @classmethod
     def from_folder(cls, folder: str, include_subfolders: bool = False,
-                    ignore_parse_errors: bool = False, **kwargs):
-        from glob import glob
-        
-        folder = os.path.normpath(folder)
-        
-        if include_subfolders:
-            paths = [fn[:-8] for fn in glob(os.path.join(folder, '**', '*_red.sum'), recursive=True)]
-        else:            
-            paths = [fn[:-8] for fn in glob(os.path.join(folder, '*_red.sum'))]
-
-        paths = [p for p in paths if not os.path.dirname(p).endswith(os.path.sep.join(['struct', 'tmp']))]
+                    ignore_parse_errors: bool = False,
+                    load_options: Optional[FinalizationLoadOptions] = None,
+                    **kwargs):
+        folder_path = Path(folder)
+        options = load_options or FinalizationLoadOptions()
+        iterator = folder_path.rglob('*_red.sum') if include_subfolders else folder_path.glob('*_red.sum')
+        discovered = [
+            path.with_name(path.name[:-8])
+            for path in iterator
+            if not (len(path.parts) >= 2 and tuple(part.casefold() for part in path.parts[-3:-1]) == ('struct', 'tmp'))
+        ]
+        candidates = discovered
+        if options.mode is FinalizationLoadMode.PATTERNS:
+            candidates = [path for path in candidates if options.matches(path.name)]
 
         fc = cls()
-
-        for path in paths:
-            try:
-                fc[os.path.basename(path)] = Finalization(path, **kwargs)
-            except RuntimeError as err:
-                if ignore_parse_errors:
-                    warnings.warn(f'{path} could not be parsed, skipping. Error was: {str(err)}', RuntimeWarning)
+        fc.candidate_count = len(discovered)
+        if options.mode is FinalizationLoadMode.CURRENT:
+            grouped: Dict[Path, List[Path]] = {}
+            for path in candidates:
+                grouped.setdefault(path.parent, []).append(path)
+            for parent in sorted(grouped, key=lambda value: str(value).casefold()):
+                ordered = sorted(
+                    grouped[parent],
+                    key=lambda value: value.with_name(value.name + '_red.sum').stat().st_mtime,
+                    reverse=True,
+                )
+                failures: List[str] = []
+                for path in ordered:
+                    try:
+                        fc._add_finalization(Finalization(str(path), **kwargs))
+                        fc._loaded_candidate_count += 1
+                        if failures:
+                            fc.load_messages.append(
+                                f"Used {path.name} after skipping newer malformed finalization(s): "
+                                + '; '.join(failures)
+                            )
+                        break
+                    except (OSError, RuntimeError, ValueError, KeyError, IndexError, UnicodeError, pd.errors.ParserError) as err:
+                        failures.append(f"{path.name}: {err}")
+                        fc.malformed_count += 1
                 else:
-                    raise err
-
+                    if failures:
+                        fc.load_messages.append(f"No parseable finalization in {parent}: {'; '.join(failures)}")
+        else:
+            for path in sorted(candidates, key=lambda value: str(value).casefold()):
+                fc._try_add(str(path), ignore_parse_errors=ignore_parse_errors, **kwargs)
+        fc._finalize_diagnostics()
+        fc._emit_load_warnings()
         return fc
     
     @classmethod
@@ -349,39 +588,49 @@ class FinalizationCollection(MutableMapping[str, Finalization]):
                 ignore_parse_errors: bool = False, 
                 label_column: str = 'Experiment_name', 
                 meta_cols: Union[List[str], Tuple[str]] = ('Cluster', 'Data sets', 'Merge code'),
+                load_options: Optional[FinalizationLoadOptions] = None,
                 **kwargs):
-
+        options = load_options or FinalizationLoadOptions()
         try:
             merge_sets = pd.read_csv(filename)
-        except pd.errors.ParserError:
+        except (pd.errors.ParserError, UnicodeDecodeError):
             merge_sets = pd.read_csv(filename, skiprows=7)
-              
-        fc = cls()
-            
-        for _, ds in merge_sets.iterrows():
-            try:
-                fc[ds[label_column]] = Finalization(os.path.join(ds['Experiment_path'], ds['Finalization_output_file']), meta={k: ds[k] for k in meta_cols if k in ds}, 
-                                                    **kwargs)
-            except (RuntimeError, FileNotFoundError) as err:
-                if ignore_parse_errors:
-                    print(f'{ds["Experiment_path"]} not found or could not be parsed, skipping.')
-                else:
-                    raise err
 
+        if 'Experiment_path' not in merge_sets.columns:
+            merge_sets = pd.read_csv(filename, skiprows=7)
+
+        fc = cls()
+        for _, ds in merge_sets.iterrows():
+            experiment_path = Path(str(ds.get('Experiment_path', '')))
+            meta = {k: ds[k] for k in meta_cols if k in ds and pd.notna(ds[k])}
+            if label_column in ds and pd.notna(ds[label_column]):
+                meta['Experiment'] = ds[label_column]
+            candidates: List[Path]
+            if options.mode is FinalizationLoadMode.CURRENT:
+                fc.candidate_count += 1
+                selected = ds.get('Finalization_output_file')
+                if pd.isna(selected) or str(selected).strip() in {'', '---'}:
+                    fc.load_messages.append(f"No current finalization recorded for {experiment_path}")
+                    continue
+                candidates = [experiment_path / str(selected)]
+            else:
+                discovered = [path.with_name(path.name[:-8]) for path in experiment_path.glob('*_red.sum')]
+                fc.candidate_count += len(discovered)
+                candidates = discovered
+                if options.mode is FinalizationLoadMode.PATTERNS:
+                    candidates = [path for path in candidates if options.matches(path.name)]
+            for path in sorted(candidates, key=lambda value: str(value).casefold()):
+                fc._try_add(str(path), meta=meta.copy(), ignore_parse_errors=ignore_parse_errors, **kwargs)
+        fc._finalize_diagnostics()
+        fc._emit_load_warnings()
         return fc
     
     @classmethod
     def from_files(cls, filenames: List[str], **kwargs):
-
         fc = cls()
-
         for path in filenames:
-            try:
-                fc[os.path.basename(path)] = Finalization(os.path.normpath(path), **kwargs)
-            except RuntimeError as err:
-                print(f'{path} could not be parsed, skipping.')
-                raise err
-
+            fc.candidate_count += 1
+            fc._try_add(os.path.normpath(path), ignore_parse_errors=False, **kwargs)
         return fc
     
     @classmethod
@@ -389,10 +638,55 @@ class FinalizationCollection(MutableMapping[str, Finalization]):
         fc = cls()
         for k, v in fins.items():
             fc[k] = v
+        return fc
     
     def __init__(self):
         super().__init__()
         self._finalizations: Dict[str, Finalization] = {}
+        self.load_messages: List[str] = []
+        self.candidate_count = 0
+        self.skipped_count = 0
+        self.malformed_count = 0
+        self._loaded_candidate_count = 0
+
+    def _try_add(self, path: str, *, ignore_parse_errors: bool, **kwargs) -> bool:
+        try:
+            self._add_finalization(Finalization(path, **kwargs))
+            self._loaded_candidate_count += 1
+            return True
+        except (OSError, RuntimeError, ValueError, KeyError, IndexError, UnicodeError, pd.errors.ParserError) as err:
+            self.malformed_count += 1
+            message = f'{path} could not be parsed, skipping. Error was: {err}'
+            self.load_messages.append(message)
+            if not ignore_parse_errors:
+                raise
+            return False
+
+    def _finalize_diagnostics(self) -> None:
+        self.skipped_count = max(0, self.candidate_count - self._loaded_candidate_count)
+
+    def _add_finalization(self, finalization: Finalization) -> str:
+        for key, existing in self.items():
+            if os.path.normcase(os.path.abspath(existing.path)) == os.path.normcase(os.path.abspath(finalization.path)):
+                return key
+        base = finalization.name
+        key = base
+        if key in self._finalizations:
+            parent = Path(finalization.path).parent
+            depth = 1
+            while key in self._finalizations:
+                qualifier = os.path.join(*parent.parts[-depth:]) if depth <= len(parent.parts) else str(parent)
+                key = f'{base} [{qualifier}]'
+                depth += 1
+                if depth > len(parent.parts) + 1 and key in self._finalizations:
+                    key = f'{base} [{len(self._finalizations) + 1}]'
+                    break
+        self[key] = finalization
+        return key
+
+    def _emit_load_warnings(self) -> None:
+        for message in self.load_messages:
+            warnings.warn(message, RuntimeWarning, stacklevel=2)
 
     def __setitem__(self, key: str, value: Finalization):
         self._finalizations[key] = value
@@ -467,7 +761,31 @@ class FinalizationCollection(MutableMapping[str, Finalization]):
     
     @property
     def meta(self) -> pd.DataFrame:
-        return pd.DataFrame({name: {'File path': fin.path, **fin.meta} for name, fin  in self.items()}).T.reset_index(names='name')
+        rows = {}
+        for name, fin in self.items():
+            rows[name] = {
+                'File path': fin.path,
+                **fin.meta,
+                **fin.merged_metadata,
+                **fin.olex2_metrics,
+                'Olex2 status': fin.refinement.status,
+            }
+        return pd.DataFrame(rows).T.reset_index(names='name')
+
+    @property
+    def overall_numeric(self) -> pd.DataFrame:
+        """Numeric overall statistics combined with refinement and merge metadata."""
+        overall = self.overall.copy()
+        if overall.empty:
+            return pd.DataFrame(columns=['name'])
+        return overall.merge(self.meta, on='name', how='left')
+
+    @property
+    def highest_numeric(self) -> pd.DataFrame:
+        highest = self.highest_shell.copy()
+        if highest.empty:
+            return pd.DataFrame(columns=['name'])
+        return highest.merge(self.meta, on='name', how='left')
 
     @property
     def shell_table(self) -> pd.DataFrame:
@@ -478,7 +796,8 @@ class FinalizationCollection(MutableMapping[str, Finalization]):
     
     @property
     def foms(self):
-        return list({f for fin in self.values() for f in fin.foms})
+        seen = set()
+        return [f for fin in self.values() for f in fin.foms if not (f in seen or seen.add(f))]
     
     @property
     def path(self):

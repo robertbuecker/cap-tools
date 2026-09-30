@@ -1,16 +1,3 @@
 Finalization viewer
-* Look in `struct/olex2_{finalization_name}` for a `.res` file, to parse Olex2 refinement information (near end of file) and add them to finalization data
-* Make finalization viewer variables (columns, available plots) more flexible. Ideally, have an option dialog where everything we have from the _red.sum tables is available for checking/unchecking (needs to update dynamically from the loaded finalizations). For the overall (not per-shell) data, also include refinement metrics, if available (see above)
-* In merged sets, get merging info (number of merged sets, names) from `expinfo\merged.ini`, also parse `expinfo\clustering.ini` to find out which experiments have been used in the finalization
-* When adding finalizations, add option selector in the GUI/functions, which ones to include:
-  * _all_ finalizations in all folders (the ones walked in the add folder/add subfolders, or the experiment folders in the DataExplorer CSV)
-  * the _current_ finalizations (default: the selected finalization for CSVs, as it's implemented now, and the one with the newest file date for direct from folders)
-  * based on exclusion or inclusion patterns (e.g., reject everything with "auto" in the finalization name, or only include everything with "C2", or...). Inclusion should take precedence
-* Add R1 and wR2 (if available) to the overall spider plots. As for other R-values in there, they should be inverted and normalized
 * Lower priority: design a new icon
-
-Use the data sets in `C:\XcaliburData\20260911_120kVmicroED` for testing.
-
-Overall
-* validate cx-freeze build with new packages and finalization viewer, dd calibration, and learning set generator as executables
 

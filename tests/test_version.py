@@ -8,9 +8,9 @@ from cap_tools import VERSION_TAG, __version__, get_version
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_authoritative_version_is_the_requested_prerelease() -> None:
-    assert __version__ == "45.1a0"
-    assert VERSION_TAG == "v45.1a0"
+def test_authoritative_version_matches_release_metadata() -> None:
+    assert __version__ == "45.1"
+    assert VERSION_TAG == "v45.1"
     assert get_version() == VERSION_TAG
 
 

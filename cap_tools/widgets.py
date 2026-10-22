@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import tkinter as tk
 import tkinter.ttk as ttk
 import warnings
@@ -17,11 +18,13 @@ from cap_tools.finalization_view_model import (
     load_view_settings,
     normalized_radar_selection,
     numeric_fields,
+    radar_axis_labels,
     save_view_settings,
     stable_fields,
     view_option_fields,
 )
 from cap_tools.interact_figures import fom_radar_plot
+from cap_tools.utils import get_version
 
 
 class PlotWidget(ttk.Frame):
@@ -51,7 +54,7 @@ class ViewOptionsDialog(tk.Toplevel):
         apply_callback: Callable[[], None],
     ):
         super().__init__(parent)
-        self.title("Finalization View Options")
+        self.title(f"Finalization View Options ({get_version()})")
         self.transient(parent.winfo_toplevel())
         self.settings = settings
         self.available = available
@@ -149,6 +152,7 @@ class FinalizationWidget(ttk.Frame):
         if self.settings_warning:
             warnings.warn(self.settings_warning, RuntimeWarning, stacklevel=2)
         self._row_keys: Dict[str, str] = {}
+        self._overall_sort: Optional[tuple[str, bool]] = None
         self._available: Dict[str, List[str]] = {key: [] for key in ("overall", "shell", "plots", "radar")}
 
         self.configure(width=1100, height=880)
@@ -162,7 +166,7 @@ class FinalizationWidget(ttk.Frame):
         self.table_frame.columnconfigure(0, weight=1)
         self.table_frame.rowconfigure(0, weight=1)
         self.table_frame.rowconfigure(4, weight=2)
-        self.table_frame.rowconfigure(6, weight=1)
+        self.table_frame.rowconfigure(7, weight=1)
 
         self.fin_view = ttk.Treeview(self.table_frame, show="headings", height=7)
         self.fin_view.grid(row=0, column=0, sticky=tk.NSEW)
@@ -187,8 +191,12 @@ class FinalizationWidget(ttk.Frame):
         shell_x.grid(row=5, column=0, sticky=tk.EW)
         self.shell_view.configure(yscrollcommand=shell_y.set, xscrollcommand=shell_x.set)
 
+        self.radar_save_button = ttk.Button(
+            self.table_frame, text="Save plot", command=self._save_radar_plot
+        )
+        self.radar_save_button.grid(row=6, column=0, sticky=tk.W, pady=(4, 0))
         self.radar_plot = PlotWidget(self.table_frame, figsize=(6, 3), hide_toolbar=True)
-        self.radar_plot.grid(row=6, column=0, columnspan=2, sticky=tk.NSEW, pady=(4, 0))
+        self.radar_plot.grid(row=7, column=0, columnspan=2, sticky=tk.NSEW)
 
         right = ttk.Frame(self, width=450, height=880)
         right.grid_propagate(False)
@@ -242,6 +250,47 @@ class FinalizationWidget(ttk.Frame):
             width = 190 if field == "name" else max(70, min(150, 10 * len(label)))
             tree.heading(field, text=label)
             tree.column(field, width=width, stretch=False, anchor=tk.CENTER)
+
+    @staticmethod
+    def _sort_key(value: str):
+        text = str(value).strip()
+        if not text or text in {"—", "-"}:
+            return None
+        match = re.match(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?", text)
+        if match:
+            try:
+                return (0, float(match.group()))
+            except ValueError:
+                pass
+        return (1, text.casefold())
+
+    def _configure_overall_tree(self, columns: Sequence[str]) -> None:
+        self._configure_tree(self.fin_view, columns)
+        for field in columns:
+            label = _field_label(field)
+            if self._overall_sort and self._overall_sort[0] == field:
+                label += " ▲" if self._overall_sort[1] else " ▼"
+            self.fin_view.heading(
+                field, text=label, command=lambda column=field: self._sort_overall(column)
+            )
+
+    def _sort_overall(self, column: str, toggle: bool = True) -> None:
+        ascending = True
+        if self._overall_sort and self._overall_sort[0] == column:
+            ascending = not self._overall_sort[1] if toggle else self._overall_sort[1]
+        self._overall_sort = (column, ascending)
+        column_index = list(self.fin_view["columns"]).index(column)
+        children = list(self.fin_view.get_children(""))
+        keys = {
+            iid: self._sort_key(self.fin_view.item(iid, "values")[column_index])
+            for iid in children
+        }
+        populated = [iid for iid in children if keys[iid] is not None]
+        missing = [iid for iid in children if keys[iid] is None]
+        populated.sort(key=lambda iid: keys[iid], reverse=not ascending)
+        for index, iid in enumerate(populated + missing):
+            self.fin_view.move(iid, "", index)
+        self._configure_overall_tree(list(self.fin_view["columns"]))
 
     def _overall_display_data(self) -> pd.DataFrame:
         if not self.fc:
@@ -297,7 +346,7 @@ class FinalizationWidget(ttk.Frame):
         self._refresh_available()
         self._refresh_shell_selectors()
         columns = self.settings.active_overall(self._available["overall"])
-        self._configure_tree(self.fin_view, columns)
+        self._configure_overall_tree(columns)
         for item in self.fin_view.get_children():
             self.fin_view.delete(item)
         self._row_keys.clear()
@@ -312,6 +361,8 @@ class FinalizationWidget(ttk.Frame):
                 self.fin_view.selection_add(iid)
         if not self.fin_view.selection() and self.fin_view.get_children():
             self.fin_view.selection_set(self.fin_view.get_children()[0])
+        if self._overall_sort and self._overall_sort[0] in columns:
+            self._sort_overall(self._overall_sort[0], toggle=False)
         self.show_fin_info()
 
     def clear(self) -> None:
@@ -413,9 +464,13 @@ class FinalizationWidget(ttk.Frame):
             highest,
             fig_handle=self.radar_plot.fig,
             foms=metrics,
-            fom_lbl=[_field_label(metric) for metric in metrics],
+            fom_lbl=radar_axis_labels(metrics, self.settings.radar_directions),
             colors=[f"C{index}" for index in range(len(overall))],
         )
+
+    def _save_radar_plot(self) -> None:
+        """Open Matplotlib's standard save dialog without displaying its toolbar."""
+        self.radar_plot.toolbar.save_figure()
 
     def open_view_options(self) -> ViewOptionsDialog:
         self.view_options_dialog = ViewOptionsDialog(

@@ -30,7 +30,7 @@ class FinalizationViewer:
         self.root.geometry("1300x900")
         self.root.title(f"Finalization viewer ({get_version()})")
         try:
-            self.root.iconbitmap(get_resource_path("cell_tool_icon.ico"))
+            self.root.iconbitmap(get_resource_path("finalization_viewer.ico"))
         except tk.TclError:
             pass
 

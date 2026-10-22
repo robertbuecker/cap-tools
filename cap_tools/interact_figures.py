@@ -1,4 +1,5 @@
 from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -164,12 +165,55 @@ def fom_radar_plot(overall_df: pd.DataFrame,
     if colors is None:
         colors = [f'C{ii}' for ii in range(len(overall_df))]
         
-    for ax, case_data in zip(axs.flat, data):
+    for plot_index, (ax, case_data) in enumerate(zip(axs.flat, data)):
         ax.set_rgrids([0.2, 0.4, 0.6, 0.8, 1], fontsize='xx-small')
         for d, color in zip(case_data, colors):
-            ax.plot(theta, d, color=color)
-            ax.fill(theta, d, facecolor=color, alpha=0.05, label='_nolegend_')
-        ax.set_varlabels(fom_lbl, fontsize='xx-small')
+            finite = np.isfinite(d)
+            if finite.all():
+                ax.plot(theta, d, color=color)
+                ax.fill(theta, d, facecolor=color, alpha=0.05, label='_nolegend_')
+                continue
+            if not finite.any():
+                continue
+
+            # Start immediately after a gap so a run spanning the zero angle
+            # stays continuous after unwrapping.
+            first_gap = int(np.flatnonzero(~finite)[0])
+            ordered = [(first_gap + 1 + offset) % N for offset in range(N)]
+            runs = []
+            run = []
+            for index in ordered:
+                if finite[index]:
+                    run.append(index)
+                elif run:
+                    runs.append(run)
+                    run = []
+            if run:
+                runs.append(run)
+
+            for run in runs:
+                if len(run) < 2:
+                    continue
+                segment_theta = np.unwrap(theta[run])
+                segment_data = d[run]
+                # Bypass RadarAxes.plot, which intentionally closes lines.
+                Axes.plot(ax, segment_theta, segment_data, color=color)
+                fill_theta = np.concatenate(([segment_theta[0]], segment_theta, [segment_theta[-1]]))
+                fill_data = np.concatenate(([0.0], segment_data, [0.0]))
+                ax.fill(
+                    fill_theta, fill_data, facecolor=color, alpha=0.05,
+                    label='_nolegend_', closed=True,
+                )
+
+        labels_for_axis = list(fom_lbl)
+        if plot_index == 1:
+            labels_for_axis = [
+                label
+                if fom in highest_df and pd.to_numeric(highest_df[fom], errors='coerce').notna().any()
+                else ""
+                for fom, label in zip(foms, fom_lbl)
+            ]
+        ax.set_varlabels(labels_for_axis, fontsize='xx-small')
         ax.set_ylim(0, 1.05)
 
     labels = list(overall_df['name'])
@@ -180,6 +224,8 @@ def fom_radar_plot(overall_df: pd.DataFrame,
         plt.show()
     else:
         fig.canvas.draw()
+
+    return axs
 
 def distance_from_dendrogram(z, ylabel: str="", initial_distance: float=None, 
                              labels: Optional[List[str]] = None, 

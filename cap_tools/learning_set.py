@@ -235,12 +235,6 @@ def gui():
     
     root = tk.Tk()
     root.title(f'Learning set generator ({get_version()})')
-    
-    try:       
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-    # root.iconbitmap(os.path.join(base_path, "calibrate_dd_icon.ico"))
 
     info = tk.Text(root, font='TkFixedFont', height=40, width=100, wrap=tk.WORD)
     

@@ -179,6 +179,25 @@ def test_duplicate_basenames_get_parent_qualifiers(tmp_path, monkeypatch):
     assert any(key.startswith("result [exp_") for key in collection if key != "result")
 
 
+def test_highest_numeric_excludes_overall_refinement_metrics(tmp_path, monkeypatch):
+    from cap_tools import finalization
+
+    monkeypatch.setattr(finalization.Finalization, "parse_finalization_results", _fake_result_parser)
+    _summary(tmp_path / "exp_1", "result", 100)
+    olex = tmp_path / "exp_1" / "struct" / "olex2_result"
+    olex.mkdir(parents=True)
+    (olex / "result.res").write_text(
+        "REM R1_gt = 0.1234\nREM wR_ref = 0.2345\nREM GOOF = 1.111\n",
+        encoding="utf-8",
+    )
+    collection = finalization.FinalizationCollection.from_folder(str(tmp_path / "exp_1"))
+    collection["result"].meta["Cluster"] = 2
+
+    assert {"R1_gt", "wR_ref", "GOOF"} <= set(collection.overall_numeric.columns)
+    assert not {"R1_gt", "wR_ref", "GOOF"}.intersection(collection.highest_numeric.columns)
+    assert "Cluster" in collection.highest_numeric
+
+
 def test_csv_current_and_pattern_modes(tmp_path, monkeypatch):
     from cap_tools import finalization
 

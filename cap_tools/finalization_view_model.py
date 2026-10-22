@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 
-SETTINGS_VERSION = 1
+SETTINGS_VERSION = 2
 
 DEFAULT_OVERALL_COLUMNS = [
     "name",
@@ -74,6 +74,15 @@ def default_directions(fields: Iterable[str]) -> Dict[str, str]:
     return {field: ("lower" if field in LOWER_IS_BETTER else "higher") for field in fields}
 
 
+def radar_axis_labels(metrics: Sequence[str], directions: Mapping[str, str]) -> List[str]:
+    """Return display labels, marking inverted radar metrics as reciprocals."""
+    return [
+        ("1/" if directions.get(metric, "higher") == "lower" else "")
+        + DISPLAY_LABELS.get(metric, metric)
+        for metric in metrics
+    ]
+
+
 @dataclass
 class ViewSettings:
     overall_columns: List[str] = field(default_factory=lambda: DEFAULT_OVERALL_COLUMNS.copy())
@@ -81,6 +90,10 @@ class ViewSettings:
     shell_plots: List[str] = field(default_factory=lambda: DEFAULT_SHELL_PLOTS.copy())
     radar_metrics: List[str] = field(default_factory=lambda: DEFAULT_RADAR_METRICS.copy())
     radar_directions: Dict[str, str] = field(default_factory=lambda: default_directions(DEFAULT_RADAR_METRICS))
+    known_overall_fields: List[str] = field(default_factory=lambda: DEFAULT_OVERALL_COLUMNS.copy())
+    known_shell_column_fields: List[str] = field(default_factory=lambda: DEFAULT_SHELL_COLUMNS.copy())
+    known_shell_plot_fields: List[str] = field(default_factory=lambda: DEFAULT_SHELL_PLOTS.copy())
+    known_radar_fields: List[str] = field(default_factory=lambda: DEFAULT_RADAR_METRICS.copy())
 
     def to_dict(self) -> dict:
         return {
@@ -90,11 +103,16 @@ class ViewSettings:
             "shell_plots": list(self.shell_plots),
             "radar_metrics": list(self.radar_metrics),
             "radar_directions": dict(self.radar_directions),
+            "known_overall_fields": list(self.known_overall_fields),
+            "known_shell_column_fields": list(self.known_shell_column_fields),
+            "known_shell_plot_fields": list(self.known_shell_plot_fields),
+            "known_radar_fields": list(self.known_radar_fields),
         }
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, object]) -> "ViewSettings":
-        if raw.get("version") != SETTINGS_VERSION:
+        version = raw.get("version")
+        if version not in {1, SETTINGS_VERSION}:
             raise ValueError("Unsupported finalization-viewer settings version")
 
         def string_list(name: str, default: Sequence[str]) -> List[str]:
@@ -117,6 +135,10 @@ class ViewSettings:
             shell_plots=string_list("shell_plots", DEFAULT_SHELL_PLOTS),
             radar_metrics=string_list("radar_metrics", DEFAULT_RADAR_METRICS),
             radar_directions=clean_directions,
+            known_overall_fields=string_list("known_overall_fields", DEFAULT_OVERALL_COLUMNS),
+            known_shell_column_fields=string_list("known_shell_column_fields", DEFAULT_SHELL_COLUMNS),
+            known_shell_plot_fields=string_list("known_shell_plot_fields", DEFAULT_SHELL_PLOTS),
+            known_radar_fields=string_list("known_radar_fields", DEFAULT_RADAR_METRICS),
         )
         for metric, direction in default_directions(result.radar_metrics).items():
             result.radar_directions.setdefault(metric, direction)
@@ -130,18 +152,27 @@ class ViewSettings:
         radar_fields: Sequence[str],
     ) -> "ViewSettings":
         """Retain saved preferences and add newly introduced application defaults."""
-        for value in DEFAULT_OVERALL_COLUMNS:
-            if value in overall_fields and value not in self.overall_columns:
-                self.overall_columns.append(value)
-        for value in DEFAULT_SHELL_COLUMNS:
-            if value in shell_fields and value not in self.shell_columns:
-                self.shell_columns.append(value)
-        for value in DEFAULT_SHELL_PLOTS:
-            if value in shell_fields and value not in self.shell_plots:
-                self.shell_plots.append(value)
-        for value in DEFAULT_RADAR_METRICS:
-            if value in radar_fields and value not in self.radar_metrics:
-                self.radar_metrics.append(value)
+        def add_new_defaults(
+            selected: List[str], defaults: Sequence[str], available: Sequence[str], known: List[str]
+        ) -> None:
+            newly_available = set(available).difference(known)
+            for value in defaults:
+                if value in newly_available and value not in selected:
+                    selected.append(value)
+            known.extend(value for value in available if value not in known)
+
+        add_new_defaults(
+            self.overall_columns, DEFAULT_OVERALL_COLUMNS, overall_fields, self.known_overall_fields
+        )
+        add_new_defaults(
+            self.shell_columns, DEFAULT_SHELL_COLUMNS, shell_fields, self.known_shell_column_fields
+        )
+        add_new_defaults(
+            self.shell_plots, DEFAULT_SHELL_PLOTS, shell_fields, self.known_shell_plot_fields
+        )
+        add_new_defaults(
+            self.radar_metrics, DEFAULT_RADAR_METRICS, radar_fields, self.known_radar_fields
+        )
         for value in radar_fields:
             self.radar_directions.setdefault(value, "lower" if value in LOWER_IS_BETTER else "higher")
         return self
@@ -241,7 +272,10 @@ def normalize_radar_frame(
         result["__radar_group"] = result["Cluster"].fillna("unassigned").astype(str)
 
     for metric in metrics:
-        values = pd.to_numeric(result.get(metric), errors="coerce")
+        if metric in result:
+            values = pd.to_numeric(result[metric], errors="coerce")
+        else:
+            values = pd.Series(np.nan, index=result.index, dtype=float)
         result[metric] = np.nan
         for _, indices in result.groupby("__radar_group", sort=False).groups.items():
             group = values.loc[indices]
@@ -269,8 +303,11 @@ def normalized_radar_selection(
     metrics: Sequence[str],
     directions: Mapping[str, str],
 ) -> pd.DataFrame:
-    """Normalize against every loaded row, then retain the selected rows."""
+    """Normalize against every loaded row, then retain rows in selection order."""
     normalized = normalize_radar_frame(frame, metrics, directions)
     if "name" not in normalized:
         return normalized
-    return normalized[normalized["name"].isin(selected_names)].copy()
+    selected = normalized[normalized["name"].isin(selected_names)].copy()
+    selection_order = {name: index for index, name in enumerate(selected_names)}
+    selected["_selection_order"] = selected["name"].map(selection_order)
+    return selected.sort_values("_selection_order", kind="stable").drop(columns="_selection_order")

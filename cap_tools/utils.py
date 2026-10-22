@@ -11,21 +11,21 @@ import numpy as np
 import tkinter as tk
 import tkinter.ttk as ttk
 import sys
-import subprocess
 import os
 import warnings
 import xml.etree.ElementTree as ET
 
 import pandas as pd
 
+from cap_tools._version import VERSION_TAG
+
 
 def get_resource_path(filename: str) -> str:
-    """Return a bundled resource path for source, PyInstaller, or cx_Freeze."""
-    base_path = (
-        getattr(sys, '_MEIPASS', None)
-        or getattr(sys, 'frozen_dir', None)
-        or os.path.abspath('.')
-    )
+    """Return a resource path for a source checkout or cx_Freeze build."""
+    if getattr(sys, "frozen", False):
+        base_path = os.path.dirname(sys.executable)
+    else:
+        base_path = os.path.dirname(os.path.dirname(__file__))
     candidates = [
         os.path.join(base_path, filename),
         os.path.join(os.path.dirname(__file__), filename),
@@ -78,22 +78,9 @@ class DisableMixin(object):
     
 class myTreeView(DisableMixin, ttk.Treeview): pass
 
-def get_version():
-                
-        try:
-            result = subprocess.run(['git', 'describe'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            if result.returncode == 0:
-                # we are inside a working git repository
-                return result.stdout.strip()                            
-        except Exception as e:
-            pass
-        
-        try:
-            with open(get_resource_path('version.txt'), 'r') as fh:
-                return fh.read().strip()
-            
-        except Exception as e:
-            return('Could not determine version')
+def get_version() -> str:
+    """Return the application version tag used in user-facing text."""
+    return VERSION_TAG
 
 
 def niggli_to_lattice(a, b, c, alpha, beta, gamma):

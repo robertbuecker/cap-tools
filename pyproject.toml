@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cap-tools"
-version = "0.0.0"
+dynamic = ["version"]
 description = "Auxiliary electron diffraction tools for CrysAlisPro workflows"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -39,7 +39,10 @@ cap-tools-learning-set = "cap_tools.learning_set:main_cli"
 packages = ["cap_tools"]
 
 [tool.setuptools.package-data]
-cap_tools = ["*.ico"]
+cap_tools = ["*.ico", "*.svg", "*.png"]
+
+[tool.setuptools.dynamic]
+version = {attr = "cap_tools._version.__version__"}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

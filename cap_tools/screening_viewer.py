@@ -19,7 +19,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("MicroED Screening Viewer")
+        self.title(f"MicroED Screening Viewer ({get_version()})")
         self.geometry("1280x1024")
         
         self.cap = CAPInstance(start_now=False, min_cap_version='44.100')

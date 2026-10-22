@@ -785,7 +785,11 @@ class FinalizationCollection(MutableMapping[str, Finalization]):
         highest = self.highest_shell.copy()
         if highest.empty:
             return pd.DataFrame(columns=['name'])
-        return highest.merge(self.meta, on='name', how='left')
+        # Cluster is needed for group-wise radar normalization. Refinement and
+        # other overall-only metadata must not masquerade as highest-shell data.
+        if {'name', 'Cluster'}.issubset(self.meta.columns):
+            return highest.merge(self.meta[['name', 'Cluster']], on='name', how='left')
+        return highest
 
     @property
     def shell_table(self) -> pd.DataFrame:

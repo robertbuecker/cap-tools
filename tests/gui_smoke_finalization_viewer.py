@@ -14,6 +14,7 @@ import tkinter.ttk as ttk
 
 from PIL import ImageGrab
 
+from cap_tools import VERSION_TAG
 from cap_tools.finalization import FinalizationCollection, FinalizationLoadOptions
 from cap_tools.finalization_viewer import FinalizationViewer
 
@@ -33,15 +34,48 @@ def run(csv_path: Path, screenshot_dir: Path | None = None) -> None:
     root = app.root
     try:
         root.update()
+        assert root.title() == f"Finalization viewer ({VERSION_TAG})"
         assert app.csv_button.grid_info()["row"] < app.selection_selector.grid_info()["row"]
         assert app.files_button.grid_info()["row"] < app.selection_selector.grid_info()["row"]
         assert app.include_entry.winfo_viewable()
         assert app.exclude_entry.winfo_viewable()
         assert app.viewer.view_options_button.winfo_viewable()
+        assert app.viewer.radar_save_button.winfo_viewable()
+        save_calls = []
+        app.viewer.radar_plot.toolbar.save_figure = lambda: save_calls.append(True)
+        app.viewer.radar_save_button.invoke()
+        assert save_calls == [True]
         assert all(selector.winfo_viewable() for selector in app.viewer.shell_metric_selectors)
         assert all(selector.cget("values") for selector in app.viewer.shell_metric_selectors)
         assert len(app.viewer.shell_axes) == 2
         assert all(axis.get_visible() for axis in app.viewer.shell_axes)
+        tree = app.viewer.fin_view
+        items = list(tree.get_children(""))
+        if len(items) > 1 and "name" in tree["columns"]:
+            selected_iid = items[-1]
+            tree.selection_set(selected_iid)
+            root.update()
+            selected_key = app.viewer.selected_fin_ids[0]
+            original_rows = {iid: tree.item(iid, "values") for iid in items}
+            for column in tree["columns"]:
+                tree.tk.call(tree.heading(column, "command"))
+                root.update()
+                assert app.viewer.selected_fin_ids == [selected_key]
+                column_index = list(tree["columns"]).index(column)
+                values = [tree.item(iid, "values")[column_index] for iid in tree.get_children("")]
+                keys = [app.viewer._sort_key(value) for value in values]
+                present = [key for key in keys if key is not None]
+                assert present == sorted(present)
+                assert keys == present + [None] * (len(keys) - len(present))
+                assert {iid: tree.item(iid, "values") for iid in items} == original_rows
+                tree.tk.call(tree.heading(column, "command"))
+                root.update()
+                assert app.viewer.selected_fin_ids == [selected_key]
+                values = [tree.item(iid, "values")[column_index] for iid in tree.get_children("")]
+                keys = [app.viewer._sort_key(value) for value in values]
+                present = [key for key in keys if key is not None]
+                assert present == sorted(present, reverse=True)
+                assert keys == present + [None] * (len(keys) - len(present))
         assert app.viewer.shell_plots.canvas.get_tk_widget().winfo_height() > 100
         alternate = next(
             value for value in app.viewer.shell_metric_selectors[0].cget("values") if value != app.viewer.shell_metric_vars[0].get()
@@ -67,12 +101,19 @@ def run(csv_path: Path, screenshot_dir: Path | None = None) -> None:
 
         dialog = app.viewer.open_view_options()
         root.update()
+        assert dialog.title() == f"Finalization View Options ({VERSION_TAG})"
         children = list(descendants(dialog))
         assert not any(isinstance(child, ttk.Notebook) for child in children)
         labels = {child.cget("text") for child in children if isinstance(child, ttk.Label)}
         assert {"Figure of merit", "Overall", "Per-shell", "Spider", "Spider invert"} <= labels
         assert {"name"} <= set(dialog.variables["overall"])
         assert {"dmin", "dmax"} <= set(dialog.variables["shell"])
+        assert {"R1_gt", "wR_ref", "GOOF"} <= set(dialog.variables["overall"])
+        assert {"R1_gt", "wR_ref", "GOOF"} <= set(dialog.variables["radar"])
+        for metric in ("R1_gt", "wR_ref", "GOOF"):
+            initial = dialog.variables["overall"][metric].get()
+            dialog.variables["overall"][metric].set(not initial)
+            assert dialog.variables["overall"][metric].get() is not initial
         assert dialog.direction_vars
         if screenshot_dir is not None:
             dialog.lift()

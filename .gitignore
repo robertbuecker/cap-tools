@@ -11,13 +11,7 @@ dist
 *.cif
 *.cif_pets
 cap-tools.code-workspace
-cell_tool.spec
-compute_z.spec
-finalization_viewer.spec
-version.txt
 *~lock~
-minimal_test.*
-minimal_test.*
 *.pdf
 st_play.py
 *.ini

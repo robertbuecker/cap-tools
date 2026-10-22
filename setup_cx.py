@@ -1,11 +1,9 @@
 from pathlib import Path
 from importlib.util import find_spec
 import os
-import re
+import runpy
 import shutil
-import subprocess
 import sys
-import warnings
 
 from cx_Freeze import Executable, setup
 from cx_Freeze.command.build_exe import build_exe
@@ -14,15 +12,6 @@ from cx_Freeze.command.build_exe import build_exe
 ROOT = Path(__file__).resolve().parent
 BUILD_DIR = ROOT / "dist-cx" / "cap_tools"
 EXPECTED_ENV_NAMES = {"cap-tools-pip", "cap_tools_pip"}
-DESCRIBED_VERSION_RE = re.compile(r"^(?P<tag>.+)-(?P<commits>\d+)-g[0-9a-f]+$")
-VERSION_TAG_RE = re.compile(
-    r"^v?"
-    r"(0|[1-9]\d*)\.(0|[1-9]\d*)"
-    r"(?:\.(0|[1-9]\d*))?"
-    r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
-    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
-    r"$"
-)
 
 
 def _assert_expected_env() -> None:
@@ -40,51 +29,6 @@ def _conda_library_bin(filename: str) -> tuple[str, str]:
     if not source.exists():
         raise FileNotFoundError(source)
     return str(source), f"lib/{filename}"
-
-
-def _git_describe() -> str:
-    try:
-        return subprocess.check_output(
-            ["git", "describe"],
-            cwd=ROOT,
-            stderr=subprocess.STDOUT,
-            text=True,
-        ).strip()
-    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
-        raise SystemExit(f"Could not determine version from git describe: {exc}") from exc
-
-
-def _is_version_tag(version: str) -> bool:
-    return VERSION_TAG_RE.fullmatch(version) is not None
-
-
-def _version_tag_from_git_describe() -> str:
-    described_version = _git_describe()
-    match = DESCRIBED_VERSION_RE.fullmatch(described_version)
-    if match and _is_version_tag(match.group("tag")):
-        version_tag = match.group("tag")
-        warnings.warn(
-            f"git describe returned '{described_version}', which is not a clean "
-            f"version tag; using previous tag '{version_tag}' for cx_Freeze.",
-            stacklevel=2,
-        )
-        return version_tag
-
-    if _is_version_tag(described_version):
-        return described_version
-
-    raise SystemExit(
-        f"git describe returned '{described_version}', which is not a supported "
-        "semantic version tag or tag-plus-commit description."
-    )
-
-
-def _setup_version(version_tag: str) -> str:
-    return version_tag[1:] if version_tag.startswith("v") else version_tag
-
-
-def _write_version_file(version_tag: str) -> None:
-    (ROOT / "version.txt").write_text(f"{version_tag}\n", encoding="ascii")
 
 
 def _add_package_source_roots(package_names: tuple[str, ...]) -> None:
@@ -108,16 +52,17 @@ if not (TK_LIBRARY / "tk.tcl").exists():
     raise FileNotFoundError(TK_LIBRARY / "tk.tcl")
 os.environ["TCL_LIBRARY"] = str(TCL_LIBRARY)
 os.environ["TK_LIBRARY"] = str(TK_LIBRARY)
-PROGRAM_VERSION_TAG = _version_tag_from_git_describe()
-PROGRAM_SETUP_VERSION = _setup_version(PROGRAM_VERSION_TAG)
+VERSION_NAMESPACE = runpy.run_path(str(ROOT / "cap_tools" / "_version.py"))
+PROGRAM_VERSION_TAG = VERSION_NAMESPACE["VERSION_TAG"]
+PROGRAM_SETUP_VERSION = VERSION_NAMESPACE["__version__"]
 
 if "--print-version-tag" in sys.argv:
     print(PROGRAM_VERSION_TAG)
     raise SystemExit
 
 include_files = [
-    ("version.txt", "version.txt"),
     ("cell_tool_icon.ico", "cell_tool_icon.ico"),
+    ("cap_tools/finalization_viewer.ico", "finalization_viewer.ico"),
     ("calibrate_dd_icon.ico", "calibrate_dd_icon.ico"),
     _conda_library_bin("tcl86t.dll"),
     _conda_library_bin("tk86t.dll"),
@@ -259,7 +204,7 @@ executables = [
         "finalization_viewer.py",
         base="Win32GUI",
         target_name="finalization_viewer.exe",
-        icon="cell_tool_icon.ico",
+        icon="finalization_viewer.ico",
     ),
     Executable(
         "calibrate_dd.py",
@@ -280,7 +225,6 @@ executables = [
 ]
 
 def main() -> None:
-    _write_version_file(PROGRAM_VERSION_TAG)
     setup(
         name="cap_tools",
         version=PROGRAM_SETUP_VERSION,

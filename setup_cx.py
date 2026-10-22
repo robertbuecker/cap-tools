@@ -63,6 +63,7 @@ if "--print-version-tag" in sys.argv:
 include_files = [
     ("cell_tool_icon.ico", "cell_tool_icon.ico"),
     ("cap_tools/finalization_viewer.ico", "finalization_viewer.ico"),
+    ("cap_tools/finalization_viewer_icon.png", "finalization_viewer_icon.png"),
     ("calibrate_dd_icon.ico", "calibrate_dd_icon.ico"),
     _conda_library_bin("tcl86t.dll"),
     _conda_library_bin("tk86t.dll"),

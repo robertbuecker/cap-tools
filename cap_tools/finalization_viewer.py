@@ -33,6 +33,14 @@ class FinalizationViewer:
             self.root.iconbitmap(get_resource_path("finalization_viewer.ico"))
         except tk.TclError:
             pass
+        try:
+            self._window_icon_image = tk.PhotoImage(
+                master=self.root,
+                file=get_resource_path("finalization_viewer_icon.png"),
+            )
+            self.root.iconphoto(True, self._window_icon_image)
+        except (OSError, tk.TclError):
+            self._window_icon_image = None
 
         options = initial_options or FinalizationLoadOptions()
         self.fc = FinalizationCollection()

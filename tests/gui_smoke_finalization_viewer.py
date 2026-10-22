@@ -34,6 +34,9 @@ def run(csv_path: Path, screenshot_dir: Path | None = None) -> None:
     root = app.root
     try:
         root.update()
+        assert app._window_icon_image is not None
+        assert app._window_icon_image.width() == 512
+        assert app._window_icon_image.height() == 512
         assert root.title() == f"Finalization viewer ({VERSION_TAG})"
         assert app.csv_button.grid_info()["row"] < app.selection_selector.grid_info()["row"]
         assert app.files_button.grid_info()["row"] < app.selection_selector.grid_info()["row"]

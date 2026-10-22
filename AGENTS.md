@@ -26,6 +26,8 @@ The canonical wrapper delegates to `with-cap-tools-pip.ps1`, activates the `cap-
 
 ## Development Notes
 
+- In restricted agent sessions, Tcl can report that it cannot find a usable `init.tcl` even when the file exists. First compare `python -c "import tkinter; print(tkinter.Tcl().eval('info patchlevel'))"` through the wrapper with elevated execution. On this machine Tcl 8.6.13 works outside the filesystem sandbox. Run Tk-dependent tests and `python setup_cx.py build` with that access when needed; do not reinstall Tcl/Tk based on the sandbox error alone.
+
 - Keep changes scoped to the active maintained apps unless the task explicitly asks for broader cleanup.
 - Prefer adding or updating focused tests in `tests/` for behavioral changes.
 - Do not reintroduce direct `cap_tools.cap_control` usage; CAP control belongs in `cap-auto`.

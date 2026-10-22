@@ -205,7 +205,7 @@ executables = [
         "finalization_viewer.py",
         base="Win32GUI",
         target_name="finalization_viewer.exe",
-        icon="finalization_viewer.ico",
+        icon=str(ROOT / "cap_tools" / "finalization_viewer.ico"),
     ),
     Executable(
         "calibrate_dd.py",

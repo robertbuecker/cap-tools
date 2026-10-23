@@ -55,7 +55,7 @@ VERSION_NAMESPACE = runpy.run_path(str(ROOT / "cap_tools" / "_version.py"))
 PROGRAM_VERSION_TAG = VERSION_NAMESPACE["VERSION_TAG"]
 PROGRAM_SETUP_VERSION = VERSION_NAMESPACE["__version__"]
 DISTRIBUTION_DIR = ROOT / "dist-cx" / f"cap-tools-{PROGRAM_SETUP_VERSION}"
-BUILD_DIR = DISTRIBUTION_DIR / "app"
+BUILD_DIR = DISTRIBUTION_DIR
 
 if "--print-version-tag" in sys.argv:
     print(PROGRAM_VERSION_TAG)
@@ -188,21 +188,7 @@ class BuildExe(build_exe):
         self._package_distribution()
 
     def _package_distribution(self) -> None:
-        runtime = Path(self.build_exe).resolve()
-        distribution = runtime.parent
-        launchers = {
-            "Finalization Viewer": "finalization_viewer.exe",
-            "Detector Distance Calibration": "calibrate_dd.exe",
-            "Learning Set Generator": "generate_learning_set.exe",
-        }
-        for label, executable in launchers.items():
-            if executable == "generate_learning_set.exe":
-                command = f'"%~dp0app\\{executable}" %*'
-            else:
-                command = f'start "" /D "%~dp0app" "%~dp0app\\{executable}" %*'
-            (distribution / f"{label}.cmd").write_bytes(
-                f"@echo off\r\n{command}\r\n".encode("ascii")
-            )
+        distribution = Path(self.build_exe).resolve()
         archive = shutil.make_archive(
             str(ROOT / "dist-cx" / f"cap-tools-{PROGRAM_SETUP_VERSION}"),
             "zip", root_dir=distribution.parent, base_dir=distribution.name,

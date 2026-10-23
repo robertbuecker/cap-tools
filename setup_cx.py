@@ -10,7 +10,6 @@ from cx_Freeze.command.build_exe import build_exe
 
 
 ROOT = Path(__file__).resolve().parent
-BUILD_DIR = ROOT / "dist-cx" / "cap_tools"
 EXPECTED_ENV_NAMES = {"cap-tools-pip", "cap_tools_pip"}
 
 
@@ -55,6 +54,8 @@ os.environ["TK_LIBRARY"] = str(TK_LIBRARY)
 VERSION_NAMESPACE = runpy.run_path(str(ROOT / "cap_tools" / "_version.py"))
 PROGRAM_VERSION_TAG = VERSION_NAMESPACE["VERSION_TAG"]
 PROGRAM_SETUP_VERSION = VERSION_NAMESPACE["__version__"]
+DISTRIBUTION_DIR = ROOT / "dist-cx" / f"cap-tools-{PROGRAM_SETUP_VERSION}"
+BUILD_DIR = DISTRIBUTION_DIR / "app"
 
 if "--print-version-tag" in sys.argv:
     print(PROGRAM_VERSION_TAG)
@@ -83,6 +84,7 @@ includes = [
 ]
 
 excludes = [
+    "cap_tools.screening_viewer",
     "backports",
     "colorama",
     "comm",
@@ -183,6 +185,29 @@ class BuildExe(build_exe):
     def run(self) -> None:
         super().run()
         self._prune_build_tree()
+        self._package_distribution()
+
+    def _package_distribution(self) -> None:
+        runtime = Path(self.build_exe).resolve()
+        distribution = runtime.parent
+        launchers = {
+            "Finalization Viewer": "finalization_viewer.exe",
+            "Detector Distance Calibration": "calibrate_dd.exe",
+            "Learning Set Generator": "generate_learning_set.exe",
+        }
+        for label, executable in launchers.items():
+            if executable == "generate_learning_set.exe":
+                command = f'"%~dp0app\\{executable}" %*'
+            else:
+                command = f'start "" /D "%~dp0app" "%~dp0app\\{executable}" %*'
+            (distribution / f"{label}.cmd").write_bytes(
+                f"@echo off\r\n{command}\r\n".encode("ascii")
+            )
+        archive = shutil.make_archive(
+            str(ROOT / "dist-cx" / f"cap-tools-{PROGRAM_SETUP_VERSION}"),
+            "zip", root_dir=distribution.parent, base_dir=distribution.name,
+        )
+        print(f"Distribution ZIP: {archive}")
 
     def _prune_build_tree(self) -> None:
         lib_dir = Path(self.build_exe) / "lib"
@@ -212,11 +237,6 @@ executables = [
         base="Win32GUI",
         target_name="calibrate_dd.exe",
         icon="calibrate_dd_icon.ico",
-    ),
-    Executable(
-        "screening_viewer.py",
-        base="Win32GUI",
-        target_name="screening_viewer.exe",
     ),
     Executable(
         "generate_learning_set.py",

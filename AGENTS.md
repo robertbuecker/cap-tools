@@ -26,6 +26,8 @@ The canonical wrapper delegates to `with-cap-tools-pip.ps1`, activates the `cap-
 
 ## Development Notes
 
+- Build releases with `powershell -ExecutionPolicy Bypass -File .\with-cap-tools.ps1 python setup_cx.py build_exe` (with elevated execution when the Tcl sandbox restriction applies). Every successful build must create `dist-cx/cap-tools-<VERSION>.zip`, using the metadata version without the leading `v`. The archive contains a versioned folder with three portable `.cmd` launchers and an `app` runtime subfolder. Ship finalization viewer, detector distance calibration, and learning set generator; screening viewer remains source-only. Keep Windows DLLs beside their runtime executables. Verify ZIP contents and launch the viewer from a relocated extraction before publishing.
+
 - In restricted agent sessions, Tcl can report that it cannot find a usable `init.tcl` even when the file exists. First compare `python -c "import tkinter; print(tkinter.Tcl().eval('info patchlevel'))"` through the wrapper with elevated execution. On this machine Tcl 8.6.13 works outside the filesystem sandbox. Run Tk-dependent tests and `python setup_cx.py build` with that access when needed; do not reinstall Tcl/Tk based on the sandbox error alone.
 
 - Keep changes scoped to the active maintained apps unless the task explicitly asks for broader cleanup.

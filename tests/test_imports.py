@@ -9,6 +9,7 @@ def test_public_modules_import():
         "cap_tools.finalization",
         "cap_tools.finalization_viewer",
         "cap_tools.learning_set",
+        "cap_tools.ini_wrangler",
         "cap_tools.screening",
         "cap_tools.screening_viewer",
     ]:

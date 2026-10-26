@@ -1,0 +1,987 @@
+{
+  "format_version": 1,
+  "sections": {
+    "Camera Calib": {
+      "smicroedspec": {
+        "scameracalibdata": {
+          "dcameragain_e_to_adu": 2.9
+        }
+      }
+    },
+    "DiagnosticDataFlags": {
+      "smicroedspec": {
+        "ienable_detailed_information_diagnostic_detector": 0
+      }
+    },
+    "Jeol Advanced EOS dialog settings": {
+      "ltimeoutsync_datadriver": 2100
+    },
+    "Jeol Akinetopsia": {
+      "smicroedspec": {
+        "s_streamsettings": {
+          "sakinetopsia_params": {
+            "idelay_aperturecall_ms": 4500,
+            "idelay_beamblank_ms": 150,
+            "idelay_imageformingsystem_ms": 1000,
+            "idelay_minimapgrid_ms": 7500,
+            "idelay_movementcall_ms": 260,
+            "idelay_visualchange_ms": 4000
+          }
+        }
+      }
+    },
+    "Jeol Aperture Sizes": {
+      "smicroedspec": {
+        "s_aperture_microed_sizes": {
+          "ia_aperturesizes_setup_cla5": [
+            -1,
+            150,
+            50,
+            30,
+            10
+          ],
+          "ia_aperturesizes_setup_saa5": [
+            -1,
+            300,
+            200,
+            100,
+            50
+          ]
+        },
+        "s_aperturesizeoverlay_saa": {
+          "ivisualize": 1,
+          "la_aperture_diameter_pixelsize_normalized_diff50cm_predef": [
+            -1,
+            180,
+            120,
+            60,
+            30
+          ]
+        }
+      }
+    },
+    "Jeol Calibration Beam Shift Real Space": {
+      "scalibration": {
+        "s_beamshift_realspacecalibration": {
+          "iisvalid": 1,
+          "scalibration_realspace": {
+            "d_pixtoumscale_xy2": [
+              90.0,
+              90.0
+            ],
+            "d_yaw_rot_correction_deg_xy2": [
+              2.4,
+              5.5
+            ]
+          }
+        }
+      }
+    },
+    "Jeol Calibration Focused Beam CL3": {
+      "smicroedspec": {
+        "s_calibration_cl3_focusedbeam": {
+          "la_cl3brightness_nbd_mode_predef": [
+            34000,
+            34000,
+            34000,
+            34000,
+            34000,
+            34000,
+            34000,
+            34000
+          ],
+          "la_cl3brightness_tem_mode_predef": [
+            41000,
+            41000,
+            41000,
+            41000,
+            41000
+          ]
+        }
+      }
+    },
+    "Jeol Calibration Gun Shift Real Space": {
+      "scalibration": {
+        "s_gunshift_realspacecalibration": {
+          "iisvalid": 1,
+          "scalibration_realspace": {
+            "d_pixtoumscale_xy2": [
+              16.0,
+              16.0
+            ],
+            "d_yaw_rot_correction_deg_xy2": [
+              2.4,
+              5.5
+            ]
+          }
+        }
+      }
+    },
+    "Jeol Calibration PLA Real Space": {
+      "scalibration": {
+        "s_pla_realspacecalibration": {
+          "iisvalid": 1,
+          "scalibration_realspace": {
+            "d_pixtoumscale_xy2": [
+              12.4,
+              14.8
+            ],
+            "d_yaw_rot_correction_deg_xy2": [
+              0.18,
+              3.33
+            ]
+          }
+        }
+      }
+    },
+    "Jeol Calibration Tables": {
+      "sa_visualcalibtable": [
+        {
+          "dpixtoumscale": 0.036,
+          "dyaw_anglecorrection": 82.0,
+          "e_mag_functionmode": 4,
+          "iisvalid": 1,
+          "imag_idselector": 5
+        },
+        {
+          "dpixtoumscale": 0.087,
+          "dyaw_anglecorrection": 82.0,
+          "e_mag_functionmode": 1,
+          "iisvalid": 1,
+          "imag_idselector": 0
+        },
+        {
+          "dpixtoumscale": 0.033,
+          "dyaw_anglecorrection": 80.75,
+          "e_mag_functionmode": 1,
+          "iisvalid": 1,
+          "imag_idselector": 4
+        },
+        {
+          "dpixtoumscale": 0.015,
+          "dyaw_anglecorrection": 82.0,
+          "e_mag_functionmode": 1,
+          "iisvalid": 1,
+          "imag_idselector": 7
+        },
+        {
+          "dpixtoumscale": 0.005,
+          "dyaw_anglecorrection": 82.0,
+          "e_mag_functionmode": 1,
+          "iisvalid": 1,
+          "imag_idselector": 12
+        },
+        {
+          "dpixtoumscale": 2.7,
+          "dyaw_anglecorrection": 180.0,
+          "e_mag_functionmode": 3,
+          "iisvalid": 1,
+          "imag_idselector": 0
+        }
+      ]
+    },
+    "Jeol Calibration Tables Aperture": {
+      "sjeolmicroed_calibration_unified": {
+        "sa_aperturetomagcalibration_predef": [
+          {
+            "e_mag_functionmode": 4,
+            "iisvalid": 1,
+            "imag_idselector": 5,
+            "scalibration_correction": {
+              "d_pixtoumscale_xy2": [
+                7.3,
+                6.0
+              ],
+              "d_yaw_rot_correction_deg_xy2": [
+                0.77,
+                0.77
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "Jeol Control Centers": {
+      "ilastdiffractionpresetedit_id": 2,
+      "isync_cl3_presets": 0,
+      "isync_cla_presets": 1,
+      "isync_probemode_presets": 1,
+      "isync_spotsize_presets": 0,
+      "s_gridmapcalib": {
+        "d_artificial_visualoffsetcorrection_xy2": [
+          0.0,
+          0.0
+        ],
+        "dpixtoumscale": 2.6,
+        "dyaw_anglecorrection": 180.0,
+        "e_mag_functionmode": 2,
+        "iisvalid": 1,
+        "imag_idselector": 0,
+        "iuseartificial_visualoffsetcorrection": 0
+      },
+      "scontrolcenters_dlgs": {
+        "icombineguis_checkmark": 1,
+        "iflagexpand_minimapgrid": 0,
+        "iflagrotate_minimapgrid": 0,
+        "ishowtooltip_optionsdlg_difftab": 1,
+        "ishowtooltip_optionsdlg_visualtab": 1,
+        "itransparent_checkmark": 0,
+        "itx_combobox_id": 0,
+        "ivisible_controldlg": 1,
+        "ivisible_edsdlg": 0,
+        "ivisible_eosdlg": 1,
+        "ivisible_minimapgrid": 0,
+        "ivisible_rpadlg": 1,
+        "ixy_combobox_id": 0,
+        "iz_combobox_id": 0,
+        "rwindowpos_controldlg": {
+          "bottom": 1263,
+          "left": 1221,
+          "right": 1954,
+          "top": 905
+        },
+        "rwindowpos_eosdlg": {
+          "bottom": 1263,
+          "left": 741,
+          "right": 1002,
+          "top": 905
+        },
+        "rwindowpos_minimapgrid": {
+          "bottom": 1303,
+          "left": 1276,
+          "right": 2107,
+          "top": 814
+        },
+        "rwindowpos_rpadlg": {
+          "bottom": 1263,
+          "left": 987,
+          "right": 1236,
+          "top": 905
+        },
+        "wlookuptable_slider_minimapgrid": 1
+      },
+      "smonitorsetup_configinfo": {
+        "ssetup_settings": {
+          "dw_virtual_res_height": 1440,
+          "dw_virtual_res_width": 4480,
+          "recta_monitorsinfo_predef": [
+            {
+              "bottom": 1363,
+              "left": 2560,
+              "right": 4480,
+              "top": 163
+            },
+            {
+              "bottom": 1440,
+              "left": 0,
+              "right": 2560,
+              "top": 0
+            },
+            {
+              "bottom": 0,
+              "left": 0,
+              "right": 0,
+              "top": 0
+            },
+            {
+              "bottom": 0,
+              "left": 0,
+              "right": 0,
+              "top": 0
+            },
+            {
+              "bottom": 0,
+              "left": 0,
+              "right": 0,
+              "top": 0
+            }
+          ],
+          "wnumofmonitors": 2
+        }
+      }
+    },
+    "Jeol DD calib settings": {
+      "sddcalibrationexpparams": {
+        "crootpath": "D:\\calibration",
+        "dexposuretime_s": 5.0,
+        "dscanend": 1.0,
+        "dscanstart": 0.0,
+        "e_saa_sizetouse": 1,
+        "inumofruns": 1,
+        "ipla_beam_adjustment": 1,
+        "iskip_saa_override": 0,
+        "iskip_spotsize_override": 0,
+        "ispotsizetouse_0based": 0
+      },
+      "smicroedspec": {
+        "s_rescalemodule_data": {
+          "deos_diff_distance_multiplier": 1.3
+        }
+      }
+    },
+    "Jeol IFS Individual Presets": {
+      "smicroedspec": {
+        "s_ifspresets_individual_sets": {
+          "iapplyonswitch": 1,
+          "sa_ifs_presets_multi_predef": [
+            {
+              "cifspresetname_64": "Standard",
+              "d_cl3_multiplier_finalpercentage": 100.0,
+              "d_exposuretime_multiplier_finalpercentage": 100.0,
+              "e_mag_functionmode": 4,
+              "iactivate_ol_protection": 0,
+              "imag_idselector": 5,
+              "iset_saa_open": 0
+            },
+            {
+              "cifspresetname_64": "Local Map",
+              "d_cl3_multiplier_finalpercentage": 100.0,
+              "d_exposuretime_multiplier_finalpercentage": 30.0,
+              "e_mag_functionmode": 0,
+              "iactivate_ol_protection": 1,
+              "imag_idselector": 0,
+              "iset_saa_open": 1
+            },
+            {
+              "cifspresetname_64": "Reference",
+              "d_cl3_multiplier_finalpercentage": 60.0,
+              "d_exposuretime_multiplier_finalpercentage": 200.0,
+              "e_mag_functionmode": 0,
+              "iactivate_ol_protection": 0,
+              "imag_idselector": 7,
+              "iset_saa_open": 0
+            },
+            {
+              "cifspresetname_64": "In-focus",
+              "d_cl3_multiplier_finalpercentage": 100.0,
+              "d_exposuretime_multiplier_finalpercentage": 150.0,
+              "e_mag_functionmode": 0,
+              "iactivate_ol_protection": 0,
+              "imag_idselector": 4,
+              "iset_saa_open": 1
+            },
+            {
+              "cifspresetname_64": "High-res",
+              "d_cl3_multiplier_finalpercentage": 30.0,
+              "d_exposuretime_multiplier_finalpercentage": 400.0,
+              "e_mag_functionmode": 0,
+              "iactivate_ol_protection": 0,
+              "imag_idselector": 12,
+              "iset_saa_open": 0
+            }
+          ],
+          "sneutralreference_calib": {
+            "icalibrationvalid_neutralposition": 1,
+            "la_deflector_pla_neutral_optical_xy2": [
+              32768,
+              32768
+            ]
+          }
+        }
+      }
+    },
+    "Jeol Misc": {
+      "smicroedspec": {
+        "eminimap_rotation_option_dlgrelated": 3,
+        "idedicatedlogging_enable": 0,
+        "idedicatedlogging_timelogperfile_hours": 8,
+        "idedicatedlogging_updateinterval": 8,
+        "ienabletimestimatorvisibleprintouts": 0,
+        "ifollowstagepositiontominimap": 0,
+        "iisminimapplasettingsadjustedbycapuser_enableplaforminimappreset": 1,
+        "imeasurerealtimeestimatorqueueoperations": 0,
+        "isaveoptional_tiff_imageformat": 1,
+        "iskipdiffsnapshotbeforeexp_createmiddleframe": 1,
+        "itilt_indicator_overlay": 1,
+        "iusespecialwaitformovementfunction_basedonexplicitreadouts_insteadofevents": 1,
+        "iusevisualfeedbackforpointandclick": 0,
+        "s_aperture_saa_premove_holesize": {
+          "ipre_move_aperture_sizehole": 1,
+          "w_waittimeafter_ms": 3000
+        },
+        "s_edsmode_relatedsettings": {
+          "dpercentageallowedfromperfectfocusedbeam_relative": 9.0,
+          "dstagetilt_deg": 5.0,
+          "iallownotperfectfocusedbeam": 1,
+          "icounterinterval_to_trigger_autocentering": 45,
+          "isystemsupports_eds_extension": 0
+        },
+        "s_eucentric_settings": {
+          "da_cross_hair_imageposition_xy2": [
+            387.5,
+            192.5
+          ],
+          "ishowcrosshair": 1
+        },
+        "s_streamsettings": {
+          "dstream_exposuretime_visualmode_s": 0.25,
+          "dwnumberofframesinsequence_akinetopsia": 100,
+          "dwnumberofframesinsequence_standard": 100
+        },
+        "sapt_movefine_flags": {
+          "itakeintoaccountaxesdiffinmovement": 1,
+          "iusecontinuouscontrolaperturefeaturewhenavailable": 1,
+          "iusenewaperturedrivermethodswhenavailable": 1
+        }
+      }
+    },
+    "Jeol Optics Presets": {
+      "smicroedspec": {
+        "s_cl3_relaxation_procedure": {
+          "iperformbeforediffpreset": 1,
+          "lamplitude": 10000,
+          "w_waittime_ms": 300
+        },
+        "s_il1_relaxation_procedure": {
+          "iperformbeforediffpreset": 1,
+          "lamplitude": 32768,
+          "w_waittime_ms": 300
+        },
+        "saopticspresetplus_dcmode_multi_predef": [
+          {
+            "cpresetname_64": "650 mm Standard",
+            "ddetectordistance": 650.0,
+            "iuseautonamecreator": 0,
+            "sdoserate_calibration": {
+              "ccalib_timestamp_local": "",
+              "d_doserate_e_persqrarea_per_sec": 0.0,
+              "iisdoserate_valid": 0
+            },
+            "sopticspreset_dcmode": {
+              "e_mag_functionmode": 4,
+              "e_probemode": 0,
+              "i_spotsize_val_0based": 2,
+              "ilens_flc_protection": 0,
+              "imag_idselector": 5,
+              "l_deflector_pla_xy2": [
+                32767,
+                32767
+              ],
+              "l_lenspreset_cl3_brightness_": 65535,
+              "l_lenspreset_il1_difffocus": 21160,
+              "sa_aperture_presets6": [
+                {
+                  "e_apt_kind_typeid": 1,
+                  "e_apt_size_id": 4
+                },
+                {
+                  "e_apt_kind_typeid": 4,
+                  "e_apt_size_id": 3
+                }
+              ]
+            }
+          },
+          {
+            "cpresetname_64": "780 mm Standard",
+            "ddetectordistance": 780.0,
+            "iuseautonamecreator": 0,
+            "sdoserate_calibration": {
+              "ccalib_timestamp_local": "",
+              "d_doserate_e_persqrarea_per_sec": 0.0,
+              "iisdoserate_valid": 0
+            },
+            "sopticspreset_dcmode": {
+              "e_mag_functionmode": 4,
+              "e_probemode": 0,
+              "i_spotsize_val_0based": 2,
+              "ilens_flc_protection": 0,
+              "imag_idselector": 6,
+              "l_deflector_pla_xy2": [
+                32767,
+                32767
+              ],
+              "l_lenspreset_cl3_brightness_": 65535,
+              "l_lenspreset_il1_difffocus": 21160,
+              "sa_aperture_presets6": [
+                {
+                  "e_apt_kind_typeid": 1,
+                  "e_apt_size_id": 4
+                },
+                {
+                  "e_apt_kind_typeid": 4,
+                  "e_apt_size_id": 3
+                }
+              ]
+            }
+          },
+          {
+            "cpresetname_64": "1040 mm Standard",
+            "ddetectordistance": 1040.0,
+            "iuseautonamecreator": 0,
+            "sdoserate_calibration": {
+              "ccalib_timestamp_local": "",
+              "d_doserate_e_persqrarea_per_sec": 0.0,
+              "iisdoserate_valid": 0
+            },
+            "sopticspreset_dcmode": {
+              "e_mag_functionmode": 4,
+              "e_probemode": 0,
+              "i_spotsize_val_0based": 2,
+              "ilens_flc_protection": 0,
+              "imag_idselector": 7,
+              "l_deflector_pla_xy2": [
+                32767,
+                32767
+              ],
+              "l_lenspreset_cl3_brightness_": 65535,
+              "l_lenspreset_il1_difffocus": 21160,
+              "sa_aperture_presets6": [
+                {
+                  "e_apt_kind_typeid": 1,
+                  "e_apt_size_id": 4
+                },
+                {
+                  "e_apt_kind_typeid": 4,
+                  "e_apt_size_id": 3
+                }
+              ]
+            }
+          },
+          {
+            "cpresetname_64": "1300 mm Standard",
+            "ddetectordistance": 1300.0,
+            "iuseautonamecreator": 0,
+            "sdoserate_calibration": {
+              "ccalib_timestamp_local": "",
+              "d_doserate_e_persqrarea_per_sec": 0.0,
+              "iisdoserate_valid": 0
+            },
+            "sopticspreset_dcmode": {
+              "e_mag_functionmode": 4,
+              "e_probemode": 0,
+              "i_spotsize_val_0based": 2,
+              "ilens_flc_protection": 0,
+              "imag_idselector": 8,
+              "l_deflector_pla_xy2": [
+                32767,
+                32767
+              ],
+              "l_lenspreset_cl3_brightness_": 65535,
+              "l_lenspreset_il1_difffocus": 21160,
+              "sa_aperture_presets6": [
+                {
+                  "e_apt_kind_typeid": 1,
+                  "e_apt_size_id": 4
+                },
+                {
+                  "e_apt_kind_typeid": 4,
+                  "e_apt_size_id": 3
+                }
+              ]
+            }
+          },
+          {
+            "cpresetname_64": "1950 mm Standard",
+            "ddetectordistance": 1950.0,
+            "iuseautonamecreator": 0,
+            "sdoserate_calibration": {
+              "ccalib_timestamp_local": "",
+              "d_doserate_e_persqrarea_per_sec": 0.0,
+              "iisdoserate_valid": 0
+            },
+            "sopticspreset_dcmode": {
+              "e_mag_functionmode": 4,
+              "e_probemode": 0,
+              "i_spotsize_val_0based": 2,
+              "ilens_flc_protection": 0,
+              "imag_idselector": 10,
+              "l_deflector_pla_xy2": [
+                32767,
+                32767
+              ],
+              "l_lenspreset_cl3_brightness_": 65535,
+              "l_lenspreset_il1_difffocus": 21160,
+              "sa_aperture_presets6": [
+                {
+                  "e_apt_kind_typeid": 1,
+                  "e_apt_size_id": 4
+                },
+                {
+                  "e_apt_kind_typeid": 4,
+                  "e_apt_size_id": 3
+                }
+              ]
+            }
+          },
+          {
+            "cpresetname_64": "325 mm Standard",
+            "ddetectordistance": 325.0,
+            "iuseautonamecreator": 0,
+            "sdoserate_calibration": {
+              "ccalib_timestamp_local": "",
+              "d_doserate_e_persqrarea_per_sec": 0.0,
+              "iisdoserate_valid": 0
+            },
+            "sopticspreset_dcmode": {
+              "e_mag_functionmode": 4,
+              "e_probemode": 0,
+              "i_spotsize_val_0based": 2,
+              "ilens_flc_protection": 0,
+              "imag_idselector": 2,
+              "l_deflector_pla_xy2": [
+                32767,
+                32767
+              ],
+              "l_lenspreset_cl3_brightness_": 65535,
+              "l_lenspreset_il1_difffocus": 21160,
+              "sa_aperture_presets6": [
+                {
+                  "e_apt_kind_typeid": 1,
+                  "e_apt_size_id": 4
+                },
+                {
+                  "e_apt_kind_typeid": 4,
+                  "e_apt_size_id": 3
+                }
+              ]
+            }
+          },
+          {
+            "cpresetname_64": "520 mm Standard",
+            "ddetectordistance": 520.0,
+            "iuseautonamecreator": 0,
+            "sdoserate_calibration": {
+              "ccalib_timestamp_local": "",
+              "d_doserate_e_persqrarea_per_sec": 0.0,
+              "iisdoserate_valid": 0
+            },
+            "sopticspreset_dcmode": {
+              "e_mag_functionmode": 4,
+              "e_probemode": 0,
+              "i_spotsize_val_0based": 2,
+              "ilens_flc_protection": 0,
+              "imag_idselector": 4,
+              "l_deflector_pla_xy2": [
+                32767,
+                32767
+              ],
+              "l_lenspreset_cl3_brightness_": 65535,
+              "l_lenspreset_il1_difffocus": 21082,
+              "sa_aperture_presets6": [
+                {
+                  "e_apt_kind_typeid": 1,
+                  "e_apt_size_id": 4
+                },
+                {
+                  "e_apt_kind_typeid": 4,
+                  "e_apt_size_id": 3
+                }
+              ]
+            }
+          },
+          {
+            "cpresetname_64": "650 mm Large CLA",
+            "ddetectordistance": 650.0,
+            "iuseautonamecreator": 0,
+            "sdoserate_calibration": {
+              "ccalib_timestamp_local": "",
+              "d_doserate_e_persqrarea_per_sec": 0.0,
+              "iisdoserate_valid": 0
+            },
+            "sopticspreset_dcmode": {
+              "e_mag_functionmode": 4,
+              "e_probemode": 0,
+              "i_spotsize_val_0based": 3,
+              "ilens_flc_protection": 0,
+              "imag_idselector": 5,
+              "l_deflector_pla_xy2": [
+                32767,
+                32767
+              ],
+              "l_lenspreset_cl3_brightness_": 50000,
+              "l_lenspreset_il1_difffocus": 21160,
+              "sa_aperture_presets6": [
+                {
+                  "e_apt_kind_typeid": 1,
+                  "e_apt_size_id": 3
+                },
+                {
+                  "e_apt_kind_typeid": 4,
+                  "e_apt_size_id": 2
+                }
+              ]
+            }
+          },
+          {
+            "cpresetname_64": "650 mm NanoBeam",
+            "ddetectordistance": 650.0,
+            "iuseautonamecreator": 0,
+            "sdoserate_calibration": {
+              "ccalib_timestamp_local": "",
+              "d_doserate_e_persqrarea_per_sec": 0.0,
+              "iisdoserate_valid": 0
+            },
+            "sopticspreset_dcmode": {
+              "e_mag_functionmode": 4,
+              "e_probemode": 2,
+              "i_spotsize_val_0based": 1,
+              "ilens_flc_protection": 0,
+              "imag_idselector": 5,
+              "l_deflector_pla_xy2": [
+                32767,
+                32767
+              ],
+              "l_lenspreset_cl3_brightness_": 35576,
+              "l_lenspreset_il1_difffocus": 21160,
+              "sa_aperture_presets6": [
+                {
+                  "e_apt_kind_typeid": 1,
+                  "e_apt_size_id": 4
+                },
+                {
+                  "e_apt_kind_typeid": 4,
+                  "e_apt_size_id": 0
+                }
+              ]
+            }
+          },
+          {
+            "cpresetname_64": "EDS CLA 150um",
+            "ddetectordistance": 650.0,
+            "iuseautonamecreator": 0,
+            "sdoserate_calibration": {
+              "ccalib_timestamp_local": "",
+              "d_doserate_e_persqrarea_per_sec": 0.0,
+              "iisdoserate_valid": 0
+            },
+            "sopticspreset_dcmode": {
+              "e_mag_functionmode": 4,
+              "e_probemode": 0,
+              "i_spotsize_val_0based": 4,
+              "ilens_flc_protection": 0,
+              "imag_idselector": 5,
+              "l_deflector_pla_xy2": [
+                32767,
+                32767
+              ],
+              "l_lenspreset_cl3_brightness_": 35576,
+              "l_lenspreset_il1_difffocus": 43000,
+              "sa_aperture_presets6": [
+                {
+                  "e_apt_kind_typeid": 1,
+                  "e_apt_size_id": 1
+                },
+                {
+                  "e_apt_kind_typeid": 4,
+                  "e_apt_size_id": 0
+                }
+              ]
+            }
+          }
+        ],
+        "sopticspreset_gridminimap": {
+          "e_mag_functionmode": 2,
+          "e_probemode": 0,
+          "i_spotsize_val_0based": 4,
+          "ilens_flc_protection": 0,
+          "imag_idselector": 0,
+          "l_deflector_pla_xy2": [
+            32767,
+            32767
+          ],
+          "l_lenspreset_cl1_spotsize": 40960,
+          "l_lenspreset_cl3_brightness_": 65535,
+          "l_lenspreset_il1_difffocus": 22084,
+          "sa_aperture_presets6": [
+            {
+              "e_apt_kind_typeid": 1,
+              "e_apt_size_id": 0
+            },
+            {
+              "e_apt_kind_typeid": 4,
+              "e_apt_size_id": 0
+            }
+          ]
+        },
+        "sopticspreset_previewmode": {
+          "sopticspreset_shadowmode": {
+            "e_mag_functionmode": 4,
+            "e_probemode": 0,
+            "i_spotsize_val_0based": 2,
+            "ilens_flc_protection": 0,
+            "imag_idselector": 5,
+            "l_deflector_pla_xy2": [
+              32572,
+              32900
+            ],
+            "l_lenspreset_cl3_brightness_": 65535,
+            "l_lenspreset_il1_difffocus": 22121,
+            "sa_aperture_presets6": [
+              {
+                "e_apt_kind_typeid": 1,
+                "e_apt_size_id": 4
+              },
+              {
+                "e_apt_kind_typeid": 4,
+                "e_apt_size_id": 3
+              }
+            ]
+          }
+        },
+        "sopticspreset_visualmode": {
+          "e_mag_functionmode": 4,
+          "e_probemode": 0,
+          "i_spotsize_val_0based": 4,
+          "ilens_flc_protection": 0,
+          "imag_idselector": 5,
+          "l_deflector_pla_xy2": [
+            32572,
+            32900
+          ],
+          "l_lenspreset_cl3_brightness_": 65535,
+          "l_lenspreset_il1_difffocus": 22121,
+          "sa_aperture_presets6": [
+            {
+              "e_apt_kind_typeid": 1,
+              "e_apt_size_id": 4
+            },
+            {
+              "e_apt_kind_typeid": 4,
+              "e_apt_size_id": 0
+            }
+          ]
+        },
+        "sopticspresetplus_dcmode_selected": {
+          "cpresetname_64": "1040 mm Standard",
+          "ddetectordistance": 1040.0,
+          "iuseautonamecreator": 0,
+          "sdoserate_calibration": {
+            "ccalib_timestamp_local": "",
+            "d_doserate_e_persqrarea_per_sec": 0.0,
+            "iisdoserate_valid": 0
+          },
+          "sopticspreset_dcmode": {
+            "e_mag_functionmode": 4,
+            "e_probemode": 0,
+            "i_spotsize_val_0based": 2,
+            "ilens_flc_protection": 0,
+            "imag_idselector": 7,
+            "l_deflector_pla_xy2": [
+              32767,
+              32767
+            ],
+            "l_lenspreset_cl3_brightness_": 65535,
+            "l_lenspreset_il1_difffocus": 21160,
+            "sa_aperture_presets6": [
+              {
+                "e_apt_kind_typeid": 1,
+                "e_apt_size_id": 4
+              },
+              {
+                "e_apt_kind_typeid": 4,
+                "e_apt_size_id": 3
+              }
+            ]
+          }
+        },
+        "sopticspresetplus_eds_dcmode_selected": {
+          "cpresetname_64": "EDS Default preset",
+          "ddetectordistance": 658.61,
+          "iuseautonamecreator": 0,
+          "sdoserate_calibration": {
+            "ccalib_timestamp_local": "",
+            "d_doserate_e_persqrarea_per_sec": 0.0,
+            "iisdoserate_valid": 0
+          },
+          "sopticspreset_dcmode": {
+            "e_mag_functionmode": 4,
+            "e_probemode": 0,
+            "i_spotsize_val_0based": 0,
+            "ilens_flc_protection": 0,
+            "imag_idselector": 5,
+            "l_deflector_pla_xy2": [
+              32576,
+              31936
+            ],
+            "l_lenspreset_cl3_brightness_": 3277,
+            "l_lenspreset_il1_difffocus": 22084,
+            "sa_aperture_presets6": [
+              {
+                "e_apt_kind_typeid": 1,
+                "e_apt_size_id": 0
+              },
+              {
+                "e_apt_kind_typeid": 4,
+                "e_apt_size_id": 0
+              }
+            ]
+          }
+        }
+      }
+    },
+    "Jeol Stage Backlash": {
+      "sgoniobacklash": {
+        "d_yaxis_offset_dancerelaxation_um": 1.0,
+        "d_yaxis_offset_relaxation_v2_um": 0.0,
+        "da_premovementvector_xyz_um": [
+          0.0,
+          0.0,
+          -5.0
+        ],
+        "dpretiltalphavalue_tx": 5.0,
+        "dtwostepbacklash_finalmove_deg": 2.0,
+        "dtwostepbacklash_finalmove_um": 1.8,
+        "ea_backlashtype_xyz3": [
+          2,
+          2,
+          1
+        ],
+        "ialways_twostep_regardlessdirectionorbacklash_xyz_tilt": 0,
+        "iapplypremovementforbacklashcompensation": 1,
+        "iapplypretiltforbacklashcompensation": 1,
+        "iperformbacklashintwosteps_tilt": 0,
+        "iperformbacklashintwosteps_xyz": 0,
+        "iperformrelaxation_v2_for_xy_imageprocessing_stageoperations": 0,
+        "iperformsecretstagedancerelaxation": 0,
+        "iskip_z_component_dancerelaxation": 0
+      }
+    },
+    "Jeol Stage Limits": {
+      "smicroedspec": {
+        "sgoniolimits_placeholder": {
+          "da_stage_goniolimits_lowlim_nm_deg": [
+            -81.0,
+            -1250000.0,
+            -1250000.0,
+            -1250000.0,
+            -180.0
+          ],
+          "da_stage_goniolimits_uplim_nm_deg": [
+            81.0,
+            1250000.0,
+            1250000.0,
+            1250000.0,
+            180.0
+          ]
+        }
+      }
+    },
+    "Jeol Tilt Speeds": {
+      "smicroedspec": {
+        "s_goniostage_microed_speeds": {
+          "da_speedrate_predef": [
+            10.0,
+            1.0,
+            0.5,
+            0.286,
+            0.2,
+            0.1
+          ]
+        }
+      }
+    },
+    "Jeol Visual Feedback point and click": {
+      "smicroedspec_visualfeedback": {
+        "dpccthresholdforacceptation": 0.7,
+        "ealgorithm": 0,
+        "icorrelationsquareheight": 51,
+        "icorrelationsquarewidth": 51,
+        "imaxdelta_queue_bypixel": 2,
+        "imaxdeltatoaccept": 3,
+        "inumofiterations": 5,
+        "iwindowsearchheight": 101,
+        "iwindowsearchwidth": 101
+      }
+    }
+  }
+}

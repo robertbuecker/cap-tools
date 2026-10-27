@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "checks": [
+    {
+      "id": "diffraction-presets-present",
+      "kind": "present",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef",
+      "severity": "error"
+    },
+    {
+      "id": "diffraction-preset-names",
+      "kind": "present",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[*].cpresetname_64",
+      "severity": "error"
+    },
+    {
+      "id": "diffraction-preset-distances",
+      "kind": "present",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[*].ddetectordistance",
+      "severity": "warning"
+    }
+  ]
+}

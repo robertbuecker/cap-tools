@@ -4,8 +4,10 @@ from pathlib import Path
 import pytest
 
 from cap_tools.ini_wrangler import (
-    IniDocument, WranglerError, diff_documents, dumps_ini, dumps_json,
-    loads_ini, loads_json, main_cli, read_ini, read_json, write_ini, write_json,
+    DiffConflictError, DocumentDiff, EntryChange, IniDocument, WranglerError,
+    apply_diff, default_diff_name, diff_documents, dumps_diff, dumps_ini, dumps_json,
+    loads_diff, loads_ini, loads_json, main_cli, read_diff, read_ini, read_json,
+    write_diff, write_ini, write_json,
 )
 
 
@@ -169,3 +171,189 @@ def test_cli_and_overwrite_protection(tmp_path, capsys):
     with pytest.raises(FileExistsError):
         write_ini(read_ini(ini), ini)
     assert "Output must differ" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("first,second,expected", [
+    ("folder/CrysAlisMicroEDConfig_ver3_120kV-RC_261023.ini",
+     "folder/CrysAlisMicroEDConfig_ver3_200kV-RC_261023.ini",
+     "DIFF-120kV-RC_261023-VS-200kV-RC_261023.json"),
+    ("one/Config_A_shared.ini", "two/Config_B_shared.ini", "DIFF-A_shared-VS-B_shared.json"),
+    ("one/alpha.ini", "two/beta.ini", "DIFF-alpha-VS-beta.json"),
+    ("one/same.ini", "two/same.ini", "DIFF-same-VS-same.json"),
+    ("prefix.ini", "prefix_extra.ini", "DIFF-prefix-VS-prefix_extra.json"),
+    ("a.multi.ini", "b.multi.ini", "DIFF-a.multi-VS-b.multi.json"),
+])
+def test_default_diff_name(first, second, expected):
+    assert default_diff_name(Path(first), second) == expected
+
+
+@pytest.mark.parametrize("first,second", [(NAMES[2], NAMES[4]), (NAMES[0], NAMES[3])])
+def test_diff_apply_real_files(first, second, tmp_path):
+    before = read_ini(EXAMPLES / f"{first}.ini")
+    after = read_ini(EXAMPLES / f"{second}.ini")
+    patch = diff_documents(before, after)
+    output = tmp_path / "patch.json"
+    write_diff(patch, output)
+    assert read_diff(output) == patch
+    assert loads_diff(dumps_diff(patch)) == patch
+    assert apply_diff(before, patch, include_all=True, check_old=True).sections == after.sections
+    third = loads_json(dumps_json(before))
+    third.sections["Camera Calib"]["smicroedspec"]["scameracalibdata"]["dcameragain_e_to_adu"] = 123.0
+    third.sections["Local target settings"] = {"i_keep": 77}
+    transferred = apply_diff(third, patch, include_all=True)
+    expected = loads_json(dumps_json(after))
+    expected.sections["Local target settings"] = {"i_keep": 77}
+    # A local edit is replaced only if that field actually occurs in the diff.
+    if not any(c.section == "Camera Calib" for c in patch.changes):
+        expected.sections["Camera Calib"]["smicroedspec"]["scameracalibdata"]["dcameragain_e_to_adu"] = 123.0
+    assert transferred.sections == expected.sections
+    assert read_ini(EXAMPLES / f"{first}.ini").sections == before.sections
+
+
+@pytest.mark.parametrize("add,delete,change", [
+    (True, False, False), (False, True, False), (False, False, True),
+    (True, True, False), (True, False, True), (False, True, True), (True, True, True),
+])
+def test_apply_selection_on_different_target(add, delete, change):
+    old = loads_ini("[S]\ni_remove=1\ni_change=2\ni_keep=7\nia[0]=10\nia[1]=20\n"
+                    "[Removed]\ni=4\n[EmptyOld]\n")
+    new = loads_ini("[S]\ni_change=3\ni_keep=7\nia[0]=10\ni_add=5\n[Added]\ni=6\n[EmptyNew]\n")
+    target = loads_ini("[S]\ni_remove=99\ni_change=42\ni_keep=777\nia[0]=100\nia[1]=200\n"
+                       "[Removed]\ni=44\ni_unrelated=8\n[EmptyOld]\n[TargetOnly]\n")
+    original = dumps_json(target)
+    result = apply_diff(target, diff_documents(old, new), include_additions=add,
+                        include_deletions=delete, include_changes=change)
+    assert result.sections["S"]["i_change"] == (3 if change else 42)
+    assert result.sections["S"]["i_keep"] == 777
+    assert result.sections["S"]["ia"] == ([100] if delete else [100, 200])
+    assert ("i_remove" not in result.sections["S"]) == delete
+    assert ("i_add" in result.sections["S"]) == add
+    assert ("Added" in result.sections) == add
+    assert ("EmptyNew" in result.sections) == add
+    assert ("EmptyOld" not in result.sections) == delete
+    assert result.sections["Removed"].get("i_unrelated") == 8
+    assert ("i" not in result.sections["Removed"]) == delete
+    assert result.sections["TargetOnly"] == {}
+    assert dumps_json(target) == original
+    assert loads_ini(dumps_ini(result)).sections == result.sections
+
+
+def test_apply_missing_conflicting_and_strict_values():
+    patch = diff_documents(loads_ini("[S]\ni=1\ni_remove=2\n"),
+                           loads_ini("[S]\ni=3\ni_add=4\n"))
+    target = loads_ini("[S]\ni_add=99\n")
+    original = dumps_json(target)
+    with pytest.raises(DiffConflictError) as caught:
+        apply_diff(target, patch, include_all=True)
+    assert len(caught.value.conflicts) == 2
+    assert "target is missing" in str(caught.value)
+    assert "addition conflicts" in str(caught.value)
+    assert dumps_json(target) == original
+    already = loads_ini("[S]\ni=3\ni_add=4\n")
+    assert apply_diff(already, patch, include_all=True).sections == already.sections
+    different = loads_ini("[S]\ni=55\ni_remove=66\n")
+    with pytest.raises(DiffConflictError, match="expected old value"):
+        apply_diff(different, patch, include_changes=True, check_old=True)
+    with pytest.raises(DiffConflictError, match="target is missing"):
+        apply_diff(already, patch, include_deletions=True, check_old=True)
+    with pytest.raises(WranglerError, match="Select"):
+        apply_diff(target, patch)
+
+
+def test_apply_array_holes_and_shape_transitions():
+    old = loads_ini("[S]\nia[0]=1\nia[1]=2\nia[2]=3\ns=legacy\n")
+    new = loads_ini("[S]\nia[0]=1\nia[2]=3\ns.i=4\n")
+    patch = diff_documents(old, new)
+    result = apply_diff(old, patch, include_all=True)
+    assert result.sections == new.sections
+    assert result.sections["S"]["ia"] == [1, None, 3]
+    with pytest.raises(WranglerError, match="Cannot apply diff"):
+        apply_diff(old, patch, include_additions=True)
+    reverse = diff_documents(new, old)
+    assert apply_diff(new, reverse, include_all=True).sections == old.sections
+
+
+@pytest.mark.parametrize("patch", [
+    {"added_sections": [], "removed_sections": [], "changes": [], "extra": 1},
+    {"added_sections": ["S", "S"], "removed_sections": [], "changes": []},
+    {"added_sections": ["S"], "removed_sections": ["S"], "changes": []},
+    {"added_sections": ["bad\nsection"], "removed_sections": [], "changes": []},
+    {"added_sections": "S", "removed_sections": [], "changes": []},
+    {"added_sections": [], "removed_sections": [], "changes": {}},
+])
+def test_invalid_diff_envelopes(patch):
+    with pytest.raises(WranglerError, match="patch.json"):
+        loads_diff(json.dumps(patch), source="patch.json")
+
+
+@pytest.mark.parametrize("change", [
+    EntryChange("unknown", "S", "i", 1, 2),
+    EntryChange("added", "S", "i", 1, 2),
+    EntryChange("added", "S", "i"),
+    EntryChange("removed", "S", "i", 1, 2),
+    EntryChange("removed", "S", "i"),
+    EntryChange("changed", "S", "i", None, 2),
+    EntryChange("changed", "S", "i", 1, 1),
+    EntryChange("changed", "S", "i", True, 2),
+    EntryChange("changed", "S", "i", 1, 2.0),
+    EntryChange("changed", "S", "d", 1.0, float("nan")),
+    EntryChange("changed", "S", "c", "old", " whitespace "),
+    EntryChange("changed", "S", "ia[-1]", 1, 2),
+    EntryChange("changed", "S", "i..bad", 1, 2),
+])
+def test_invalid_diff_operations(change):
+    patch = DocumentDiff([], [], [change])
+    with pytest.raises(WranglerError):
+        dumps_diff(patch)
+    # Excluding an operation does not make a malformed patch acceptable.
+    with pytest.raises(WranglerError):
+        apply_diff(loads_ini("[S]\n"), patch, include_additions=True)
+
+
+def test_diff_duplicate_and_conflicting_operations():
+    change = EntryChange("changed", "S", "i", 1, 2)
+    for patch in (
+        DocumentDiff([], [], [change, change]),
+        DocumentDiff(["S"], [], [change]),
+        DocumentDiff([], ["S"], [change]),
+        DocumentDiff([], [], [EntryChange("added", "S", "s", new="x"),
+                              EntryChange("added", "S", "s.i", new=1)]),
+    ):
+        with pytest.raises(WranglerError):
+            dumps_diff(patch)
+    for text in (
+        '{"added_sections":[],"removed_sections":[],"changes":[],"changes":[]}',
+        '{"added_sections":[],"removed_sections":[],"changes":[{"kind":"added"}]}',
+    ):
+        with pytest.raises(WranglerError):
+            loads_diff(text)
+
+
+def test_diff_default_cli_and_apply(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    before = Path("Config_A_shared.ini")
+    after = Path("Config_B_shared.ini")
+    target = Path("third.ini")
+    output = Path("applied.ini")
+    before.write_text("[S]\ni=1\ni_remove=2\n", encoding="utf-8")
+    after.write_text("[S]\ni=3\ni_add=4\n", encoding="utf-8")
+    target.write_text("[S]\ni=99\ni_remove=66\ni_keep=55\n", encoding="utf-8")
+    name = default_diff_name(before, after)
+    assert main_cli(["diff", str(before), str(after)]) == 0
+    patch_bytes = Path(name).read_bytes()
+    assert main_cli(["diff", str(before), str(after)]) == 2
+    assert Path(name).read_bytes() == patch_bytes
+    assert main_cli(["diff", str(before), str(after), "--overwrite"]) == 0
+    assert main_cli(["apply", str(target), name, "--all", "-o", str(output)]) == 0
+    assert read_ini(output).sections["S"] == {"i": 3, "i_add": 4, "i_keep": 55}
+    output_bytes = output.read_bytes()
+    assert main_cli(["apply", str(target), name, "--all", "-o", str(output)]) == 2
+    assert main_cli(["apply", str(target), name, "--all", "--check-old",
+                     "-o", str(output), "--overwrite"]) == 2
+    assert output.read_bytes() == output_bytes
+    assert main_cli(["apply", str(target), name, "--changes", "--deletions",
+                     "-o", str(output), "--overwrite"]) == 0
+    assert read_ini(output).sections["S"] == {"i": 3, "i_keep": 55}
+    assert main_cli(["apply", str(target), name, "-o", str(output), "--overwrite"]) == 2
+    assert main_cli(["apply", str(target), name, "--all", "-o", str(target), "--overwrite"]) == 2
+    assert main_cli(["apply", str(target), name, "--all", "-o", name, "--overwrite"]) == 2

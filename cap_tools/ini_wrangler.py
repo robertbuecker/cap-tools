@@ -6,6 +6,7 @@ import argparse
 from dataclasses import asdict, dataclass, field
 import json
 import math
+from os.path import commonprefix
 from pathlib import Path
 import re
 import sys
@@ -297,6 +298,105 @@ class DocumentDiff:
     changes: list[EntryChange]
 
 
+def default_diff_name(first: str | Path, second: str | Path) -> str:
+    """Return a filename using stems minus their shared leading text.
+
+    Folders and the final extension are discarded. Shared trailing text is kept.
+    If removing the prefix would empty either stem, retain both full stems.
+    """
+    left, right = Path(first).stem, Path(second).stem
+    prefix = commonprefix([left, right])
+    if prefix and left != prefix and right != prefix:
+        left, right = left[len(prefix):], right[len(prefix):]
+    return f"DIFF-{left}-VS-{right}.json"
+
+
+def _validate_diff(diff: DocumentDiff) -> None:
+    if not isinstance(diff, DocumentDiff):
+        raise WranglerError("Expected a DocumentDiff")
+    sides = []
+    for names in (diff.added_sections, diff.removed_sections):
+        if not isinstance(names, list) or any(not isinstance(n, str) for n in names):
+            raise WranglerError("Diff section lists must contain names")
+        if len(set(names)) != len(names):
+            raise WranglerError("Duplicate diff section name")
+        _validate(IniDocument({name: {} for name in names}))
+        sides.append(set(names))
+    added_sections, removed_sections = sides
+    if added_sections & removed_sections:
+        raise WranglerError("A section cannot be both added and removed")
+    if not isinstance(diff.changes, list):
+        raise WranglerError("Diff changes must be a list")
+    seen = set()
+    before, after = IniDocument(), IniDocument()
+    for change in diff.changes:
+        if (not isinstance(change, EntryChange) or not isinstance(change.section, str)
+                or not isinstance(change.path, str)
+                or change.kind not in ("added", "removed", "changed")):
+            raise WranglerError("Invalid diff change")
+        identity = change.section, change.path
+        if identity in seen:
+            raise WranglerError(f"Duplicate diff member: {identity!r}")
+        seen.add(identity)
+        _tokens(change.path)
+        if change.section in added_sections and change.kind != "added":
+            raise WranglerError(f"Added section contains a non-addition: {identity!r}")
+        if change.section in removed_sections and change.kind != "removed":
+            raise WranglerError(f"Removed section contains a non-deletion: {identity!r}")
+        if change.kind == "added" and (change.old is not None or change.new is None):
+            raise WranglerError(f"Addition requires old=null and a new value: {identity!r}")
+        if change.kind == "removed" and (change.old is None or change.new is not None):
+            raise WranglerError(f"Deletion requires an old value and new=null: {identity!r}")
+        if change.kind == "changed":
+            if change.old is None or change.new is None:
+                raise WranglerError(f"Change requires old and new values: {identity!r}")
+            if type(change.old) is type(change.new) and change.old == change.new:
+                raise WranglerError(f"Change has identical old/new values: {identity!r}")
+        for document, value in ((before, change.old), (after, change.new)):
+            if value is not None:
+                if type(value) not in (str, int, float):
+                    raise WranglerError(f"Diff values must be strings or numbers: {identity!r}")
+                try:
+                    _insert(document.sections.setdefault(change.section, {}), change.path, value)
+                except WranglerError as exc:
+                    raise WranglerError(f"Invalid diff member {identity!r}: {exc}") from exc
+    _validate(before)
+    _validate(after)
+
+
+def loads_diff(text: str, *, source: str = "<memory>") -> DocumentDiff:
+    """Read the existing diff JSON shape, rejecting malformed/ambiguous patches."""
+    try:
+        data = json.loads(text, object_pairs_hook=_unique_object)
+        if not isinstance(data, dict) or set(data) != {"added_sections", "removed_sections", "changes"}:
+            raise WranglerError("Expected added_sections, removed_sections, and changes")
+        if not isinstance(data["changes"], list):
+            raise WranglerError("Diff changes must be a list")
+        changes = []
+        for item in data["changes"]:
+            if not isinstance(item, dict) or set(item) != {"kind", "section", "path", "old", "new"}:
+                raise WranglerError("Expected kind, section, path, old, and new on each change")
+            changes.append(EntryChange(**item))
+        diff = DocumentDiff(data["added_sections"], data["removed_sections"], changes)
+        _validate_diff(diff)
+        return diff
+    except (ValueError, TypeError, OverflowError) as exc:
+        raise WranglerError(f"{source}: {exc}") from exc
+
+
+def read_diff(path: str | Path) -> DocumentDiff:
+    return loads_diff(Path(path).read_text(encoding="utf-8-sig"), source=str(path))
+
+
+def dumps_diff(diff: DocumentDiff) -> str:
+    _validate_diff(diff)
+    return json.dumps(asdict(diff), indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+
+
+def write_diff(diff: DocumentDiff, path: str | Path, *, overwrite: bool = False) -> None:
+    _write(path, dumps_diff(diff), overwrite)
+
+
 def diff_documents(old: IniDocument, new: IniDocument) -> DocumentDiff:
     """Compare exact typed values; no numeric tolerances or preset matching."""
     before, after = old.entries(), new.entries()
@@ -313,29 +413,146 @@ def diff_documents(old: IniDocument, new: IniDocument) -> DocumentDiff:
                         sorted(old.sections.keys() - new.sections.keys()), changes)
 
 
+class DiffConflictError(WranglerError):
+    """The selected operations cannot all be applied; the target is untouched."""
+
+    def __init__(self, conflicts: list[str]):
+        self.conflicts = conflicts
+        super().__init__("Diff conflicts:\n" + "\n".join(conflicts))
+
+
+def apply_diff(
+    target: IniDocument, diff: DocumentDiff, *, include_additions: bool = False,
+    include_deletions: bool = False, include_changes: bool = False,
+    include_all: bool = False, check_old: bool = False,
+) -> IniDocument:
+    """Apply selected operations to a new document, never mutating ``target``.
+
+    Changes require an existing key, but need not match the diff's old value
+    unless ``check_old`` is set. Additions never replace a different value.
+    Already-present identical additions and already-missing deletions are no-ops
+    (a missing deletion conflicts with ``check_old``). Removed sections are only
+    dropped when empty, preserving unrelated keys in a different target file.
+    Array positions never shift. All conflicts abort the operation.
+    """
+    _validate(target)
+    _validate_diff(diff)
+    kinds = set()
+    for enabled, kind in ((include_additions, "added"), (include_deletions, "removed"),
+                          (include_changes, "changed")):
+        if include_all or enabled:
+            kinds.add(kind)
+    if not kinds:
+        raise WranglerError("Select additions, deletions, changes, or all")
+    entries = target.entries()
+    sections = set(target.sections)
+    conflicts = []
+    for change in diff.changes:
+        if change.kind not in kinds:
+            continue
+        key = change.section, change.path
+        present = key in entries
+        actual = entries.get(key)
+        label = f"[{change.section}] {change.path}"
+        if change.kind == "added":
+            if present and (type(actual) is not type(change.new) or actual != change.new):
+                conflicts.append(f"{label}: addition conflicts with target value {actual!r}")
+            else:
+                entries[key] = change.new
+                sections.add(change.section)
+        elif not present:
+            if change.kind == "changed" or check_old:
+                conflicts.append(f"{label}: {change.kind} target is missing")
+        elif check_old and (type(actual) is not type(change.old) or actual != change.old):
+            conflicts.append(f"{label}: expected old value {change.old!r}, found {actual!r}")
+        elif change.kind == "removed":
+            del entries[key]
+        else:
+            entries[key] = change.new
+    if conflicts:
+        raise DiffConflictError(conflicts)
+    if "added" in kinds:
+        sections.update(diff.added_sections)
+    if "removed" in kinds:
+        nonempty = {section for section, _ in entries}
+        sections.difference_update(set(diff.removed_sections) - nonempty)
+    result = IniDocument({section: {} for section in sorted(sections)})
+    for (section, path), value in sorted(entries.items()):
+        try:
+            _insert(result.sections[section], path, value)
+        except WranglerError as exc:
+            raise WranglerError(f"Cannot apply diff at [{section}] {path}: {exc}") from exc
+    # Rebuild diagnostics and ensure the final shape can be written/read safely.
+    return loads_ini(dumps_ini(result), source="<applied>")
+
+
 def main_cli(argv: list[str] | None = None) -> int:
+    from cap_tools.ini_validation import (
+        ValidationFailed, apply_policy, loads_policy, read_policy, validate_document,
+    )
+
+    def print_findings(report):
+        for finding in report.findings:
+            print(f"{finding.severity}: {finding.rule_id}: [{finding.section}] "
+                  f"{finding.path}: {finding.message}", file=sys.stderr)
+
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("to-json", "to-ini", "diff"):
+    for name in ("to-json", "to-ini", "diff", "apply", "validate"):
         command = commands.add_parser(name)
         command.add_argument("input", type=Path)
         if name == "diff":
             command.add_argument("other", type=Path)
-        command.add_argument("-o", "--output", type=Path, required=True)
+        if name == "apply":
+            command.add_argument("diff", type=Path, help="diff or policy JSON to apply to the input INI")
+            for flag in ("additions", "deletions", "changes", "all"):
+                command.add_argument(f"--{flag}", action="store_true", help=f"include {flag}")
+            command.add_argument("--check-old", action="store_true",
+                                 help="require changes/deletions to match their old values")
+        if name == "validate":
+            command.add_argument("policy", type=Path, help="validation policy JSON")
+        command.add_argument("-o", "--output", type=Path, required=name not in ("diff", "validate"))
         command.add_argument("--overwrite", action="store_true")
     args = parser.parse_args(argv)
     try:
         inputs = [args.input] + ([args.other] if args.command == "diff" else [])
-        if any(args.output.resolve() == path.resolve() for path in inputs):
+        if args.command == "apply":
+            inputs.append(args.diff)
+        if args.command == "validate":
+            inputs.append(args.policy)
+        if args.output is None and args.command == "diff":
+            args.output = Path(default_diff_name(args.input, args.other))
+        if args.output is not None and any(args.output.resolve() == path.resolve() for path in inputs):
             raise WranglerError("Output must differ from the input files")
         reader = read_json if args.command == "to-ini" else read_ini
         document = reader(args.input)
         documents = [document]
+        status = 0
         if args.command == "diff":
             other = read_ini(args.other)
             documents.append(other)
-            output = json.dumps(asdict(diff_documents(document, other)), indent=2, ensure_ascii=False) + "\n"
-            _write(args.output, output, args.overwrite)
+            write_diff(diff_documents(document, other), args.output, overwrite=args.overwrite)
+        elif args.command == "apply":
+            text = args.diff.read_text(encoding="utf-8-sig")
+            data = json.loads(text, object_pairs_hook=_unique_object)
+            options = dict(include_additions=args.additions, include_deletions=args.deletions,
+                           include_changes=args.changes, include_all=args.all, check_old=args.check_old)
+            if isinstance(data, dict) and {"format_version", "checks"} & data.keys():
+                applied = apply_policy(document, loads_policy(text, source=str(args.diff)), **options)
+                result = applied.document
+                print_findings(applied.report)
+            else:
+                result = apply_diff(document, loads_diff(text, source=str(args.diff)), **options)
+            documents = [result]
+            write_ini(result, args.output, overwrite=args.overwrite)
+        elif args.command == "validate":
+            report = validate_document(document, read_policy(args.policy))
+            output = json.dumps(report.to_dict(), indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+            if args.output is None:
+                print(output, end="")
+            else:
+                _write(args.output, output, args.overwrite)
+            status = 1 if report.has_errors else 0
         elif args.command == "to-json":
             write_json(document, args.output, overwrite=args.overwrite)
         else:
@@ -345,10 +562,14 @@ def main_cli(argv: list[str] | None = None) -> int:
                 location = f":{diagnostic.line}" if diagnostic.line is not None else ""
                 print(f"{diagnostic.source}{location}: {diagnostic.code}: "
                       f"[{diagnostic.section}] {diagnostic.path}: {diagnostic.message}", file=sys.stderr)
+    except ValidationFailed as exc:
+        print_findings(exc.report)
+        print(f"ini-wrangler: {exc}", file=sys.stderr)
+        return 1
     except (OSError, ValueError) as exc:
         print(f"ini-wrangler: {exc}", file=sys.stderr)
         return 2
-    return 0
+    return status
 
 
 if __name__ == "__main__":

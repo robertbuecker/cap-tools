@@ -10,6 +10,9 @@ def test_public_modules_import():
         "cap_tools.finalization_viewer",
         "cap_tools.learning_set",
         "cap_tools.ini_wrangler",
+        "cap_tools.ini_validation",
+        "cap_tools.ini_wrangler_view_model",
+        "cap_tools.ini_wrangler_gui",
         "cap_tools.screening",
         "cap_tools.screening_viewer",
     ]:

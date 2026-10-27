@@ -1,0 +1,1532 @@
+{
+  "added_sections": [],
+  "removed_sections": [],
+  "changes": [
+    {
+      "kind": "changed",
+      "section": "Autoqueue settings",
+      "path": "sautoqueuesettings.sgraindetection.dsize_max_um",
+      "old": 1.2,
+      "new": 2.5
+    },
+    {
+      "kind": "changed",
+      "section": "Autoqueue settings",
+      "path": "sautoqueuesettings.sgraindetection.dsize_min_um",
+      "old": 0.4,
+      "new": 0.2
+    },
+    {
+      "kind": "changed",
+      "section": "Autoqueue settings",
+      "path": "sautoqueuesettings.sgraindetection.edetectionlimittype",
+      "old": 0,
+      "new": 1
+    },
+    {
+      "kind": "changed",
+      "section": "Autoqueue settings",
+      "path": "sautoqueuesettings.sgridrasterization.sroimargin_um.x",
+      "old": 5,
+      "new": 10
+    },
+    {
+      "kind": "changed",
+      "section": "Autoqueue settings",
+      "path": "sautoqueuesettings.sgridrasterization.sroimargin_um.y",
+      "old": 5,
+      "new": 10
+    },
+    {
+      "kind": "changed",
+      "section": "Camera Calib",
+      "path": "smicroedspec.scameracalibdata.dcameragain_e_to_adu",
+      "old": 1.85,
+      "new": 2.7
+    },
+    {
+      "kind": "added",
+      "section": "Jeol Calibration Beam Shift Real Space",
+      "path": "scalibration.s_beamshift_realspacecalibration_high.iisvalid",
+      "old": null,
+      "new": 1
+    },
+    {
+      "kind": "added",
+      "section": "Jeol Calibration Beam Shift Real Space",
+      "path": "scalibration.s_beamshift_realspacecalibration_high.scalibration_realspace.d_pixtoumscale_xy2[0]",
+      "old": null,
+      "new": 66.64348810675057
+    },
+    {
+      "kind": "added",
+      "section": "Jeol Calibration Beam Shift Real Space",
+      "path": "scalibration.s_beamshift_realspacecalibration_high.scalibration_realspace.d_pixtoumscale_xy2[1]",
+      "old": null,
+      "new": 79.36404698920013
+    },
+    {
+      "kind": "added",
+      "section": "Jeol Calibration Beam Shift Real Space",
+      "path": "scalibration.s_beamshift_realspacecalibration_high.scalibration_realspace.d_yaw_rot_correction_deg_xy2[0]",
+      "old": null,
+      "new": 2.437104537201536
+    },
+    {
+      "kind": "added",
+      "section": "Jeol Calibration Beam Shift Real Space",
+      "path": "scalibration.s_beamshift_realspacecalibration_high.scalibration_realspace.d_yaw_rot_correction_deg_xy2[1]",
+      "old": null,
+      "new": 5.5771399878586285
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Focused Beam CL3",
+      "path": "smicroedspec.s_calibration_cl3_focusedbeam.la_cl3brightness_nbd_mode_predef[0]",
+      "old": 33968,
+      "new": 34000
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Focused Beam CL3",
+      "path": "smicroedspec.s_calibration_cl3_focusedbeam.la_cl3brightness_nbd_mode_predef[1]",
+      "old": 33968,
+      "new": 34000
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Focused Beam CL3",
+      "path": "smicroedspec.s_calibration_cl3_focusedbeam.la_cl3brightness_nbd_mode_predef[2]",
+      "old": 33968,
+      "new": 34000
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Focused Beam CL3",
+      "path": "smicroedspec.s_calibration_cl3_focusedbeam.la_cl3brightness_nbd_mode_predef[3]",
+      "old": 33968,
+      "new": 33960
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Focused Beam CL3",
+      "path": "smicroedspec.s_calibration_cl3_focusedbeam.la_cl3brightness_nbd_mode_predef[4]",
+      "old": 33968,
+      "new": 33980
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Focused Beam CL3",
+      "path": "smicroedspec.s_calibration_cl3_focusedbeam.la_cl3brightness_nbd_mode_predef[5]",
+      "old": 33968,
+      "new": 33980
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Focused Beam CL3",
+      "path": "smicroedspec.s_calibration_cl3_focusedbeam.la_cl3brightness_nbd_mode_predef[6]",
+      "old": 33968,
+      "new": 33980
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Focused Beam CL3",
+      "path": "smicroedspec.s_calibration_cl3_focusedbeam.la_cl3brightness_nbd_mode_predef[7]",
+      "old": 33968,
+      "new": 34000
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Focused Beam CL3",
+      "path": "smicroedspec.s_calibration_cl3_focusedbeam.la_cl3brightness_tem_mode_predef[0]",
+      "old": 41188,
+      "new": 41572
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Focused Beam CL3",
+      "path": "smicroedspec.s_calibration_cl3_focusedbeam.la_cl3brightness_tem_mode_predef[1]",
+      "old": 40828,
+      "new": 41132
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Focused Beam CL3",
+      "path": "smicroedspec.s_calibration_cl3_focusedbeam.la_cl3brightness_tem_mode_predef[2]",
+      "old": 41082,
+      "new": 41258
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Focused Beam CL3",
+      "path": "smicroedspec.s_calibration_cl3_focusedbeam.la_cl3brightness_tem_mode_predef[3]",
+      "old": 40736,
+      "new": 41018
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Focused Beam CL3",
+      "path": "smicroedspec.s_calibration_cl3_focusedbeam.la_cl3brightness_tem_mode_predef[4]",
+      "old": 41000,
+      "new": 41158
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[0].dpixtoumscale",
+      "old": 0.035,
+      "new": 0.037465
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[0].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[10].dpixtoumscale",
+      "old": 0.0175,
+      "new": 0.0187325
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[10].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[11].dpixtoumscale",
+      "old": 0.014583333333333335,
+      "new": 0.01561042
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[11].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[12].dpixtoumscale",
+      "old": 0.011666666666666669,
+      "new": 0.01248833
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[12].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[13].dpixtoumscale",
+      "old": 0.00875,
+      "new": 0.00936625
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[13].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[14].dpixtoumscale",
+      "old": 0.007000000000000001,
+      "new": 0.007493
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[14].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[15].dpixtoumscale",
+      "old": 0.0058333333333333345,
+      "new": 0.00624417
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[15].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[16].dpixtoumscale",
+      "old": 0.004375,
+      "new": 0.00468313
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[16].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[17].dpixtoumscale",
+      "old": 0.0035000000000000005,
+      "new": 0.0037465
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[17].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[18].dpixtoumscale",
+      "old": 0.0029166666666666672,
+      "new": 0.00312208
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[18].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[19].dpixtoumscale",
+      "old": 0.0021875,
+      "new": 0.00234156
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[19].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[20].dpixtoumscale",
+      "old": 0.0017500000000000003,
+      "new": 0.00187325
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[20].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[21].dpixtoumscale",
+      "old": 0.0014583333333333336,
+      "new": 0.00156104
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[21].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[22].dpixtoumscale",
+      "old": 0.0011666666666666668,
+      "new": 0.00124883
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[22].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[23].dpixtoumscale",
+      "old": 0.0008750000000000001,
+      "new": 0.00093663
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[23].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[24].dpixtoumscale",
+      "old": 0.0007000000000000001,
+      "new": 0.0007493
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[24].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[25].dpixtoumscale",
+      "old": 0.0005833333333333334,
+      "new": 0.00062442
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[25].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[26].dpixtoumscale",
+      "old": 0.00043750000000000006,
+      "new": 0.00046831
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[26].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[27].dpixtoumscale",
+      "old": 0.00035000000000000005,
+      "new": 0.00037465
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[27].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[28].dpixtoumscale",
+      "old": 0.0002916666666666667,
+      "new": 0.00031221
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[28].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[29].dpixtoumscale",
+      "old": 0.00021875000000000003,
+      "new": 0.00023416
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[29].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[2].dpixtoumscale",
+      "old": 0.11666666666666668,
+      "new": 0.12488333
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[2].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[36].dpixtoumscale",
+      "old": 0.087,
+      "new": 0.082
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[36].dyaw_anglecorrection",
+      "old": 80099.0,
+      "new": 90.0
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[37].dpixtoumscale",
+      "old": 0.0356,
+      "new": 0.033
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[37].dyaw_anglecorrection",
+      "old": 81.18,
+      "new": 90.0
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[38].dpixtoumscale",
+      "old": 0.0172,
+      "new": 0.016
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[38].dyaw_anglecorrection",
+      "old": 81.41,
+      "new": 90.0
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[39].dpixtoumscale",
+      "old": 0.0062,
+      "new": 0.00545
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[39].dyaw_anglecorrection",
+      "old": 83.06,
+      "new": 88.0
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[3].dpixtoumscale",
+      "old": 0.08750000000000001,
+      "new": 0.0936625
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[3].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[4].dpixtoumscale",
+      "old": 0.07,
+      "new": 0.07493
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[4].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[5].dpixtoumscale",
+      "old": 0.05833333333333334,
+      "new": 0.06244167
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[5].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[6].dpixtoumscale",
+      "old": 0.043750000000000004,
+      "new": 0.04683125
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[6].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[7].dpixtoumscale",
+      "old": 0.035,
+      "new": 0.037465
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[7].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[8].dpixtoumscale",
+      "old": 0.02916666666666667,
+      "new": 0.03122083
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[8].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[9].dpixtoumscale",
+      "old": 0.021875000000000002,
+      "new": 0.02341563
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Calibration Tables",
+      "path": "sa_visualcalibtable[9].dyaw_anglecorrection",
+      "old": 83.552,
+      "new": 85.737
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "s_gridmapcalib.d_artificial_visualoffsetcorrection_xy2[0]",
+      "old": 0.0,
+      "new": 5.385722214727309
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "s_gridmapcalib.d_artificial_visualoffsetcorrection_xy2[1]",
+      "old": 0.0,
+      "new": -3.6057971132458846
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "s_gridmapcalib.iuseartificial_visualoffsetcorrection",
+      "old": 0,
+      "new": 1
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.iflagexpand_minimapgrid",
+      "old": 1,
+      "new": 0
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.ivisible_eosdlg",
+      "old": 1,
+      "new": 0
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.ivisible_minimapgrid",
+      "old": 0,
+      "new": 1
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.ivisible_rpadlg",
+      "old": 1,
+      "new": 0
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.iz_combobox_id",
+      "old": 4,
+      "new": 6
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.rwindowpos_controldlg.bottom",
+      "old": 1006,
+      "new": 988
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.rwindowpos_controldlg.left",
+      "old": 1763,
+      "new": 846
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.rwindowpos_controldlg.right",
+      "old": 2496,
+      "new": 1608
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.rwindowpos_controldlg.top",
+      "old": 648,
+      "new": 630
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.rwindowpos_eosdlg.bottom",
+      "old": 1006,
+      "new": 931
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.rwindowpos_eosdlg.left",
+      "old": 1283,
+      "new": 148
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.rwindowpos_eosdlg.right",
+      "old": 1544,
+      "new": 409
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.rwindowpos_eosdlg.top",
+      "old": 648,
+      "new": 573
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.rwindowpos_minimapgrid.bottom",
+      "old": 996,
+      "new": 1072
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.rwindowpos_minimapgrid.left",
+      "old": 2288,
+      "new": 1982
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.rwindowpos_minimapgrid.right",
+      "old": 3195,
+      "new": 2471
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.rwindowpos_minimapgrid.top",
+      "old": 110,
+      "new": 186
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.rwindowpos_rpadlg.bottom",
+      "old": 1006,
+      "new": 919
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.rwindowpos_rpadlg.left",
+      "old": 1529,
+      "new": 653
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.rwindowpos_rpadlg.right",
+      "old": 1778,
+      "new": 902
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.rwindowpos_rpadlg.top",
+      "old": 648,
+      "new": 561
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Control Centers",
+      "path": "scontrolcenters_dlgs.wlookuptable_slider_minimapgrid",
+      "old": 8,
+      "new": 6
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol DD calib settings",
+      "path": "sddcalibrationexpparams.dexposuretime_s",
+      "old": 15.0,
+      "new": 10.0
+    },
+    {
+      "kind": "added",
+      "section": "Jeol Misc",
+      "path": "smicroedspec.iuselabjackfeatureswhendetected",
+      "old": null,
+      "new": 1
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Misc",
+      "path": "smicroedspec.s_streamsettings.dstream_exposuretime_diffmode_s",
+      "old": 1.0,
+      "new": 0.5
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Misc",
+      "path": "smicroedspec.s_streamsettings.i_akinetopsia_protectsample_mode",
+      "old": 0,
+      "new": 1
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[0].ddetectordistance",
+      "old": 670.5,
+      "new": 669.53
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[0].sdoserate_calibration.ccalib_timestamp_local",
+      "old": "Tue Aug 25 12:35:11 2026",
+      "new": "Fri Oct 23 20:17:13 2026"
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[0].sdoserate_calibration.d_doserate_e_persqrarea_per_sec",
+      "old": 0.0050471733432484725,
+      "new": 0.005309292297357799
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[0].sdoserate_calibration.iisdoserate_valid",
+      "old": 0,
+      "new": 1
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[0].sopticspreset_dcmode.e_probemode",
+      "old": 0,
+      "new": 2
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[0].sopticspreset_dcmode.i_spotsize_val_0based",
+      "old": 4,
+      "new": 0
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[0].sopticspreset_dcmode.l_deflector_pla_xy2[0]",
+      "old": 33072,
+      "new": 32940
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[0].sopticspreset_dcmode.l_deflector_pla_xy2[1]",
+      "old": 31688,
+      "new": 33136
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[0].sopticspreset_dcmode.l_lenspreset_cl3_brightness_",
+      "old": 50909,
+      "new": 40307
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[0].sopticspreset_dcmode.l_lenspreset_il1_difffocus",
+      "old": 21166,
+      "new": 21246
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[10].ddetectordistance",
+      "old": 658.61,
+      "new": 669.5
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[10].sdoserate_calibration.ccalib_timestamp_local",
+      "old": "",
+      "new": "Fri Oct 23 16:49:36 2026"
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[10].sdoserate_calibration.d_doserate_e_persqrarea_per_sec",
+      "old": 0.0,
+      "new": 0.003279558196609732
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[10].sdoserate_calibration.iisdoserate_valid",
+      "old": 0,
+      "new": 1
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[10].sopticspreset_dcmode.i_spotsize_val_0based",
+      "old": 4,
+      "new": 7
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[10].sopticspreset_dcmode.l_deflector_pla_xy2[0]",
+      "old": 32576,
+      "new": 32824
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[10].sopticspreset_dcmode.l_deflector_pla_xy2[1]",
+      "old": 31936,
+      "new": 33228
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[10].sopticspreset_dcmode.l_lenspreset_cl3_brightness_",
+      "old": 35558,
+      "new": 34630
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[10].sopticspreset_dcmode.l_lenspreset_il1_difffocus",
+      "old": 21060,
+      "new": 21246
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[1].ddetectordistance",
+      "old": 799.0,
+      "new": 795.3
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[1].sopticspreset_dcmode.l_deflector_pla_xy2[0]",
+      "old": 32884,
+      "new": 32952
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[1].sopticspreset_dcmode.l_deflector_pla_xy2[1]",
+      "old": 31292,
+      "new": 33048
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[1].sopticspreset_dcmode.l_lenspreset_il1_difffocus",
+      "old": 21185,
+      "new": 21266
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[2].ddetectordistance",
+      "old": 1056.0,
+      "new": 1054.23
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[2].sopticspreset_dcmode.e_probemode",
+      "old": 0,
+      "new": 2
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[2].sopticspreset_dcmode.i_spotsize_val_0based",
+      "old": 4,
+      "new": 0
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[2].sopticspreset_dcmode.l_deflector_pla_xy2[0]",
+      "old": 32880,
+      "new": 32564
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[2].sopticspreset_dcmode.l_deflector_pla_xy2[1]",
+      "old": 30688,
+      "new": 33204
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[2].sopticspreset_dcmode.l_lenspreset_cl3_brightness_",
+      "old": 50909,
+      "new": 40308
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[2].sopticspreset_dcmode.l_lenspreset_il1_difffocus",
+      "old": 21180,
+      "new": 21257
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[3].ddetectordistance",
+      "old": 1588.0,
+      "new": 1577.56
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[3].sopticspreset_dcmode.l_deflector_pla_xy2[1]",
+      "old": 29404,
+      "new": 32768
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[3].sopticspreset_dcmode.l_lenspreset_il1_difffocus",
+      "old": 21114,
+      "new": 21187
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[4].ddetectordistance",
+      "old": 545.0,
+      "new": 539.1
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[4].sopticspreset_dcmode.l_deflector_pla_xy2[0]",
+      "old": 32960,
+      "new": 32788
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[4].sopticspreset_dcmode.l_deflector_pla_xy2[1]",
+      "old": 31940,
+      "new": 33044
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[4].sopticspreset_dcmode.l_lenspreset_il1_difffocus",
+      "old": 21125,
+      "new": 21188
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[5].cpresetname_64",
+      "old": "Nominal  390 mm",
+      "new": "Nominal  650 mm EDS"
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[5].ddetectordistance",
+      "old": 415.5,
+      "new": 668.6
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[5].sopticspreset_dcmode.e_probemode",
+      "old": 0,
+      "new": 2
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[5].sopticspreset_dcmode.i_spotsize_val_0based",
+      "old": 4,
+      "new": 3
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[5].sopticspreset_dcmode.imag_idselector",
+      "old": 3,
+      "new": 5
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[5].sopticspreset_dcmode.l_deflector_pla_xy2[0]",
+      "old": 32960,
+      "new": 32852
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[5].sopticspreset_dcmode.l_deflector_pla_xy2[1]",
+      "old": 32252,
+      "new": 31588
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[5].sopticspreset_dcmode.l_lenspreset_cl3_brightness_",
+      "old": 50909,
+      "new": 35539
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[5].sopticspreset_dcmode.l_lenspreset_il1_difffocus",
+      "old": 21025,
+      "new": 21207
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[5].sopticspreset_dcmode.sa_aperture_presets6[0].e_apt_size_id",
+      "old": 3,
+      "new": 4
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[5].sopticspreset_dcmode.sa_aperture_presets6[1].e_apt_size_id",
+      "old": 3,
+      "new": 0
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[6].ddetectordistance",
+      "old": 1986.5,
+      "new": 1979.09
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[6].sopticspreset_dcmode.l_deflector_pla_xy2[0]",
+      "old": 32768,
+      "new": 32836
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[6].sopticspreset_dcmode.l_deflector_pla_xy2[1]",
+      "old": 28428,
+      "new": 32656
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[6].sopticspreset_dcmode.l_lenspreset_il1_difffocus",
+      "old": 21062,
+      "new": 21138
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[7].ddetectordistance",
+      "old": 1318.5,
+      "new": 1313.12
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[7].sopticspreset_dcmode.l_deflector_pla_xy2[0]",
+      "old": 32908,
+      "new": 32832
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[7].sopticspreset_dcmode.l_deflector_pla_xy2[1]",
+      "old": 30080,
+      "new": 32836
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[7].sopticspreset_dcmode.l_lenspreset_cl3_brightness_",
+      "old": 51046,
+      "new": 50909
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[7].sopticspreset_dcmode.l_lenspreset_il1_difffocus",
+      "old": 21151,
+      "new": 21229
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[8].cpresetname_64",
+      "old": "Distance 325mm",
+      "new": "Distance 658.6 mm 3"
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[8].ddetectordistance",
+      "old": 350.0,
+      "new": 669.53
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[8].sopticspreset_dcmode.imag_idselector",
+      "old": 2,
+      "new": 5
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[8].sopticspreset_dcmode.l_deflector_pla_xy2[0]",
+      "old": 33020,
+      "new": 33048
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[8].sopticspreset_dcmode.l_deflector_pla_xy2[1]",
+      "old": 33100,
+      "new": 31676
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[8].sopticspreset_dcmode.l_lenspreset_cl3_brightness_",
+      "old": 50909,
+      "new": 65535
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.saopticspresetplus_dcmode_multi_predef[8].sopticspreset_dcmode.l_lenspreset_il1_difffocus",
+      "old": 20920,
+      "new": 21207
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspreset_gridminimap.l_deflector_pla_xy2[0]",
+      "old": 32732,
+      "new": 32767
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspreset_gridminimap.l_deflector_pla_xy2[1]",
+      "old": 32992,
+      "new": 32767
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspreset_previewmode.sopticspreset_shadowmode.e_probemode",
+      "old": 0,
+      "new": 2
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspreset_previewmode.sopticspreset_shadowmode.i_spotsize_val_0based",
+      "old": 4,
+      "new": 0
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspreset_previewmode.sopticspreset_shadowmode.l_deflector_pla_xy2[0]",
+      "old": 32652,
+      "new": 32844
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspreset_previewmode.sopticspreset_shadowmode.l_deflector_pla_xy2[1]",
+      "old": 31596,
+      "new": 32940
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspreset_previewmode.sopticspreset_shadowmode.l_lenspreset_cl3_brightness_",
+      "old": 50909,
+      "new": 40307
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspreset_previewmode.sopticspreset_shadowmode.l_lenspreset_il1_difffocus",
+      "old": 22140,
+      "new": 22161
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspreset_visualmode.e_probemode",
+      "old": 0,
+      "new": 2
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspreset_visualmode.i_spotsize_val_0based",
+      "old": 4,
+      "new": 1
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspreset_visualmode.l_deflector_pla_xy2[0]",
+      "old": 32652,
+      "new": 32844
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspreset_visualmode.l_deflector_pla_xy2[1]",
+      "old": 31596,
+      "new": 32940
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspreset_visualmode.l_lenspreset_cl3_brightness_",
+      "old": 65535,
+      "new": 41884
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspreset_visualmode.l_lenspreset_il1_difffocus",
+      "old": 22140,
+      "new": 22161
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_dcmode_selected.ddetectordistance",
+      "old": 670.5,
+      "new": 669.53
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_dcmode_selected.sdoserate_calibration.ccalib_timestamp_local",
+      "old": "Tue Aug 25 12:35:11 2026",
+      "new": "Fri Oct 23 16:57:25 2026"
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_dcmode_selected.sdoserate_calibration.d_doserate_e_persqrarea_per_sec",
+      "old": 0.0050471733432484725,
+      "new": 0.003950057317006913
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_dcmode_selected.sdoserate_calibration.iisdoserate_valid",
+      "old": 0,
+      "new": 1
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_dcmode_selected.sopticspreset_dcmode.e_probemode",
+      "old": 0,
+      "new": 2
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_dcmode_selected.sopticspreset_dcmode.i_spotsize_val_0based",
+      "old": 4,
+      "new": 0
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_dcmode_selected.sopticspreset_dcmode.l_deflector_pla_xy2[0]",
+      "old": 33072,
+      "new": 32940
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_dcmode_selected.sopticspreset_dcmode.l_deflector_pla_xy2[1]",
+      "old": 31688,
+      "new": 33136
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_dcmode_selected.sopticspreset_dcmode.l_lenspreset_cl3_brightness_",
+      "old": 50909,
+      "new": 40307
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_dcmode_selected.sopticspreset_dcmode.l_lenspreset_il1_difffocus",
+      "old": 21166,
+      "new": 21246
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_mapserialscreening_selected.cpresetname_64",
+      "old": "MapSerialScreeningDefault",
+      "new": "MapSerialScreening"
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_mapserialscreening_selected.ddetectordistance",
+      "old": 658.61,
+      "new": 669.5
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_mapserialscreening_selected.sdoserate_calibration.ccalib_timestamp_local",
+      "old": "",
+      "new": "Fri Oct 23 16:49:36 2026"
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_mapserialscreening_selected.sdoserate_calibration.d_doserate_e_persqrarea_per_sec",
+      "old": 0.0,
+      "new": 0.003279558196609732
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_mapserialscreening_selected.sdoserate_calibration.iisdoserate_valid",
+      "old": 0,
+      "new": 1
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_mapserialscreening_selected.sopticspreset_dcmode.i_spotsize_val_0based",
+      "old": 4,
+      "new": 7
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_mapserialscreening_selected.sopticspreset_dcmode.l_deflector_pla_xy2[0]",
+      "old": 32576,
+      "new": 32824
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_mapserialscreening_selected.sopticspreset_dcmode.l_deflector_pla_xy2[1]",
+      "old": 31936,
+      "new": 33228
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_mapserialscreening_selected.sopticspreset_dcmode.l_lenspreset_cl3_brightness_",
+      "old": 35558,
+      "new": 34630
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Optics Presets",
+      "path": "smicroedspec.sopticspresetplus_mapserialscreening_selected.sopticspreset_dcmode.l_lenspreset_il1_difffocus",
+      "old": 21060,
+      "new": 21246
+    },
+    {
+      "kind": "changed",
+      "section": "Jeol Tilt Speeds",
+      "path": "smicroedspec.s_goniostage_microed_speeds.da_speedrate_predef[4]",
+      "old": 0.067,
+      "new": 0.333
+    }
+  ]
+}

@@ -23,6 +23,7 @@ powershell -ExecutionPolicy Bypass -File .\with-cap-tools.ps1 python -m cap_tool
 ```
 
 The canonical wrapper delegates to `with-cap-tools-pip.ps1`, activates the `cap-tools-pip` conda environment, and sets local temp/cache paths used by the test and runtime environment.
+Do **not** include the wrapper invokation in any documentation; there, include direct `python` calls.
 
 ## Development Notes
 

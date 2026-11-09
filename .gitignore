@@ -15,6 +15,7 @@ cap-tools.code-workspace
 *.pdf
 st_play.py
 *.ini
+*.egg-info*
 !ini_files/CrysAlisMicroEDConfig_ver3-RESE_261022.ini
 !ini_files/CrysAlisMicroEDConfig_ver3-template.ini
 !ini_files/CrysAlisMicroEDConfig_ver3_120kV-RC_261021.ini

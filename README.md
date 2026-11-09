@@ -284,6 +284,31 @@ space for long names and values. Without a comparison, its column is hidden.
 File paths, unsaved status, the loaded policy, parser diagnostic count, and
 validation status remain visible.
 
+**Open active** opens `C:\Xcalibur\CrysAlisINI\CrysAlisMicroEDConfig_ver3.ini`
+using the usual unsaved-change prompt. Whenever this is the current file, the
+Current label has a red background and an explicit **[ACTIVE INI]** marker,
+including when it was opened through the ordinary file picker or startup path.
+
+Every **Save** or **Save As** checks the destination, so saving another file onto
+the active path is also detected. Saving there requires a warning confirmation
+with **Cancel** as the default. The dialog shows this prominent, large, bold red
+warning: **The CrysAlisPro online instance MUST be closed before proceeding.
+Otherwise, loss of information and inconsistent instrument behavior can result**.
+The dialog includes a scrollable list of additions, deletions, and changes, with
+full entry paths and on-disk/proposed values, plus section additions/removals.
+It compares against the actual destination on disk rather than the originally
+loaded snapshot. If that file changes while confirmation is open, saving stops
+and the changes must be reviewed again.
+Before overwriting an existing active file, its exact
+original bytes are backed up in the `MicroED_ini_backup` subfolder, for example
+`CrysAlisMicroEDConfig_ver3_backup_20261109-153012-123456.ini` (local time).
+Backups are created exclusively, with a numeric suffix on timestamp collisions;
+previous backups are never overwritten or automatically pruned. The subfolder
+is created when needed; folder creation or backup failure
+aborts before writing to the active file. Cancellation leaves the file and edit
+state unchanged. The status bar shows the backup path after a successful active
+save. Saving a copy elsewhere does not trigger the active-file warning or backup.
+
 - Double-click a current value or press **F2** to edit an existing scalar. Text
   values are edited without JSON quotes; numeric fields use CAP's existing type
   decoder. Malformed numeric text is retained with a parser diagnostic.
@@ -330,7 +355,7 @@ The preview lists the candidate diff and all policy findings. Cancellation leave
 current unchanged; **Accept into current** creates one undoable edit and does not
 write to disk. Error-level findings from the applied or active policy prevent
 acceptance. Existing policy/diff semantics, including preservation of unrelated
-target entries, are retained. Policy authoring and instrument-file installation
+target entries, are retained. Policy authoring and automatic instrument-file deployment
 are outside this GUI.
 
 The Tk-independent view model is in `cap_tools.ini_wrangler_view_model`. Run its

@@ -13,7 +13,7 @@ from PIL import ImageGrab
 
 from cap_tools.ini_validation import ValidationPolicy, ValidationRule, read_policy
 from cap_tools.ini_wrangler import dumps_json, read_diff
-from cap_tools.ini_wrangler_gui import IniWranglerApp, PatchDialog
+from cap_tools.ini_wrangler_gui import ACTIVE_SAVE_WARNING, ActiveIniSaveDialog, IniWranglerApp, PatchDialog
 from cap_tools.ini_wrangler_view_model import WranglerModel, load_document
 
 
@@ -106,6 +106,51 @@ def run(screenshots: Path | None = None):
             with mock_patch("cap_tools.ini_wrangler_gui.filedialog.asksaveasfilename", return_value=str(exported)):
                 assert app.save(True)
             assert load_document(exported).sections == state.current.sections
+            active = Path(directory) / "CrysAlisMicroEDConfig_ver3.ini"
+            active.write_bytes(current.read_bytes())
+            original_active = active.read_bytes()
+            with mock_patch("cap_tools.ini_wrangler_view_model.ACTIVE_INI_PATH", active):
+                app.open_active()
+                root.update()
+                assert "Open active" in app._buttons
+                assert app.path_labels[0].cget("style") == "ActiveIni.TLabel"
+                assert "[ACTIVE INI]" in app.path_labels[0].cget("text")
+                screenshot("active-file")
+                state.edit_value(key, "777.5")
+                app.refresh()
+                changes = state.active_save_preview(active).diff
+                warning_dialog = ActiveIniSaveDialog(root, active, changes)
+                root.update()
+                assert warning_dialog.warning_label.cget("text") == ACTIVE_SAVE_WARNING
+                assert warning_dialog.warning_font.actual("weight") == "bold"
+                assert warning_dialog.warning_font.actual("size") >= 14
+                assert str(warning_dialog.warning_label.cget("foreground")) == "#b00020"
+                assert str(warning_dialog.cancel_button.cget("default")) == "active"
+                items = warning_dialog.changes_tree.get_children()
+                assert len(items) == len(changes.changes)
+                values = warning_dialog.changes_tree.item(items[0], "values")
+                assert values[0] == "changed" and "ddetectordistance" in values[1]
+                assert values[3] == "777.5"
+                screenshot("active-warning", warning_dialog.root)
+                warning_dialog.root.after(80, warning_dialog.cancel_button.invoke)
+                assert not warning_dialog.show()
+                confirm_dialog = ActiveIniSaveDialog(root, active, changes)
+                confirm_dialog.root.after(80, confirm_dialog.save_button.invoke)
+                assert confirm_dialog.show()
+                with mock_patch.object(app, "confirm_active_save", return_value=False) as warning:
+                    assert not app.save()
+                    warning.assert_called_once()
+                assert active.read_bytes() == original_active and state.dirty
+                with mock_patch.object(app, "confirm_active_save", return_value=True):
+                    assert app.save()
+                assert state.last_backup_path.read_bytes() == original_active
+                assert state.last_backup_path.parent == active.parent / "MicroED_ini_backup"
+                assert not state.dirty
+                with mock_patch("cap_tools.ini_wrangler_gui.filedialog.asksaveasfilename", return_value=str(exported)), \
+                        mock_patch.object(app, "confirm_active_save") as warning:
+                    assert app.save(True)
+                    warning.assert_not_called()
+                assert app.path_labels[0].cget("style") == "TLabel"
             state.set_current(load_document(current), current)
             app.refresh()
             diff_path = Path(directory) / "export.json"
@@ -187,7 +232,7 @@ def run(screenshots: Path | None = None):
             assert button.winfo_rootx() + button.winfo_width() <= root.winfo_rootx() + root.winfo_width()
         screenshot("single-minimum")
         print(json.dumps({"result": "passed", "aligned_rows": len(app._iid_keys),
-                          "checks": ["comparison", "cell edit during validation", "copy/delete", "undo", "save/save-as", "diff export", "filter", "draft", "preview cancel/accept", "missing finding", "single/small"]}))
+                          "checks": ["comparison", "cell edit during validation", "copy/delete", "undo", "save/save-as", "active file indicator/confirmation/backup", "diff export", "filter", "draft", "preview cancel/accept", "missing finding", "single/small"]}))
     finally:
         app.destroy()
 

@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, field
+from datetime import datetime
 import json
 from pathlib import Path
+import shutil
 
 from cap_tools.ini_wrangler import (
-    DocumentDiff, IniDocument, Node, WranglerError, _decode, _insert, _tokens,
+    DocumentDiff, IniDocument, Node, WranglerError, _decode, _insert, _tokens, _write,
     apply_diff, diff_documents, dumps_ini, dumps_json, loads_ini, loads_json,
-    read_ini, read_json, write_ini, write_json,
+    read_ini, read_json,
 )
 from cap_tools.ini_validation import (
     ValidationFailed, ValidationFinding, ValidationPolicy, ValidationReport,
@@ -19,6 +21,51 @@ from cap_tools.ini_validation import (
 
 RowKey = tuple[str, tuple[str | int, ...]]
 Revision = tuple[int, int]
+ACTIVE_INI_PATH = Path(r"C:\Xcalibur\CrysAlisINI\CrysAlisMicroEDConfig_ver3.ini")
+_UNSET = object()
+
+
+@dataclass(frozen=True)
+class ActiveSavePreview:
+    destination: Path
+    diff: DocumentDiff
+    original_bytes: bytes | None
+
+
+def is_active_ini(path: str | Path | None) -> bool:
+    """Recognize the active destination, including case variants and file aliases."""
+    if path is None:
+        return False
+    path = Path(path)
+    if path.absolute() == ACTIVE_INI_PATH.absolute():
+        return True
+    try:
+        return path.resolve() == ACTIVE_INI_PATH.resolve() or path.samefile(ACTIVE_INI_PATH)
+    except OSError:
+        return False
+
+
+def backup_active_ini(path: Path) -> Path:
+    """Copy original bytes to an exclusive timestamped backup in the subfolder."""
+    folder = ACTIVE_INI_PATH.parent / "MicroED_ini_backup"
+    folder.mkdir(exist_ok=True)
+    stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S-%f")
+    sequence = 0
+    while True:
+        suffix = f"-{sequence}" if sequence else ""
+        backup = folder / f"{ACTIVE_INI_PATH.stem}_backup_{stamp}{suffix}{ACTIVE_INI_PATH.suffix}"
+        try:
+            output = backup.open("xb")
+        except FileExistsError:
+            sequence += 1
+            continue
+        try:
+            with output, path.open("rb") as source:
+                shutil.copyfileobj(source, output)
+        except BaseException:
+            backup.unlink(missing_ok=True)
+            raise
+        return backup
 
 
 def member_path(tokens: tuple[str | int, ...]) -> str:
@@ -121,6 +168,7 @@ class WranglerModel:
         self.current_path: Path | None = None
         self.comparison_path: Path | None = None
         self.policy_path: Path | None = None
+        self.last_backup_path: Path | None = None
         self.revision = 0
         self.policy_revision = 0
         self.report: ValidationReport | None = None
@@ -135,6 +183,10 @@ class WranglerModel:
     @property
     def token(self) -> Revision:
         return self.revision, self.policy_revision
+
+    @property
+    def current_is_active(self) -> bool:
+        return is_active_ini(self.current_path)
 
     @property
     def draft_pending(self) -> bool:
@@ -167,6 +219,7 @@ class WranglerModel:
         text = dumps_json(document)
         self.current = deepcopy(document)
         self.current_path = Path(path) if path is not None else None
+        self.last_backup_path = None
         self._committed_json = self._saved_json = self.json_draft = text
         self._undo.clear()
         self._redo.clear()
@@ -286,7 +339,22 @@ class WranglerModel:
     def redo(self):
         self._history(self._redo, self._undo)
 
-    def save(self, path: str | Path | None = None):
+    def active_save_preview(self, path: str | Path) -> ActiveSavePreview:
+        self.require_ready()
+        target = Path(path)
+        if not is_active_ini(target):
+            raise WranglerError("Destination is not the active instrument INI")
+        dumps_ini(self.current)
+        try:
+            original = target.read_bytes()
+        except FileNotFoundError:
+            original = None
+        before = (loads_ini(original.decode("utf-8-sig"), source=str(target))
+                  if original is not None else IniDocument())
+        return ActiveSavePreview(target, diff_documents(before, self.current), original)
+
+    def save(self, path: str | Path | None = None, *, confirm_active: bool = False,
+             expected_active_bytes=_UNSET) -> Path | None:
         self.require_ready()
         target = Path(path) if path is not None else self.current_path
         if target is None:
@@ -295,10 +363,31 @@ class WranglerModel:
             raise WranglerError("Save must not overwrite the read-only comparison file")
         if self.policy_path and target.resolve() == self.policy_path.resolve():
             raise WranglerError("Save must not overwrite the active policy")
-        writer = write_json if target.suffix.lower() == ".json" else write_ini
-        writer(self.current, target, overwrite=True)
+        active = is_active_ini(target)
+        if active and not confirm_active:
+            raise WranglerError("Saving the active instrument INI requires explicit confirmation")
+        text = dumps_json(self.current) if not active and target.suffix.lower() == ".json" else dumps_ini(self.current)
+        if active and expected_active_bytes is not _UNSET:
+            try:
+                observed = target.read_bytes()
+            except FileNotFoundError:
+                observed = None
+            if observed != expected_active_bytes:
+                raise WranglerError("The active INI changed while confirmation was open. Review the changes and confirm again.")
+        # An unsuccessful backup aborts before the destination is opened for writing.
+        backup = None
+        if active:
+            try:
+                target.stat()
+            except FileNotFoundError:
+                pass
+            else:
+                backup = backup_active_ini(target)
+        _write(target, text, overwrite=True)
         self.current_path = target
         self._saved_json = self._committed_json
+        self.last_backup_path = backup
+        return backup
 
     def export_diff(self, reverse=False) -> DocumentDiff:
         self.require_ready()

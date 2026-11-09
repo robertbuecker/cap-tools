@@ -10,13 +10,106 @@ from pathlib import Path
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+from tkinter import font as tkfont
 
 from cap_tools._version import __version__
+from cap_tools import ini_wrangler_view_model as view_model
 from cap_tools.ini_validation import ValidationFailed, loads_policy, read_policy, validate_document
 from cap_tools.ini_wrangler import WranglerError, default_diff_name, loads_diff, write_diff
 from cap_tools.ini_wrangler_view_model import (
     RowFilters, WranglerModel, display_value, evaluate_preview, load_document,
 )
+
+ACTIVE_SAVE_WARNING = (
+    "The CrysAlisPro online instance MUST be closed before proceeding. "
+    "Otherwise, loss of information and inconsistent instrument behavior can result"
+)
+
+
+class ActiveIniSaveDialog:
+    """Explicit active-file confirmation with a prominent operating warning."""
+
+    def __init__(self, parent, destination, changes):
+        self.result = False
+        self.root = tk.Toplevel(parent)
+        self.root.title("Save active instrument INI?")
+        self.root.geometry("1100x720")
+        self.root.minsize(760, 540)
+        self.root.transient(parent)
+        self.root.protocol("WM_DELETE_WINDOW", lambda: self.finish(False))
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(2, weight=1)
+        self.warning_font = tkfont.nametofont("TkDefaultFont", root=self.root).copy()
+        self.warning_font.configure(size=max(14, self.warning_font.actual("size") + 4), weight="bold")
+        self.warning_label = ttk.Label(
+            self.root, text=ACTIVE_SAVE_WARNING, foreground="#b00020",
+            font=self.warning_font, wraplength=1040, justify="left",
+        )
+        self.warning_label.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 16))
+        folder = view_model.ACTIVE_INI_PATH.parent / "MicroED_ini_backup"
+        self.info_label = ttk.Label(
+            self.root,
+            text=f"Active configuration:\n{destination}\n\nBackup folder:\n{folder}\n\n"
+                 "Before overwriting an existing file, a timestamped backup will be stored. "
+                 "If the folder or backup cannot be created, saving will be aborted.\n\n"
+                 "Proceed only after closing the CrysAlisPro online instance.",
+            wraplength=1040, justify="left",
+        )
+        self.info_label.grid(row=1, column=0, sticky="ew", padx=20)
+        listing = ttk.Frame(self.root)
+        listing.grid(row=2, column=0, sticky="nsew", padx=20, pady=(12, 0))
+        listing.columnconfigure(0, weight=1)
+        listing.rowconfigure(0, weight=1)
+        self.changes_tree = ttk.Treeview(listing, columns=("kind", "path", "old", "new"), show="headings")
+        for name, title, width in (("kind", "Operation", 95), ("path", "Section / entry", 520),
+                                   ("old", "On disk", 180), ("new", "After save", 180)):
+            self.changes_tree.heading(name, text=title)
+            self.changes_tree.column(name, width=width, minwidth=80)
+        self.changes_tree.grid(row=0, column=0, sticky="nsew")
+        vertical = ttk.Scrollbar(listing, command=self.changes_tree.yview)
+        vertical.grid(row=0, column=1, sticky="ns")
+        horizontal = ttk.Scrollbar(listing, orient="horizontal", command=self.changes_tree.xview)
+        horizontal.grid(row=1, column=0, sticky="ew")
+        self.changes_tree.configure(yscrollcommand=vertical.set, xscrollcommand=horizontal.set)
+        for kind, sections in (("Section added", changes.added_sections), ("Section removed", changes.removed_sections)):
+            for section in sections:
+                self.changes_tree.insert("", "end", values=(kind, f"[{section}]", "— missing" if kind == "Section added" else "(section)",
+                                                           "(section)" if kind == "Section added" else "— missing"))
+        for change in changes.changes:
+            self.changes_tree.insert("", "end", values=(change.kind, f"[{change.section}] {change.path}",
+                display_value(change.old, change.kind != "added"), display_value(change.new, change.kind != "removed")))
+        summary = (f"{len(changes.changes)} entry changes; {len(changes.added_sections)} sections added, "
+                   f"{len(changes.removed_sections)} removed. Compared against the destination currently on disk.")
+        if not changes.changes and not changes.added_sections and not changes.removed_sections:
+            summary = "No entry value changes. Formatting and comments may still be normalized when saving."
+        self.change_summary = ttk.Label(self.root, text=summary, wraplength=1040)
+        self.change_summary.grid(row=3, column=0, sticky="ew", padx=20, pady=(8, 0))
+        self.root.bind("<Configure>", self._resize)
+        buttons = ttk.Frame(self.root)
+        buttons.grid(row=4, column=0, sticky="e", padx=20, pady=20)
+        self.save_button = ttk.Button(buttons, text="Save active INI", command=lambda: self.finish(True))
+        self.save_button.pack(side="left", padx=(0, 8))
+        self.cancel_button = ttk.Button(buttons, text="Cancel", command=lambda: self.finish(False), default="active")
+        self.cancel_button.pack(side="left")
+        self.root.bind("<Escape>", lambda event: self.finish(False))
+        self.root.bind("<Return>", lambda event: self.finish(self.root.focus_get() is self.save_button))
+
+    def _resize(self, event):
+        if event.widget is self.root:
+            for label in (self.warning_label, self.info_label, self.change_summary):
+                label.configure(wraplength=max(400, event.width - 40))
+
+    def finish(self, confirmed):
+        self.result = confirmed
+        self.root.destroy()
+
+    def show(self):
+        if not self.root.winfo_viewable():
+            self.root.wait_visibility()
+        self.root.grab_set()
+        self.cancel_button.focus_set()
+        self.root.wait_window()
+        return self.result
 
 
 def background(function, *args):
@@ -105,6 +198,7 @@ class IniWranglerApp:
     def _build(self):
         ready = lambda: self.model.current is not None and not self.model.draft_pending
         self._action("Open current…", self.open_current, lambda: True)
+        self._action("Open active", self.open_active, lambda: True)
         self._action("Open comparison…", self.open_comparison, ready)
         self._action("Clear comparison", self.clear_comparison, lambda: ready() and self.model.comparison is not None)
         self._action("Load policy…", self.load_policy, ready)
@@ -121,7 +215,7 @@ class IniWranglerApp:
         menu = tk.Menu(self.root)
         self.root.configure(menu=menu)
         for label, actions in (
-            ("File", ["Open current…", "Open comparison…", "Clear comparison", "Save", "Save As…", "Export diff…"]),
+            ("File", ["Open current…", "Open active", "Open comparison…", "Clear comparison", "Save", "Save As…", "Export diff…"]),
             ("Edit", ["Undo", "Redo", "Copy comparison → current", "Delete current entries"]),
             ("Policy", ["Load policy…", "Clear policy", "Validate now", "Apply diff / policy…"]),
         ):
@@ -136,7 +230,7 @@ class IniWranglerApp:
         toolbar = ttk.Frame(self.root, padding=6)
         toolbar.grid(row=0, column=0, sticky="ew")
         for row, names in enumerate((
-            ["Open current…", "Open comparison…", "Load policy…", "Save", "Save As…", "Export diff…"],
+            ["Open current…", "Open active", "Open comparison…", "Load policy…", "Save", "Save As…", "Export diff…"],
             ["Copy comparison → current", "Delete current entries", "Undo", "Redo", "Apply diff / policy…", "Validate now"],
         )):
             for column, name in enumerate(names):
@@ -164,9 +258,11 @@ class IniWranglerApp:
         paths.grid(row=1, column=0, sticky="ew")
         paths.columnconfigure(0, weight=1)
         self.path_labels = []
+        self.path_style = ttk.Style(self.root)
+        self.path_style.configure("ActiveIni.TLabel", background="#b00020", foreground="#ffffff")
         for row in range(3):
             label = ttk.Label(paths, wraplength=1200)
-            label.grid(row=row, column=0, sticky="w")
+            label.grid(row=row, column=0, sticky="ew" if row == 0 else "w")
             self.path_labels.append(label)
         paths.bind("<Configure>", lambda event: [label.configure(wraplength=max(400, event.width - 20)) for label in self.path_labels])
 
@@ -306,7 +402,7 @@ class IniWranglerApp:
         set_text(self.json_text, self.model.json_draft, editable=self.model.current is not None)
         self._syncing_json = False
         self.json_status.configure(text="Draft pending — Apply JSON or Revert" if self.model.draft_pending else "Complete current document")
-        self.path_labels[0].configure(text=f"Current: {self.model.current_path or 'No file'}{'  • Unsaved' if self.model.dirty else ''}")
+        self._update_current_label()
         self.path_labels[1].configure(text=f"Comparison (read-only): {self.model.comparison_path or ('In memory' if self.model.comparison else 'None')}")
         self.path_labels[2].configure(text=f"Policy: {self.model.policy_path or ('In memory' if self.model.policy else 'None')}")
         self.root.title(f"{'* ' if self.model.dirty else ''}INI Wrangler ({__version__})")
@@ -365,9 +461,18 @@ class IniWranglerApp:
             state += " — " + ", ".join(f"{counts[level]} {level}" for level in ("error", "warning", "info"))
         if model.validation_error:
             state += f": {model.validation_error}"
+        backup_status = f"  |  Backup: {model.last_backup_path}" if model.last_backup_path else ""
         diagnostics = len(model.current.diagnostics) if model.current else 0
         self.status.configure(text=f"Validation: {state}  |  {diagnostics} parser diagnostics" +
-                              ("  |  JSON draft pending; document actions suspended" if model.draft_pending else ""), wraplength=max(700, self.root.winfo_width() - 20))
+                              ("  |  JSON draft pending; document actions suspended" if model.draft_pending else "") + backup_status, wraplength=max(700, self.root.winfo_width() - 20))
+
+    def _update_current_label(self):
+        active = self.model.current_is_active
+        self.path_labels[0].configure(
+            text=f"Current{' [ACTIVE INI]' if active else ''}: {self.model.current_path or 'No file'}"
+                 f"{'  • Unsaved' if self.model.dirty else ''}",
+            style="ActiveIni.TLabel" if active else "TLabel",
+        )
 
     def _selection_changed(self, event=None):
         keys = self._selected_keys()
@@ -485,7 +590,7 @@ class IniWranglerApp:
             self.render_findings()
         self._sync_actions()
         self.json_status.configure(text="Draft pending — Apply JSON or Revert" if self.model.draft_pending else "Complete current document")
-        self.path_labels[0].configure(text=f"Current: {self.model.current_path or 'In memory'}{'  • Unsaved' if self.model.dirty else ''}")
+        self._update_current_label()
         self.root.title(f"{'* ' if self.model.dirty else ''}INI Wrangler ({__version__})")
         self.update_status()
 
@@ -522,6 +627,9 @@ class IniWranglerApp:
             self._validation_requested = None
             self.refresh()
 
+    def open_active(self):
+        self.open_current(view_model.ACTIVE_INI_PATH)
+
     def open_comparison(self, path=None):
         path = path or filedialog.askopenfilename(parent=self.root, title="Open read-only comparison", filetypes=[("Configurations", "*.ini *.json"), ("All files", "*.*")])
         if path:
@@ -543,15 +651,27 @@ class IniWranglerApp:
         self.refresh()
 
     def save(self, save_as=False):
+        self.model.require_ready()
         path = self.model.current_path
         if save_as or path is None:
             path = filedialog.asksaveasfilename(parent=self.root, title="Save current configuration", defaultextension=".ini",
                     initialfile=path.name if path else "configuration.ini", filetypes=[("INI", "*.ini"), ("Structured JSON", "*.json")])
             if not path:
                 return False
-        self.model.save(path)
+        path = Path(path)
+        active = view_model.is_active_ini(path)
+        if active:
+            preview = self.model.active_save_preview(path)
+            if not self.confirm_active_save(path, preview.diff):
+                return False
+            self.model.save(path, confirm_active=True, expected_active_bytes=preview.original_bytes)
+        else:
+            self.model.save(path)
         self.refresh()
         return True
+
+    def confirm_active_save(self, path, changes):
+        return ActiveIniSaveDialog(self.root, path, changes).show()
 
     def undo(self):
         self.model.undo()
